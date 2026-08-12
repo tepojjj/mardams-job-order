@@ -9,14 +9,15 @@
 <style>
   :root{
     --paper:#FBF8F2;
-    --card:#FFFFFF;
+    --card:rgba(255,255,255,0.55);
     --ink:#1E2A35;
     --ink-soft:#5B6B77;
     --line:#D9D2C4;
     --stamp:#A8431F;
     --stamp-soft:#F1DFD3;
-    --field-bg:#FCFAF5;
+    --field-bg:rgba(252,250,245,0.55);
     --grid:#E7E1D3;
+    --row-bg:rgba(242,238,227,0.55);
   }
   *{box-sizing:border-box;}
   body{
@@ -34,6 +35,8 @@
     max-width:900px;
     margin:0 auto;
     background:var(--card);
+    backdrop-filter:blur(1px);
+    -webkit-backdrop-filter:blur(1px);
     border:1px solid var(--line);
     box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
     padding:40px 44px 36px;
@@ -48,7 +51,7 @@
     background-repeat:no-repeat;
     background-position:center;
     background-size:50% auto;
-    opacity:0.30;
+    opacity:0.16;
     z-index:0;
     pointer-events:none;
   }
@@ -224,12 +227,12 @@
   tbody td.rownum{
     text-align:center;
     color:var(--ink-soft);
-    background:#F2EEE3;
+    background:var(--row-bg);
     font-size:11px;
     width:28px;
   }
   tbody td.rowtotal{
-    background:#F2EEE3;
+    background:var(--row-bg);
     font-weight:700;
     text-align:right;
     padding:8px 10px;
@@ -237,7 +240,7 @@
   tbody td.remove{
     text-align:center;
     width:30px;
-    background:#F2EEE3;
+    background:var(--row-bg);
   }
   tbody td.remove button{
     border:none;
@@ -354,7 +357,9 @@
   @media print{
     body{background:#fff; padding:0;}
     .toolbar{display:none;}
-    .sheet{box-shadow:none; border:none; padding:18px 6px;}
+    .sheet{background:#fff; backdrop-filter:none; box-shadow:none; border:none; padding:18px 6px;}
+    .sheet::before{opacity:0.06;}
+    tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F2EEE3;}
     tbody td.remove{display:none;}
     .add-row-btn{display:none;}
     input, textarea, select{border-color:transparent !important;}
