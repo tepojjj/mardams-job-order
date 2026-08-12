@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Job Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF8F2;
+    --card:#FFFFFF;
+    --ink:#1E2A35;
+    --ink-soft:#5B6B77;
+    --line:#D9D2C4;
+    --stamp:#A8431F;
+    --stamp-soft:#F1DFD3;
+    --field-bg:#FCFAF5;
+    --grid:#E7E1D3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      var(--paper);
+    background-size:28px 28px;
+    font-family:'Roboto', ui-sans-serif, sans-serif;
+    color:var(--ink);
+    padding:32px 16px 80px;
+  }
+  .sheet{
+    max-width:900px;
+    margin:0 auto;
+    background:var(--card);
+    border:1px solid var(--line);
+    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    padding:40px 44px 36px;
+    position:relative;
+  }
+  .toolbar{
+    max-width:900px;
+    margin:0 auto 14px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+  }
+  button{
+    font-family:inherit;
+    font-size:12.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    padding:9px 16px;
+    border-radius:3px;
+    cursor:pointer;
+    border:1px solid var(--ink);
+    background:var(--card);
+    color:var(--ink);
+  }
+  button.primary{
+    background:var(--stamp);
+    border-color:var(--stamp);
+    color:#fff;
+  }
+  button:hover{opacity:.85;}
+  button.ghost{border-color:var(--line); color:var(--ink-soft);}
+
+  .head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:3px solid var(--ink);
+    padding-bottom:18px;
+    margin-bottom:22px;
+  }
+  .brand{display:flex; flex-direction:column; gap:2px;}
+  .brand-name{
+    font-family: 'Roboto', ui-sans-serif, sans-serif;
+    font-weight:700;
+    font-size:26px;
+    color:var(--ink);
+  }
+  .brand small{color:var(--ink-soft); font-size:11px; letter-spacing:.08em; text-transform:uppercase;}
+
+  .stamp-box{
+    border:2px solid var(--stamp);
+    color:var(--stamp);
+    padding:8px 16px;
+    text-align:center;
+    transform:rotate(-3deg);
+    border-radius:2px;
+  }
+  .stamp-box .title{font-weight:700; font-size:15px; letter-spacing:.14em;}
+  .stamp-box input{
+    font-family:inherit;
+    font-weight:700;
+    font-size:13px;
+    text-align:center;
+    border:none;
+    background:transparent;
+    color:var(--stamp);
+    width:130px;
+    margin-top:2px;
+  }
+  .new-num-btn{
+    display:block;
+    margin:4px auto 0;
+    border:none;
+    background:none;
+    color:var(--stamp);
+    font-size:9px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:0;
+  }
+
+  .meta-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:0;
+    border:1px solid var(--line);
+    margin-bottom:26px;
+  }
+  .meta-cell{
+    border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    padding:9px 12px;
+  }
+  .meta-cell:nth-child(4n){border-right:none;}
+  .meta-cell label{
+    display:block;
+    font-size:9.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+  }
+  .meta-cell input, .meta-cell select{
+    width:100%;
+    border:none;
+    background:transparent;
+    font-family:inherit;
+    font-size:13px;
+    color:var(--ink);
+    padding:0;
+  }
+
+  .section-label{
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--stamp);
+    font-weight:700;
+    margin:24px 0 8px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-label::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--ink);
+  }
+
+  textarea{
+    width:100%;
+    min-height:64px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    font-family:inherit;
+    font-size:13px;
+    padding:10px 12px;
+    color:var(--ink);
+    resize:vertical;
+  }
+
+  table{width:100%; border-collapse:collapse; margin-top:2px;}
+  thead th{
+    background:var(--ink);
+    color:#fff;
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    text-align:left;
+    padding:8px 10px;
+  }
+  thead th.num, tbody td.num{text-align:right;}
+  tbody td{
+    border:1px solid var(--line);
+    padding:0;
+  }
+  tbody td input{
+    width:100%;
+    border:none;
+    background:var(--field-bg);
+    font-family:inherit;
+    font-size:12.5px;
+    padding:8px 10px;
+    color:var(--ink);
+    text-align:left;
+  }
+  tbody td.num input{text-align:right;}
+  tbody td.rownum{
+    text-align:center;
+    color:var(--ink-soft);
+    background:#F2EEE3;
+    font-size:11px;
+    width:28px;
+  }
+  tbody td.rowtotal{
+    background:#F2EEE3;
+    font-weight:700;
+    text-align:right;
+    padding:8px 10px;
+  }
+  tbody td.remove{
+    text-align:center;
+    width:30px;
+    background:#F2EEE3;
+  }
+  tbody td.remove button{
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:0;
+    cursor:pointer;
+  }
+
+  .add-row-btn{
+    margin-top:8px;
+    font-size:11px;
+    padding:6px 12px;
+  }
+
+  .totals{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:10px;
+  }
+  .totals-box{
+    width:260px;
+    border:1px solid var(--ink);
+  }
+  .totals-row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 14px;
+    font-size:13px;
+    border-bottom:1px solid var(--line);
+  }
+  .totals-row.grand{
+    background:var(--ink);
+    color:#fff;
+    font-weight:700;
+    border-bottom:none;
+  }
+
+  .sign-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:40px;
+    margin-top:36px;
+  }
+  .sign-line{
+    border-top:1px solid var(--ink);
+    padding-top:6px;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    letter-spacing:.05em;
+    text-transform:uppercase;
+  }
+  .sign-line input{
+    width:100%;
+    border:none;
+    background:transparent;
+    font-family: 'Roboto', ui-sans-serif, sans-serif;
+    font-size:16px;
+    color:var(--ink);
+    margin-bottom:4px;
+    padding:2px 0;
+  }
+
+  .footer-note{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:10px;
+    letter-spacing:.05em;
+    margin-top:30px;
+    text-transform:uppercase;
+  }
+
+  .photo-zone{
+    border:2px dashed var(--line);
+    background:var(--field-bg);
+    padding:18px;
+    text-align:center;
+    cursor:pointer;
+    color:var(--ink-soft);
+    font-size:12px;
+    transition:border-color .15s;
+  }
+  .photo-zone.drag{
+    border-color:var(--stamp);
+    color:var(--stamp);
+  }
+  .photo-zone .hint{margin-top:4px; font-size:10.5px; letter-spacing:.03em;}
+  .photo-preview-wrap{
+    position:relative;
+    display:none;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    padding:10px;
+  }
+  .photo-preview-wrap.show{display:block;}
+  .photo-preview-wrap img{
+    display:block;
+    max-width:100%;
+    max-height:340px;
+    margin:0 auto;
+  }
+  .photo-remove{
+    position:absolute;
+    top:8px;
+    right:8px;
+    border:1px solid var(--ink);
+    background:#fff;
+    border-radius:3px;
+    font-size:11px;
+    padding:4px 9px;
+  }
+
+  @media print{
+    body{background:#fff; padding:0;}
+    .toolbar{display:none;}
+    .sheet{box-shadow:none; border:none; padding:18px 6px;}
+    tbody td.remove{display:none;}
+    .add-row-btn{display:none;}
+    input, textarea, select{border-color:transparent !important;}
+    tbody td input, textarea{background:transparent !important;}
+    .meta-grid{border-color:#999;}
+    .meta-cell{border-color:#ccc;}
+    thead th{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .totals-row.grand{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .new-num-btn{display:none;}
+    .photo-zone{display:none !important;}
+    .photo-preview-wrap{border:none; padding:0;}
+    .photo-remove{display:none;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <button class="ghost" onclick="resetForm()">Clear Form</button>
+    <button class="ghost" onclick="resetCounter()">Reset Counter</button>
+    <button class="primary" onclick="printOrder()">Print / Save as PDF</button>
+  </div>
+
+  <div class="sheet">
+    <div class="head">
+      <div class="brand">
+        <div class="brand-name">Mardams Apparel</div>
+        <small>Job Order Form</small>
+      </div>
+      <div class="stamp-box">
+        <div class="title">JOB ORDER</div>
+        <input type="text" id="joNumber" placeholder="00000001">
+        <button class="new-num-btn" onclick="peekNextNumber()" title="Refresh suggested number">↻ Suggest #</button>
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-cell"><label>Date</label><input type="text" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Requested By</label><input type="text"></div>
+      <div class="meta-cell"><label>Department</label><input type="text"></div>
+      <div class="meta-cell"><label>Due Date</label><input type="text" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Assigned To</label><input type="text"></div>
+      <div class="meta-cell">
+        <label>Priority</label>
+        <select>
+          <option>Low</option>
+          <option>Medium</option>
+          <option selected>High</option>
+          <option>Urgent</option>
+        </select>
+      </div>
+      <div class="meta-cell">
+        <label>Status</label>
+        <select>
+          <option selected>Open</option>
+          <option>In Progress</option>
+          <option>Complete</option>
+        </select>
+      </div>
+      <div class="meta-cell"><label>Location / Site</label><input type="text"></div>
+    </div>
+
+    <div class="section-label">Scope of Work</div>
+    <textarea placeholder="Describe the job..."></textarea>
+
+    <div class="section-label">Reference Photo</div>
+    <input type="file" id="photoInput" accept="image/*" style="display:none;">
+    <div class="photo-zone" id="photoZone">
+      <div>Click to upload, or paste a copied image (Ctrl+V / Cmd+V)</div>
+      <div class="hint">Shows the job to be done — swatch, sample, damage, etc.</div>
+    </div>
+    <div class="photo-preview-wrap" id="photoPreviewWrap">
+      <button class="photo-remove" onclick="removePhoto(event)">Remove ✕</button>
+      <img id="photoPreview" src="" alt="Job reference photo">
+    </div>
+
+    <div class="section-label">Materials &amp; Labor</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:28px;"></th>
+          <th>Description</th>
+          <th class="num" style="width:60px;">Qty</th>
+          <th style="width:70px;">Unit</th>
+          <th class="num" style="width:100px;">Unit Cost</th>
+          <th class="num" style="width:110px;">Total</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody id="items"></tbody>
+    </table>
+    <button class="add-row-btn" onclick="addRow()">+ Add Line</button>
+
+    <div class="totals">
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span id="subtotal">0.00</span></div>
+        <div class="totals-row grand"><span>Grand Total</span><span id="grandtotal">0.00</span></div>
+      </div>
+    </div>
+
+    <div class="section-label">Notes / Special Instructions</div>
+    <textarea placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
+
+    <div class="sign-grid">
+      <div class="sign-line">
+        <input type="text" placeholder="">
+        Requested By — Signature / Date
+      </div>
+      <div class="sign-line">
+        <input type="text" placeholder="">
+        Approved By — Signature / Date
+      </div>
+    </div>
+
+    <div class="footer-note">Keep a copy for your records</div>
+  </div>
+
+<script>
+  let rowCount = 0;
+
+  function addRow(prefill){
+    rowCount++;
+    const tbody = document.getElementById('items');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rownum">${rowCount}</td>
+      <td><input type="text" class="desc" placeholder="Item description"></td>
+      <td class="num"><input type="number" class="qty" step="any" oninput="calc()" placeholder="0"></td>
+      <td><input type="text" class="unit" placeholder="ea"></td>
+      <td class="num"><input type="number" class="cost" step="any" oninput="calc()" placeholder="0.00"></td>
+      <td class="num rowtotal"><span class="linetotal">0.00</span></td>
+      <td class="remove"><button onclick="removeRow(this)">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function removeRow(btn){
+    const tr = btn.closest('tr');
+    tr.parentElement.removeChild(tr);
+    renumber();
+    calc();
+  }
+
+  function renumber(){
+    const rows = document.querySelectorAll('#items tr');
+    rows.forEach((row, i) => {
+      row.querySelector('.rownum').textContent = i + 1;
+    });
+    rowCount = rows.length;
+  }
+
+  function calc(){
+    let subtotal = 0;
+    document.querySelectorAll('#items tr').forEach(row => {
+      const qty = parseFloat(row.querySelector('.qty').value) || 0;
+      const cost = parseFloat(row.querySelector('.cost').value) || 0;
+      const total = qty * cost;
+      row.querySelector('.linetotal').textContent = total.toFixed(2);
+      subtotal += total;
+    });
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('grandtotal').textContent = subtotal.toFixed(2);
+  }
+
+  function resetForm(){
+    if(!confirm('Clear all fields on this job order?')) return;
+    document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(el => el.value = '');
+    document.getElementById('items').innerHTML = '';
+    rowCount = 0;
+    for(let i=0;i<5;i++) addRow();
+    calc();
+    peekNextNumber();
+    photoPreview.src = '';
+    photoPreviewWrap.classList.remove('show');
+    photoZone.style.display = 'block';
+    photoInput.value = '';
+  }
+
+  for(let i=0;i<5;i++) addRow();
+  calc();
+
+  // ---- Job order number ----
+  // Browsing/opening the form only PREVIEWS the next number (peek — no save).
+  // The number is only "used up" and saved when you actually print the order.
+  // Backed by a shared Netlify Function, so the counter is the same across
+  // every device/browser that uses this form — not just the one you're on.
+  const API = '/api/counter';
+
+  function pad(n){ return String(n).padStart(8, '0'); }
+
+  async function peekNextNumber(){
+    const field = document.getElementById('joNumber');
+    try{
+      const res = await fetch(API);
+      const data = await res.json();
+      field.value = pad(data.next);
+    }catch(e){
+      field.value = pad(1);
+      console.warn('Could not reach counter backend — showing a placeholder number.', e);
+    }
+  }
+
+  async function commitCurrentNumber(){
+    const field = document.getElementById('joNumber');
+    const used = parseInt(field.value, 10);
+    if(isNaN(used)) return; // custom/non-numeric number — nothing to save
+    try{
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'commit', value: used })
+      });
+    }catch(e){
+      console.warn('Could not save the job order number to the backend.', e);
+    }
+  }
+
+  async function printOrder(){
+    await commitCurrentNumber();
+    window.print();
+  }
+
+  async function resetCounter(){
+    if(!confirm('Reset the job order counter? The next form will start back at 00000001.')) return;
+    try{
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' })
+      });
+    }catch(e){
+      console.warn('Could not reset the counter on the backend.', e);
+    }
+    peekNextNumber();
+  }
+
+  peekNextNumber();
+
+  // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
+  const photoInput = document.getElementById('photoInput');
+  const photoZone = document.getElementById('photoZone');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoPreview = document.getElementById('photoPreview');
+
+  function showPhoto(dataUrl){
+    photoPreview.src = dataUrl;
+    photoPreviewWrap.classList.add('show');
+    photoZone.style.display = 'none';
+  }
+
+  function removePhoto(e){
+    e.stopPropagation();
+    photoPreview.src = '';
+    photoPreviewWrap.classList.remove('show');
+    photoZone.style.display = 'block';
+    photoInput.value = '';
+  }
+
+  function readFileAsPhoto(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => showPhoto(e.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  photoZone.addEventListener('click', () => photoInput.click());
+
+  photoInput.addEventListener('change', () => {
+    if(photoInput.files && photoInput.files[0]) readFileAsPhoto(photoInput.files[0]);
+  });
+
+  photoZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    photoZone.classList.add('drag');
+  });
+  photoZone.addEventListener('dragleave', () => photoZone.classList.remove('drag'));
+  photoZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    photoZone.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) readFileAsPhoto(e.dataTransfer.files[0]);
+  });
+
+  document.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(const item of items){
+      if(item.type.startsWith('image/')){
+        readFileAsPhoto(item.getAsFile());
+        break;
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

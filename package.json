@@ -1,0 +1,9 @@
+{
+  "name": "mardams-job-order",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mardams Apparel job order form with a shared, auto-incrementing order number.",
+  "dependencies": {
+    "@vercel/kv": "^2.0.0"
+  }
+}
