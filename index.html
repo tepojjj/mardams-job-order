@@ -38,6 +38,23 @@
     box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
     padding:40px 44px 36px;
     position:relative;
+    overflow:hidden;
+  }
+  .sheet::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background-image:url('assets/mardam-logo.jpg');
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:50% auto;
+    opacity:0.06;
+    z-index:0;
+    pointer-events:none;
+  }
+  .sheet > *{
+    position:relative;
+    z-index:1;
   }
   .toolbar{
     max-width:900px;
@@ -369,7 +386,7 @@
       </div>
       <div class="stamp-box">
         <div class="title">JOB ORDER</div>
-        <input type="text" id="joNumber" placeholder="00000001">
+        <input type="text" id="joNumber" placeholder="2026-0001">
         <button class="new-num-btn" onclick="peekNextNumber()" title="Refresh suggested number">↻ Suggest #</button>
       </div>
     </div>
@@ -526,24 +543,30 @@
   // every device/browser that uses this form — not just the one you're on.
   const API = '/api/counter';
 
-  function pad(n){ return String(n).padStart(8, '0'); }
+  // Format is YEAR-0001 — e.g. 2026-0001. The running number itself
+  // (the part after the dash) is what's stored/incremented server-side;
+  // the year is just stamped on for display based on today's date.
+  function pad(n){ return String(n).padStart(4, '0'); }
+  function formatJO(n){ return `${new Date().getFullYear()}-${pad(n)}`; }
 
   async function peekNextNumber(){
     const field = document.getElementById('joNumber');
     try{
       const res = await fetch(API);
       const data = await res.json();
-      field.value = pad(data.next);
+      field.value = formatJO(data.next);
     }catch(e){
-      field.value = pad(1);
+      field.value = formatJO(1);
       console.warn('Could not reach counter backend — showing a placeholder number.', e);
     }
   }
 
   async function commitCurrentNumber(){
     const field = document.getElementById('joNumber');
-    const used = parseInt(field.value, 10);
-    if(isNaN(used)) return; // custom/non-numeric number — nothing to save
+    const match = field.value.match(/(\d+)\s*$/); // grab the trailing number, ignoring the year prefix
+    if(!match) return; // custom/non-numeric number — nothing to save
+    const used = parseInt(match[1], 10);
+    if(isNaN(used)) return;
     try{
       await fetch(API, {
         method: 'POST',
@@ -561,7 +584,7 @@
   }
 
   async function resetCounter(){
-    if(!confirm('Reset the job order counter? The next form will start back at 00000001.')) return;
+    if(!confirm(`Reset the job order counter? The next form will start back at ${formatJO(1)}.`)) return;
     try{
       await fetch(API, {
         method: 'POST',
