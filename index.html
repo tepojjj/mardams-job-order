@@ -138,16 +138,17 @@
 
   .meta-grid{
     display:grid;
-    grid-template-columns:1fr;
+    grid-template-columns:1fr 1fr 1fr;
     gap:0;
     border:1px solid var(--line);
     margin-bottom:26px;
   }
   .meta-cell{
-    border-bottom:1px solid var(--line);
+    border-bottom:none;
+    border-right:1px solid var(--line);
     padding:9px 12px;
   }
-  .meta-cell:last-child{border-bottom:none;}
+  .meta-cell:last-child{border-right:none;}
   .meta-cell label{
     display:block;
     font-size:9.5px;
@@ -465,11 +466,11 @@
   }
 
   @media print{
-    .tabs{display:none;}
-    .account-bar{display:none;}
+    .tabs{display:none !important;}
+    .account-bar{display:none !important;}
     .browse-wrap{display:none;}
     body{background:#fff; padding:0;}
-    .toolbar{display:none;}
+    .toolbar{display:none !important;}
     .sheet{background:#fff; backdrop-filter:none; box-shadow:none; border:none; padding:18px 6px;}
     .sheet::before{opacity:0.06;}
     tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F2EEE3;}
@@ -658,7 +659,7 @@
       <img id="photoPreview" src="" alt="Job reference photo">
     </div>
 
-    <div class="section-label">Materials &amp; Labor</div>
+    <div class="section-label">Materials</div>
     <table>
       <thead>
         <tr>
@@ -682,7 +683,7 @@
       </div>
     </div>
 
-    <div class="section-label">Notes / Special Instructions</div>
+    <div class="section-label">REMARKS</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
