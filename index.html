@@ -167,6 +167,18 @@
     color:var(--ink);
     padding:0;
   }
+  .meta-cell input[type="date"]{
+    font-family:inherit;
+    color-scheme:light;
+  }
+  .meta-cell input[type="date"]::-webkit-calendar-picker-indicator{
+    filter:invert(28%) sepia(53%) saturate(1652%) hue-rotate(346deg) brightness(93%) contrast(89%);
+    cursor:pointer;
+    opacity:0.75;
+  }
+  .meta-cell input[type="date"]::-webkit-calendar-picker-indicator:hover{
+    opacity:1;
+  }
 
   .section-label{
     font-size:11px;
@@ -463,6 +475,7 @@
     .photo-zone{display:none !important;}
     .photo-preview-wrap{border:none; padding:0;}
     .photo-remove{display:none;}
+    input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
   }
 </style>
 </head>
@@ -494,10 +507,10 @@
     </div>
 
     <div class="meta-grid">
-      <div class="meta-cell"><label>Date</label><input type="text" id="joDate" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Date</label><input type="date" id="joDate"></div>
       <div class="meta-cell"><label>Requested By</label><input type="text" id="joRequestedBy"></div>
       <div class="meta-cell"><label>Department</label><input type="text" id="joDept"></div>
-      <div class="meta-cell"><label>Due Date</label><input type="text" id="joDueDate" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Due Date</label><input type="date" id="joDueDate"></div>
       <div class="meta-cell"><label>Assigned To</label><input type="text" id="joAssignedTo"></div>
       <div class="meta-cell">
         <label>Priority</label>
