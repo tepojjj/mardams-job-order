@@ -233,6 +233,17 @@
     color:var(--ink);
     text-align:left;
   }
+  tbody td select{
+    width:100%;
+    border:none;
+    background:var(--field-bg);
+    font-family:inherit;
+    font-size:12.5px;
+    padding:8px 10px;
+    color:var(--ink);
+    text-align:left;
+    cursor:pointer;
+  }
   tbody td.num input{text-align:right;}
   tbody td.rownum{
     text-align:center;
@@ -630,6 +641,7 @@
     </div>
 
     <div class="meta-grid">
+      <div class="meta-cell"><label>Client Name</label><input type="text" id="joClientName" placeholder="Client name"></div>
       <div class="meta-cell"><label>Date</label><input type="date" id="joDate"></div>
       <div class="meta-cell"><label>Due Date</label><input type="date" id="joDueDate"></div>
     </div>
@@ -645,14 +657,14 @@
       <img id="photoPreview" src="" alt="Job reference photo">
     </div>
 
-    <div class="section-label">Materials &amp; Labor</div>
+    <div class="section-label">Materials</div>
     <table>
       <thead>
         <tr>
           <th style="width:28px;"></th>
           <th>Description</th>
+          <th style="width:90px;">Size</th>
           <th class="num" style="width:60px;">Qty</th>
-          <th style="width:70px;">Unit</th>
           <th class="num" style="width:100px;">Unit Cost</th>
           <th class="num" style="width:110px;">Total</th>
           <th style="width:30px;"></th>
@@ -669,7 +681,7 @@
       </div>
     </div>
 
-    <div class="section-label">Notes / Special Instructions</div>
+    <div class="section-label">REMARKS</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
@@ -689,13 +701,14 @@
 
   <div class="browse-wrap" id="viewBrowse" style="display:none;">
     <div class="browse-toolbar">
-      <input type="text" id="browseSearch" placeholder="Search by job #..." oninput="renderBrowseRows()">
+      <input type="text" id="browseSearch" placeholder="Search by job # or client..." oninput="renderBrowseRows()">
       <button class="ghost" onclick="loadBrowseList()">↻ Refresh</button>
     </div>
     <table class="browse-table">
       <thead>
         <tr>
           <th>Job #</th>
+          <th>Client Name</th>
           <th>Date</th>
           <th>Due Date</th>
           <th class="num" style="text-align:right;">Total</th>
@@ -871,6 +884,14 @@
 
   let rowCount = 0;
 
+  const SIZE_OPTIONS = ['S-8','S-10','S-12','S-14','S-16','S-18','S-20','S','M','L','XL','2XL','3XL','4XL','5XL','6XL'];
+
+  function sizeOptionsHtml(selected){
+    return '<option value="">Size</option>' + SIZE_OPTIONS.map(s =>
+      `<option value="${s}"${s === selected ? ' selected' : ''}>${s}</option>`
+    ).join('');
+  }
+
   function addRow(prefill){
     rowCount++;
     const tbody = document.getElementById('items');
@@ -878,8 +899,8 @@
     tr.innerHTML = `
       <td class="rownum">${rowCount}</td>
       <td><input type="text" class="desc" placeholder="Item description"></td>
+      <td><select class="unit">${sizeOptionsHtml()}</select></td>
       <td class="num"><input type="number" class="qty" step="any" oninput="calc()" placeholder="0"></td>
-      <td><input type="text" class="unit" placeholder="ea"></td>
       <td class="num"><input type="number" class="cost" step="any" oninput="calc()" placeholder="0.00"></td>
       <td class="num rowtotal"><span class="linetotal">0.00</span></td>
       <td class="remove"><button onclick="removeRow(this)">✕</button></td>
@@ -1015,6 +1036,7 @@
     });
     return {
       joNumber: document.getElementById('joNumber').value,
+      clientName: document.getElementById('joClientName').value,
       date: document.getElementById('joDate').value,
       dueDate: document.getElementById('joDueDate').value,
       items: items,
@@ -1042,6 +1064,7 @@
 
   function populateFormFromOrder(data){
     document.getElementById('joNumber').value = data.joNumber || '';
+    document.getElementById('joClientName').value = data.clientName || '';
     document.getElementById('joDate').value = data.date || '';
     document.getElementById('joDueDate').value = data.dueDate || '';
     document.getElementById('joNotes').value = data.notes || '';
@@ -1079,7 +1102,7 @@
 
     const filtered = cachedOrders.filter(o => {
       if(!q) return true;
-      return [o.joNumber].some(v => (v || '').toLowerCase().includes(q));
+      return [o.joNumber, o.clientName].some(v => (v || '').toLowerCase().includes(q));
     });
 
     if(filtered.length === 0){
@@ -1095,6 +1118,7 @@
     tbody.innerHTML = filtered.map(o => `
       <tr>
         <td>${escapeHtml(o.joNumber)}</td>
+        <td>${escapeHtml(o.clientName)}</td>
         <td>${escapeHtml(o.date)}</td>
         <td>${escapeHtml(o.dueDate)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
@@ -1139,7 +1163,7 @@
 
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('browseEmpty').style.display = 'none';
     try{
       const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
