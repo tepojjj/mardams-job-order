@@ -112,7 +112,6 @@
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
-    border-bottom:3px solid var(--ink);
     padding-bottom:18px;
     margin-bottom:22px;
   }
@@ -212,11 +211,18 @@
     align-items:center;
     gap:10px;
   }
-  .section-label::after{
-    content:"";
-    flex:1;
-    height:1px;
-    background:var(--ink);
+  .material-select{
+    font-family:inherit;
+    font-size:11px;
+    letter-spacing:.03em;
+    text-transform:none;
+    font-weight:400;
+    color:var(--ink);
+    background:var(--field-bg);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:5px 8px;
+    cursor:pointer;
   }
 
   textarea{
@@ -332,7 +338,6 @@
     margin-top:36px;
   }
   .sign-line{
-    border-top:1px solid var(--ink);
     padding-top:6px;
     font-size:10.5px;
     color:var(--ink-soft);
@@ -685,7 +690,16 @@
       <img id="photoPreview" src="" alt="Job reference photo">
     </div>
 
-    <div class="section-label">Materials</div>
+    <div class="section-label">
+      Materials &amp; Labor
+      <select id="materialType" class="material-select">
+        <option value="">Select material…</option>
+        <option>Cooltex 140gsm</option>
+        <option>Cooltex 170gsm</option>
+        <option>Cooltex 200gsm</option>
+        <option>Double square</option>
+      </select>
+    </div>
     <table>
       <thead>
         <tr>
@@ -708,7 +722,7 @@
       </div>
     </div>
 
-    <div class="section-label">REMARKS</div>
+    <div class="section-label">Notes / Special Instructions</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
@@ -965,6 +979,7 @@
   function resetForm(){
     if(!confirm('Clear all fields on this job order?')) return;
     document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(el => el.value = '');
+    document.getElementById('materialType').selectedIndex = 0;
     document.getElementById('items').innerHTML = '';
     rowCount = 0;
     for(let i=0;i<5;i++) addRow();
@@ -1156,6 +1171,7 @@
       clientName: document.getElementById('joClientName').value,
       date: document.getElementById('joDate').value,
       dueDate: document.getElementById('joDueDate').value,
+      materialType: document.getElementById('materialType').value,
       items: items,
       grandTotal: document.getElementById('grandtotal').textContent,
       notes: document.getElementById('joNotes').value,
@@ -1184,6 +1200,7 @@
     document.getElementById('joClientName').value = data.clientName || '';
     document.getElementById('joDate').value = data.date || '';
     document.getElementById('joDueDate').value = data.dueDate || '';
+    document.getElementById('materialType').value = data.materialType || '';
     document.getElementById('joNotes').value = data.notes || '';
     document.getElementById('signRequested').value = data.signRequested || '';
     document.getElementById('signApproved').value = data.signApproved || '';
