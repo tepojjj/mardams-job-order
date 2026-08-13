@@ -354,7 +354,98 @@
     padding:4px 9px;
   }
 
+  .tabs{
+    max-width:900px;
+    margin:0 auto 14px;
+    display:flex;
+    gap:6px;
+    border-bottom:1px solid var(--line);
+  }
+  .tab-btn{
+    font-family:inherit;
+    font-size:12px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    padding:10px 18px;
+    border:none;
+    border-bottom:2px solid transparent;
+    background:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    border-radius:0;
+  }
+  .tab-btn.active{
+    color:var(--stamp);
+    border-bottom-color:var(--stamp);
+    font-weight:700;
+  }
+  .tab-btn:hover{opacity:.85;}
+
+  .browse-wrap{
+    max-width:900px;
+    margin:0 auto;
+    background:var(--card);
+    border:1px solid var(--line);
+    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    padding:28px 30px 32px;
+  }
+  .browse-toolbar{
+    display:flex;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .browse-toolbar input{
+    flex:1;
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  table.browse-table{width:100%; border-collapse:collapse;}
+  table.browse-table thead th{
+    background:var(--ink);
+    color:#fff;
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    text-align:left;
+    padding:9px 10px;
+  }
+  table.browse-table tbody td{
+    border:1px solid var(--line);
+    padding:9px 10px;
+    font-size:12.5px;
+  }
+  table.browse-table tbody tr:nth-child(even){background:var(--row-bg);}
+  .badge{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:2px;
+    font-size:10px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+  }
+  .badge.status-open{border-color:var(--stamp); color:var(--stamp);}
+  .badge.status-complete{border-color:#3E4A54; color:#3E4A54;}
+  .view-btn{
+    font-size:10.5px;
+    padding:5px 12px;
+    letter-spacing:.03em;
+  }
+  .browse-empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:30px 0;
+  }
+
   @media print{
+    .tabs{display:none;}
+    .browse-wrap{display:none;}
     body{background:#fff; padding:0;}
     .toolbar{display:none;}
     .sheet{background:#fff; backdrop-filter:none; box-shadow:none; border:none; padding:18px 6px;}
@@ -377,6 +468,12 @@
 </head>
 <body>
 
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnNew" onclick="showTab('new')">New Job Order</button>
+    <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
+  </div>
+
+  <div id="viewNew">
   <div class="toolbar">
     <button class="ghost" onclick="resetForm()">Clear Form</button>
     <button class="ghost" onclick="resetCounter()">Reset Counter</button>
@@ -397,14 +494,14 @@
     </div>
 
     <div class="meta-grid">
-      <div class="meta-cell"><label>Date</label><input type="text" placeholder="MM/DD/YYYY"></div>
-      <div class="meta-cell"><label>Requested By</label><input type="text"></div>
-      <div class="meta-cell"><label>Department</label><input type="text"></div>
-      <div class="meta-cell"><label>Due Date</label><input type="text" placeholder="MM/DD/YYYY"></div>
-      <div class="meta-cell"><label>Assigned To</label><input type="text"></div>
+      <div class="meta-cell"><label>Date</label><input type="text" id="joDate" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Requested By</label><input type="text" id="joRequestedBy"></div>
+      <div class="meta-cell"><label>Department</label><input type="text" id="joDept"></div>
+      <div class="meta-cell"><label>Due Date</label><input type="text" id="joDueDate" placeholder="MM/DD/YYYY"></div>
+      <div class="meta-cell"><label>Assigned To</label><input type="text" id="joAssignedTo"></div>
       <div class="meta-cell">
         <label>Priority</label>
-        <select>
+        <select id="joPriority">
           <option>Low</option>
           <option>Medium</option>
           <option selected>High</option>
@@ -413,17 +510,17 @@
       </div>
       <div class="meta-cell">
         <label>Status</label>
-        <select>
+        <select id="joStatus">
           <option selected>Open</option>
           <option>In Progress</option>
           <option>Complete</option>
         </select>
       </div>
-      <div class="meta-cell"><label>Location / Site</label><input type="text"></div>
+      <div class="meta-cell"><label>Location / Site</label><input type="text" id="joLocation"></div>
     </div>
 
     <div class="section-label">Scope of Work</div>
-    <textarea placeholder="Describe the job..."></textarea>
+    <textarea id="joScope" placeholder="Describe the job..."></textarea>
 
     <div class="section-label">Reference Photo</div>
     <input type="file" id="photoInput" accept="image/*" style="display:none;">
@@ -461,20 +558,44 @@
     </div>
 
     <div class="section-label">Notes / Special Instructions</div>
-    <textarea placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
+    <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
       <div class="sign-line">
-        <input type="text" placeholder="">
+        <input type="text" id="signRequested" placeholder="">
         Requested By — Signature / Date
       </div>
       <div class="sign-line">
-        <input type="text" placeholder="">
+        <input type="text" id="signApproved" placeholder="">
         Approved By — Signature / Date
       </div>
     </div>
 
     <div class="footer-note">Keep a copy for your records</div>
+  </div>
+  </div>
+
+  <div class="browse-wrap" id="viewBrowse" style="display:none;">
+    <div class="browse-toolbar">
+      <input type="text" id="browseSearch" placeholder="Search by job #, name, department, status..." oninput="renderBrowseRows()">
+      <button class="ghost" onclick="loadBrowseList()">↻ Refresh</button>
+    </div>
+    <table class="browse-table">
+      <thead>
+        <tr>
+          <th>Job #</th>
+          <th>Date</th>
+          <th>Requested By</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th class="num" style="text-align:right;">Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="browseTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="browseEmpty" style="display:none;">No job orders saved yet — job orders are saved automatically when you print one.</div>
   </div>
 
 <script>
@@ -585,6 +706,7 @@
 
   async function printOrder(){
     await commitCurrentNumber();
+    await saveOrder();
     window.print();
   }
 
@@ -603,6 +725,171 @@
   }
 
   peekNextNumber();
+
+  // ---- Browse Job Orders ----
+  // Every printed job order is saved (via a shared Vercel KV store, same
+  // backend the counter uses) so it can be looked up later from any device.
+  // Note: the reference photo is NOT saved with the browsable record —
+  // only shown on the printed/PDF copy — to keep saved records small.
+  const ORDERS_API = '/api/orders';
+  let cachedOrders = [];
+
+  function collectFormData(){
+    const items = [];
+    document.querySelectorAll('#items tr').forEach(row => {
+      items.push({
+        desc: row.querySelector('.desc').value,
+        qty: row.querySelector('.qty').value,
+        unit: row.querySelector('.unit').value,
+        cost: row.querySelector('.cost').value
+      });
+    });
+    return {
+      joNumber: document.getElementById('joNumber').value,
+      date: document.getElementById('joDate').value,
+      requestedBy: document.getElementById('joRequestedBy').value,
+      department: document.getElementById('joDept').value,
+      dueDate: document.getElementById('joDueDate').value,
+      assignedTo: document.getElementById('joAssignedTo').value,
+      priority: document.getElementById('joPriority').value,
+      status: document.getElementById('joStatus').value,
+      location: document.getElementById('joLocation').value,
+      scope: document.getElementById('joScope').value,
+      items: items,
+      grandTotal: document.getElementById('grandtotal').textContent,
+      notes: document.getElementById('joNotes').value,
+      signRequested: document.getElementById('signRequested').value,
+      signApproved: document.getElementById('signApproved').value,
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  async function saveOrder(){
+    const data = collectFormData();
+    if(!data.joNumber) return;
+    try{
+      await fetch(ORDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: data.joNumber, data })
+      });
+    }catch(e){
+      console.warn('Could not save the job order to the backend.', e);
+    }
+  }
+
+  function populateFormFromOrder(data){
+    document.getElementById('joNumber').value = data.joNumber || '';
+    document.getElementById('joDate').value = data.date || '';
+    document.getElementById('joRequestedBy').value = data.requestedBy || '';
+    document.getElementById('joDept').value = data.department || '';
+    document.getElementById('joDueDate').value = data.dueDate || '';
+    document.getElementById('joAssignedTo').value = data.assignedTo || '';
+    if(data.priority) document.getElementById('joPriority').value = data.priority;
+    if(data.status) document.getElementById('joStatus').value = data.status;
+    document.getElementById('joLocation').value = data.location || '';
+    document.getElementById('joScope').value = data.scope || '';
+    document.getElementById('joNotes').value = data.notes || '';
+    document.getElementById('signRequested').value = data.signRequested || '';
+    document.getElementById('signApproved').value = data.signApproved || '';
+
+    document.getElementById('items').innerHTML = '';
+    rowCount = 0;
+    const items = (data.items && data.items.length) ? data.items : [];
+    items.forEach(it => {
+      addRow();
+      const rows = document.querySelectorAll('#items tr');
+      const last = rows[rows.length - 1];
+      last.querySelector('.desc').value = it.desc || '';
+      last.querySelector('.qty').value = it.qty || '';
+      last.querySelector('.unit').value = it.unit || '';
+      last.querySelector('.cost').value = it.cost || '';
+    });
+    if(items.length === 0){ for(let i=0;i<5;i++) addRow(); }
+    calc();
+
+    removePhoto({ stopPropagation(){} });
+  }
+
+  function escapeHtml(str){
+    return String(str || '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+
+  function statusClass(status){
+    if(!status) return '';
+    const s = status.toLowerCase();
+    if(s === 'complete') return 'status-complete';
+    if(s === 'open') return 'status-open';
+    return '';
+  }
+
+  function renderBrowseRows(){
+    const tbody = document.getElementById('browseTbody');
+    const empty = document.getElementById('browseEmpty');
+    const q = (document.getElementById('browseSearch').value || '').toLowerCase();
+
+    const filtered = cachedOrders.filter(o => {
+      if(!q) return true;
+      return [o.joNumber, o.requestedBy, o.department, o.status, o.priority, o.location]
+        .some(v => (v || '').toLowerCase().includes(q));
+    });
+
+    if(filtered.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = cachedOrders.length === 0
+        ? 'No job orders saved yet — job orders are saved automatically when you print one.'
+        : 'No job orders match your search.';
+      return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = filtered.map(o => `
+      <tr>
+        <td>${escapeHtml(o.joNumber)}</td>
+        <td>${escapeHtml(o.date)}</td>
+        <td>${escapeHtml(o.requestedBy)}</td>
+        <td>${escapeHtml(o.department)}</td>
+        <td><span class="badge ${statusClass(o.status)}">${escapeHtml(o.status)}</span></td>
+        <td>${escapeHtml(o.priority)}</td>
+        <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
+        <td><button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function viewOrder(id){
+    const order = cachedOrders.find(o => o.joNumber === id);
+    if(!order) return;
+    populateFormFromOrder(order);
+    showTab('new');
+  }
+
+  async function loadBrowseList(){
+    const tbody = document.getElementById('browseTbody');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('browseEmpty').style.display = 'none';
+    try{
+      const res = await fetch(ORDERS_API);
+      const data = await res.json();
+      cachedOrders = data.orders || [];
+    }catch(e){
+      cachedOrders = [];
+      console.warn('Could not load saved job orders.', e);
+    }
+    renderBrowseRows();
+  }
+
+  function showTab(tab){
+    const isNew = tab === 'new';
+    document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
+    document.getElementById('viewBrowse').style.display = isNew ? 'none' : 'block';
+    document.getElementById('tabBtnNew').classList.toggle('active', isNew);
+    document.getElementById('tabBtnBrowse').classList.toggle('active', !isNew);
+    if(!isNew) loadBrowseList();
+  }
 
   // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
   const photoInput = document.getElementById('photoInput');
