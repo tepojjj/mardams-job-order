@@ -66,6 +66,28 @@
     justify-content:flex-end;
     gap:10px;
   }
+  .release-banner{
+    max-width:900px;
+    margin:-4px auto 14px;
+    padding:9px 14px;
+    border:1px solid var(--stamp);
+    background:var(--stamp-soft);
+    color:var(--stamp);
+    font-size:12.5px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border-radius:3px;
+  }
+  .release-banner button{
+    padding:5px 12px;
+    font-size:11px;
+    white-space:nowrap;
+    border-color:var(--stamp);
+    color:var(--stamp);
+    background:var(--card);
+  }
   button{
     font-family:inherit;
     font-size:12.5px;
@@ -471,6 +493,7 @@
     .browse-wrap{display:none;}
     body{background:#fff; padding:0;}
     .toolbar{display:none !important;}
+    .release-banner{display:none !important;}
     .sheet{background:#fff; backdrop-filter:none; box-shadow:none; border:none; padding:18px 6px;}
     .sheet::before{opacity:0.06;}
     tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F2EEE3;}
@@ -629,6 +652,8 @@
     <button class="primary" onclick="printOrder()">Print / Save as PDF</button>
   </div>
 
+  <div id="releaseBanner" style="display:none;"></div>
+
   <div class="sheet">
     <div class="head">
       <div class="brand">
@@ -659,7 +684,7 @@
       <img id="photoPreview" src="" alt="Job reference photo">
     </div>
 
-    <div class="section-label">Materials</div>
+    <div class="section-label">Materials &amp; Labor</div>
     <table>
       <thead>
         <tr>
@@ -683,7 +708,7 @@
       </div>
     </div>
 
-    <div class="section-label">REMARKS</div>
+    <div class="section-label">Notes / Special Instructions</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
@@ -968,6 +993,11 @@
   function pad(n){ return String(n).padStart(4, '0'); }
   function formatJO(n){ return `${new Date().getFullYear()}-${pad(n)}`; }
 
+  // Tracks whether the number in the field is still the untouched
+  // auto-suggestion, or whether the user typed/edited it by hand.
+  // This decides which commit path printOrder() takes.
+  let numberIsAutoSuggested = true;
+
   async function peekNextNumber(){
     const field = document.getElementById('joNumber');
     try{
@@ -975,16 +1005,47 @@
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       field.value = formatJO(data.next);
+      numberIsAutoSuggested = true;
     }catch(e){
       field.value = formatJO(1);
+      numberIsAutoSuggested = true;
       console.warn('Could not reach counter backend — showing a placeholder number.', e);
     }
   }
 
+  // Any manual edit to the number field means printOrder() must treat it
+  // as a custom number instead of atomically incrementing the counter.
+  document.getElementById('joNumber').addEventListener('input', () => {
+    numberIsAutoSuggested = false;
+  });
+
   async function commitCurrentNumber(){
     const field = document.getElementById('joNumber');
-    const match = field.value.match(/(\d+)\s*$/); // grab the trailing number, ignoring the year prefix
-    if(!match) return; // custom/non-numeric number — nothing to save
+
+    if(numberIsAutoSuggested){
+      // Atomically claim the next number — race-safe even if someone else
+      // is printing at the same instant. Whatever the server actually
+      // lands on is what gets printed, so update the field to match.
+      try{
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ action: 'increment' })
+        });
+        if(handleAuthFailure(res.status)) return;
+        const data = await res.json();
+        if(Number.isFinite(data.value)){
+          field.value = formatJO(data.value);
+        }
+      }catch(e){
+        console.warn('Could not claim the next job order number from the backend.', e);
+      }
+      return;
+    }
+
+    // Manually-typed number — grab the trailing digits, ignoring the year prefix.
+    const match = field.value.match(/(\d+)\s*$/);
+    if(!match) return; // fully custom/non-numeric number — nothing to save
     const used = parseInt(match[1], 10);
     if(isNaN(used)) return;
     try{
@@ -999,9 +1060,64 @@
   }
 
   async function printOrder(){
+    const field = document.getElementById('joNumber');
+    const claimedBefore = field.value;
+    if(!confirm(`Print / Save this job order as JO #${claimedBefore}?\n\nThis will assign it that number.`)) return;
+
     await commitCurrentNumber();
     await saveOrder();
+
+    // The number actually claimed may differ from what was shown above
+    // (someone else could have claimed it a split second earlier), so
+    // read the field again after commitCurrentNumber() has updated it.
+    showReleaseBanner(field.value);
+
     window.print();
+  }
+
+  function showReleaseBanner(joNumberValue){
+    const banner = document.getElementById('releaseBanner');
+    banner.innerHTML = '';
+    banner.style.display = 'flex';
+
+    const text = document.createElement('span');
+    text.textContent = `Didn't actually save JO ${joNumberValue}? `;
+
+    const btn = document.createElement('button');
+    btn.className = 'ghost';
+    btn.textContent = 'Release this number';
+    btn.onclick = () => releaseNumber(joNumberValue, banner);
+
+    banner.appendChild(text);
+    banner.appendChild(btn);
+  }
+
+  async function releaseNumber(joNumberValue, banner){
+    const match = joNumberValue.match(/(\d+)\s*$/);
+    if(!match) { banner.style.display = 'none'; return; }
+    const value = parseInt(match[1], 10);
+    if(isNaN(value)) { banner.style.display = 'none'; return; }
+
+    try{
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'release', value })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(data.released){
+        banner.innerHTML = `<span>JO ${joNumberValue} released — it will be suggested again next time.</span>`;
+        await peekNextNumber();
+      }else{
+        banner.innerHTML = `<span>Couldn't release JO ${joNumberValue} — a newer number has already been claimed since.</span>`;
+      }
+    }catch(e){
+      console.warn('Could not release the job order number on the backend.', e);
+      banner.innerHTML = `<span>Couldn't reach the server to release JO ${joNumberValue}.</span>`;
+    }
+
+    setTimeout(() => { banner.style.display = 'none'; }, 4000);
   }
 
   async function resetCounter(){
