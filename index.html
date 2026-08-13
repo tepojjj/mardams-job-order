@@ -108,7 +108,6 @@
     color:var(--stamp);
     padding:8px 16px;
     text-align:center;
-    transform:rotate(-3deg);
     border-radius:2px;
   }
   .stamp-box .title{font-weight:700; font-size:15px; letter-spacing:.14em;}
@@ -139,17 +138,16 @@
 
   .meta-grid{
     display:grid;
-    grid-template-columns:repeat(2, 1fr);
+    grid-template-columns:1fr;
     gap:0;
     border:1px solid var(--line);
     margin-bottom:26px;
   }
   .meta-cell{
-    border-right:1px solid var(--line);
     border-bottom:1px solid var(--line);
     padding:9px 12px;
   }
-  .meta-cell:nth-child(2n){border-right:none;}
+  .meta-cell:last-child{border-bottom:none;}
   .meta-cell label{
     display:block;
     font-size:9.5px;
