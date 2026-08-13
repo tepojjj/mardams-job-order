@@ -2,62 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Job Order</title>
+<title>Mardams Apparel</title>
+<link rel="icon" type="image/png" href="assets/mardam-favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
-  --paper:#FBF8F2;
-  --card:rgba(255,255,255,0.55);
-  --ink:#0A0D10;
-  --ink-soft:#3E4A54;
-  --line:#D9D2C4;
-  --stamp:#A8431F;
-  --stamp-soft:#F1DFD3;
-  --field-bg:rgba(252,250,245,0.55);
-  --grid:#E7E1D3;
-  --row-bg:rgba(242,238,227,0.55);
+  --paper:#F4F5F7;
+  --card:#FFFFFF;
+  --ink:#161A1E;
+  --ink-soft:#667085;
+  --line:#E3E6EA;
+  --stamp:#B23A1B;
+  --stamp-soft:#FBEAE3;
+  --field-bg:#F8F9FA;
+  --row-bg:#FAFAFB;
 }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:
-      linear-gradient(var(--grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-      var(--paper);
-    background-size:28px 28px;
+    background:var(--paper);
     font-family:'Roboto', ui-sans-serif, sans-serif;
     color:var(--ink);
-    padding:32px 16px 80px;
+    padding:20px 16px 32px;
   }
   .sheet{
     max-width:900px;
     margin:0 auto;
     background:var(--card);
-    backdrop-filter:blur(1px);
-    -webkit-backdrop-filter:blur(1px);
     border:1px solid var(--line);
-    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
-    padding:40px 44px 36px;
+    border-radius:8px;
+    box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 12px 28px -18px rgba(22,26,30,0.18);
+    padding:30px 36px 26px;
     position:relative;
-    overflow:hidden;
-  }
-  .sheet::before{
-    content:'';
-    position:absolute;
-    inset:0;
-    background-image:url('assets/mardam-logo.jpg');
-    background-repeat:no-repeat;
-    background-position:center;
-    background-size:cover;
-    opacity:0.21;
-    z-index:0;
-    pointer-events:none;
-  }
-  .sheet > *{
-    position:relative;
-    z-index:1;
   }
   .toolbar{
     max-width:900px;
@@ -66,35 +44,13 @@
     justify-content:flex-end;
     gap:10px;
   }
-  .release-banner{
-    max-width:900px;
-    margin:-4px auto 14px;
-    padding:9px 14px;
-    border:1px solid var(--stamp);
-    background:var(--stamp-soft);
-    color:var(--stamp);
-    font-size:12.5px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    border-radius:3px;
-  }
-  .release-banner button{
-    padding:5px 12px;
-    font-size:11px;
-    white-space:nowrap;
-    border-color:var(--stamp);
-    color:var(--stamp);
-    background:var(--card);
-  }
   button{
     font-family:inherit;
     font-size:12.5px;
     letter-spacing:.06em;
     text-transform:uppercase;
     padding:9px 16px;
-    border-radius:3px;
+    border-radius:6px;
     cursor:pointer;
     border:1px solid var(--ink);
     background:var(--card);
@@ -129,7 +85,7 @@
     color:var(--stamp);
     padding:8px 16px;
     text-align:center;
-    border-radius:2px;
+    border-radius:5px;
   }
   .stamp-box .title{font-weight:700; font-size:15px; letter-spacing:.14em;}
   .stamp-box input{
@@ -162,7 +118,9 @@
     grid-template-columns:1fr 1fr 1fr;
     gap:0;
     border:1px solid var(--line);
-    margin-bottom:26px;
+    border-radius:6px;
+    overflow:hidden;
+    margin-bottom:18px;
   }
   .meta-cell{
     border-bottom:none;
@@ -210,7 +168,7 @@
     text-transform:uppercase;
     color:var(--stamp);
     font-weight:700;
-    margin:24px 0 8px;
+    margin:16px 0 6px;
     display:flex;
     align-items:center;
     gap:10px;
@@ -224,7 +182,7 @@
     color:var(--ink);
     background:var(--field-bg);
     border:1px solid var(--line);
-    border-radius:2px;
+    border-radius:5px;
     padding:5px 8px;
     cursor:pointer;
   }
@@ -238,7 +196,8 @@
     font-size:10.5px;
     letter-spacing:.08em;
     text-transform:uppercase;
-    color:var(--ink-soft);
+    color:var(--stamp);
+    font-weight:700;
   }
 
   textarea{
@@ -415,7 +374,7 @@
     right:8px;
     border:1px solid var(--ink);
     background:#fff;
-    border-radius:3px;
+    border-radius:6px;
     font-size:11px;
     padding:4px 9px;
   }
@@ -488,7 +447,7 @@
   .badge{
     display:inline-block;
     padding:2px 8px;
-    border-radius:2px;
+    border-radius:5px;
     font-size:10px;
     letter-spacing:.05em;
     text-transform:uppercase;
@@ -515,10 +474,8 @@
     .browse-wrap{display:none;}
     body{background:#fff; padding:0;}
     .toolbar{display:none !important;}
-    .release-banner{display:none !important;}
-    .sheet{background:#fff; backdrop-filter:none; box-shadow:none; border:none; padding:18px 6px;}
-    .sheet::before{opacity:0.06;}
-    tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F2EEE3;}
+    .sheet{background:#fff; box-shadow:none; border:none; border-radius:0; padding:10px 6px;}
+    tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F4F5F7;}
     tbody td.remove{display:none;}
     .add-row-btn{display:none;}
     input, textarea, select{border-color:transparent !important;}
@@ -538,11 +495,7 @@
   .login-overlay{
     position:fixed;
     inset:0;
-    background:
-      linear-gradient(var(--grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-      var(--paper);
-    background-size:28px 28px;
+    background:var(--paper);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -554,7 +507,8 @@
     max-width:340px;
     background:#fff;
     border:1px solid var(--line);
-    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    border-radius:8px;
+    box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 12px 28px -18px rgba(22,26,30,0.18);
     padding:32px 30px;
   }
   .login-card label{
@@ -599,7 +553,7 @@
   .role-pill{
     display:inline-block;
     padding:2px 8px;
-    border-radius:2px;
+    border-radius:5px;
     font-size:9.5px;
     letter-spacing:.06em;
     text-transform:uppercase;
@@ -673,8 +627,6 @@
     <button class="ghost" onclick="resetCounter()">Reset Counter</button>
     <button class="primary" onclick="printOrder()">Print / Save as PDF</button>
   </div>
-
-  <div id="releaseBanner" style="display:none;"></div>
 
   <div class="sheet">
     <div class="head">
@@ -1102,33 +1054,30 @@
     // The number actually claimed may differ from what was shown above
     // (someone else could have claimed it a split second earlier), so
     // read the field again after commitCurrentNumber() has updated it.
-    showReleaseBanner(field.value);
+    const claimedNumber = field.value;
+
+    // The browser doesn't tell us whether the person actually printed/saved
+    // or hit Cancel — 'afterprint' fires either way once the dialog closes.
+    // So we ask right after it closes, and auto-release the number if they
+    // say they canceled. This confirm() is a native browser dialog, so it
+    // never shows up on the printed page itself.
+    function handleAfterPrint(){
+      window.removeEventListener('afterprint', handleAfterPrint);
+      const actuallyPrinted = confirm(`Did you finish printing/saving JO ${claimedNumber}?\n\nClick Cancel if you canceled — this will automatically free up that number to be suggested again.`);
+      if(!actuallyPrinted){
+        releaseNumber(claimedNumber);
+      }
+    }
+    window.addEventListener('afterprint', handleAfterPrint);
 
     window.print();
   }
 
-  function showReleaseBanner(joNumberValue){
-    const banner = document.getElementById('releaseBanner');
-    banner.innerHTML = '';
-    banner.style.display = 'flex';
-
-    const text = document.createElement('span');
-    text.textContent = `Didn't actually save JO ${joNumberValue}? `;
-
-    const btn = document.createElement('button');
-    btn.className = 'ghost';
-    btn.textContent = 'Release this number';
-    btn.onclick = () => releaseNumber(joNumberValue, banner);
-
-    banner.appendChild(text);
-    banner.appendChild(btn);
-  }
-
-  async function releaseNumber(joNumberValue, banner){
+  async function releaseNumber(joNumberValue){
     const match = joNumberValue.match(/(\d+)\s*$/);
-    if(!match) { banner.style.display = 'none'; return; }
+    if(!match) return;
     const value = parseInt(match[1], 10);
-    if(isNaN(value)) { banner.style.display = 'none'; return; }
+    if(isNaN(value)) return;
 
     try{
       const res = await fetch(API, {
@@ -1139,17 +1088,13 @@
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       if(data.released){
-        banner.innerHTML = `<span>JO ${joNumberValue} released — it will be suggested again next time.</span>`;
         await peekNextNumber();
       }else{
-        banner.innerHTML = `<span>Couldn't release JO ${joNumberValue} — a newer number has already been claimed since.</span>`;
+        console.warn(`Couldn't release JO ${joNumberValue} — a newer number has already been claimed since.`);
       }
     }catch(e){
       console.warn('Could not release the job order number on the backend.', e);
-      banner.innerHTML = `<span>Couldn't reach the server to release JO ${joNumberValue}.</span>`;
     }
-
-    setTimeout(() => { banner.style.display = 'none'; }, 4000);
   }
 
   async function resetCounter(){
