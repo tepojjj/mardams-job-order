@@ -168,18 +168,22 @@
     border-bottom:none;
     border-right:1px solid var(--line);
     padding:9px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
   }
   .meta-cell:last-child{border-right:none;}
   .meta-cell label{
-    display:block;
     font-size:9.5px;
     letter-spacing:.09em;
     text-transform:uppercase;
     color:var(--ink-soft);
-    margin-bottom:4px;
+    white-space:nowrap;
+    flex:none;
   }
   .meta-cell input, .meta-cell select{
-    width:100%;
+    flex:1;
+    min-width:0;
     border:none;
     background:transparent;
     font-family:inherit;
@@ -223,6 +227,18 @@
     border-radius:2px;
     padding:5px 8px;
     cursor:pointer;
+  }
+  .material-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:14px 0 4px;
+  }
+  .material-row label{
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
   }
 
   textarea{
@@ -690,16 +706,7 @@
       <img id="photoPreview" src="" alt="Job reference photo">
     </div>
 
-    <div class="section-label">
-      Materials
-      <select id="materialType" class="material-select">
-        <option value="">Select material…</option>
-        <option>Cooltex 140gsm</option>
-        <option>Cooltex 170gsm</option>
-        <option>Cooltex 200gsm</option>
-        <option>Double square</option>
-      </select>
-    </div>
+    <div class="section-label">Materials &amp; Labor</div>
     <table>
       <thead>
         <tr>
@@ -722,7 +729,18 @@
       </div>
     </div>
 
-    <div class="section-label">REMARKS</div>
+    <div class="material-row">
+      <label for="materialType">Material Used</label>
+      <select id="materialType" class="material-select">
+        <option value="">Select material…</option>
+        <option>Cooltex 140gsm</option>
+        <option>Cooltex 170gsm</option>
+        <option>Cooltex 200gsm</option>
+        <option>Double square</option>
+      </select>
+    </div>
+
+    <div class="section-label">Notes / Special Instructions</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:48px;"></textarea>
 
     <div class="sign-grid">
