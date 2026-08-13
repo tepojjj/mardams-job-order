@@ -477,16 +477,141 @@
     .photo-remove{display:none;}
     input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
   }
+
+  /* ---- Login ---- */
+  .login-overlay{
+    position:fixed;
+    inset:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      var(--paper);
+    background-size:28px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:16px;
+  }
+  .login-card{
+    width:100%;
+    max-width:340px;
+    background:#fff;
+    border:1px solid var(--line);
+    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    padding:32px 30px;
+  }
+  .login-card label{
+    display:block;
+    font-size:9.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:14px 0 4px;
+  }
+  .login-card input{
+    width:100%;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 10px;
+    color:var(--ink);
+  }
+  .login-error{
+    color:var(--stamp);
+    font-size:12px;
+    margin-top:12px;
+    min-height:14px;
+  }
+
+  /* ---- Account bar ---- */
+  .account-bar{
+    max-width:900px;
+    margin:0 auto 10px;
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:12px;
+  }
+  .account-bar .who{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    letter-spacing:.03em;
+  }
+  .account-bar .who b{color:var(--ink);}
+  .role-pill{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:2px;
+    font-size:9.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    border:1px solid var(--stamp);
+    color:var(--stamp);
+    margin-left:6px;
+  }
+
+  /* ---- Users tab ---- */
+  .user-form{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .user-form input[type="text"], .user-form input[type="password"]{
+    flex:1;
+    min-width:140px;
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .user-form select{
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .danger-btn{
+    border-color:var(--stamp) !important;
+    color:var(--stamp) !important;
+    margin-left:6px;
+  }
 </style>
 </head>
 <body>
 
-  <div class="tabs">
-    <button class="tab-btn active" id="tabBtnNew" onclick="showTab('new')">New Job Order</button>
-    <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="brand-name" style="margin-bottom:2px;">Mardams Apparel</div>
+      <small style="display:block;color:var(--ink-soft);letter-spacing:.08em;text-transform:uppercase;">Job Order Form — Sign In</small>
+      <label for="loginUsername">Username</label>
+      <input type="text" id="loginUsername" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin();">
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin();">
+      <button class="primary" style="width:100%;margin-top:16px;" onclick="doLogin()" id="loginBtn">Log In</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
   </div>
 
-  <div id="viewNew">
+  <div class="account-bar" id="accountBar" style="display:none;">
+    <span class="who" id="accountInfo"></span>
+    <button class="ghost" onclick="doLogout()">Log Out</button>
+  </div>
+
+  <div class="tabs" id="appTabs" style="display:none;">
+    <button class="tab-btn active" id="tabBtnNew" onclick="showTab('new')">New Job Order</button>
+    <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
+    <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
+  </div>
+
+  <div id="viewNew" style="display:none;">
   <div class="toolbar">
     <button class="ghost" onclick="resetForm()">Clear Form</button>
     <button class="ghost" onclick="resetCounter()">Reset Counter</button>
@@ -611,7 +736,168 @@
     <div class="browse-empty" id="browseEmpty" style="display:none;">No job orders saved yet — job orders are saved automatically when you print one.</div>
   </div>
 
+  <div class="browse-wrap" id="viewUsers" style="display:none;">
+    <div class="section-label" style="margin-top:0;">Add Account</div>
+    <div class="user-form">
+      <input type="text" id="newUserUsername" placeholder="Username">
+      <input type="password" id="newUserPassword" placeholder="Password (min 6 characters)">
+      <select id="newUserRole">
+        <option value="staff">Staff</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button class="primary" onclick="createUser()">Add Account</button>
+    </div>
+    <div class="login-error" id="userFormError"></div>
+
+    <div class="section-label">Accounts</div>
+    <table class="browse-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Created By</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="usersTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="usersEmpty" style="display:none;"></div>
+  </div>
+
 <script>
+  // ---- Auth ----
+  const AUTH_STORAGE_KEY = 'mardams_auth';
+  let authToken = null;
+  let currentUser = null; // { username, role }
+
+  function b64urlDecodeJs(str){
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while(str.length % 4) str += '=';
+    return decodeURIComponent(atob(str).split('').map(c =>
+      '%' + c.charCodeAt(0).toString(16).padStart(2, '0')
+    ).join(''));
+  }
+
+  function tokenExpiry(token){
+    try{
+      const payload = JSON.parse(b64urlDecodeJs(token.split('.')[0]));
+      return payload.exp || 0;
+    }catch(e){
+      return 0;
+    }
+  }
+
+  function authHeaders(){
+    return authToken ? { 'Authorization': 'Bearer ' + authToken } : {};
+  }
+
+  function saveAuth(token, user){
+    authToken = token;
+    currentUser = user;
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user }));
+  }
+
+  function clearAuth(){
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+
+  function loadAuthFromStorage(){
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if(!raw) return false;
+    try{
+      const { token, user } = JSON.parse(raw);
+      if(!token || !user) return false;
+      if(tokenExpiry(token) < Date.now()) return false;
+      authToken = token;
+      currentUser = user;
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function roleLabel(role){
+    if(role === 'super_admin') return 'Super Admin';
+    if(role === 'admin') return 'Admin';
+    return 'Staff';
+  }
+
+  function showLogin(msg){
+    clearAuth();
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('accountBar').style.display = 'none';
+    document.getElementById('appTabs').style.display = 'none';
+    document.getElementById('viewNew').style.display = 'none';
+    document.getElementById('viewBrowse').style.display = 'none';
+    document.getElementById('viewUsers').style.display = 'none';
+    document.getElementById('loginError').textContent = msg || '';
+    document.getElementById('loginPassword').value = '';
+  }
+
+  function initApp(){
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('accountBar').style.display = 'flex';
+    document.getElementById('appTabs').style.display = 'flex';
+    document.getElementById('accountInfo').innerHTML =
+      'Signed in as <b>' + escapeHtml(currentUser.username) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
+
+    const canManageUsers = currentUser.role === 'admin' || currentUser.role === 'super_admin';
+    document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
+    document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
+
+    showTab('new');
+    peekNextNumber();
+  }
+
+  async function doLogin(){
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    if(!username || !password){
+      errEl.textContent = 'Enter a username and password.';
+      return;
+    }
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Login failed.';
+        return;
+      }
+      saveAuth(data.token, data.user);
+      initApp();
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  function doLogout(){
+    clearAuth();
+    showLogin();
+  }
+
+  // If any authenticated fetch comes back 401, the session has expired —
+  // send the user back to the login screen.
+  function handleAuthFailure(status){
+    if(status === 401){
+      showLogin('Your session expired — please log in again.');
+      return true;
+    }
+    return false;
+  }
+
   let rowCount = 0;
 
   function addRow(prefill){
@@ -691,7 +977,8 @@
   async function peekNextNumber(){
     const field = document.getElementById('joNumber');
     try{
-      const res = await fetch(API);
+      const res = await fetch(API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       field.value = formatJO(data.next);
     }catch(e){
@@ -709,7 +996,7 @@
     try{
       await fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'commit', value: used })
       });
     }catch(e){
@@ -728,7 +1015,7 @@
     try{
       await fetch(API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'reset' })
       });
     }catch(e){
@@ -736,8 +1023,6 @@
     }
     peekNextNumber();
   }
-
-  peekNextNumber();
 
   // ---- Browse Job Orders ----
   // Every printed job order is saved (via a shared Vercel KV store, same
@@ -783,7 +1068,7 @@
     try{
       await fetch(ORDERS_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ id: data.joNumber, data })
       });
     }catch(e){
@@ -868,7 +1153,12 @@
         <td><span class="badge ${statusClass(o.status)}">${escapeHtml(o.status)}</span></td>
         <td>${escapeHtml(o.priority)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
-        <td><button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button></td>
+        <td>
+          <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
+          ${currentUser && currentUser.role === 'super_admin'
+            ? `<button class="ghost danger-btn" onclick="deleteOrder('${escapeHtml(o.joNumber)}')">Delete</button>`
+            : ''}
+        </td>
       </tr>
     `).join('');
   }
@@ -880,12 +1170,35 @@
     showTab('new');
   }
 
+  // Deleting a job order is restricted server-side to the Super Admin
+  // account — the button itself is also only shown to that role.
+  async function deleteOrder(id){
+    if(!confirm(`Delete job order ${id}? This cannot be undone.`)) return;
+    try{
+      const res = await fetch(`${ORDERS_API}?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Could not delete that job order.');
+        return;
+      }
+      cachedOrders = cachedOrders.filter(o => o.joNumber !== id);
+      renderBrowseRows();
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+    }
+  }
+
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('browseEmpty').style.display = 'none';
     try{
-      const res = await fetch(ORDERS_API);
+      const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       cachedOrders = data.orders || [];
     }catch(e){
@@ -895,13 +1208,117 @@
     renderBrowseRows();
   }
 
+  // ---- Users (Admin / Super Admin only) ----
+  let cachedUsers = [];
+
+  function renderUsersRows(){
+    const tbody = document.getElementById('usersTbody');
+    const empty = document.getElementById('usersEmpty');
+    if(cachedUsers.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No accounts yet.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = cachedUsers.map(u => {
+      const isSelf = currentUser && u.username === currentUser.username;
+      const canDelete = !isSelf && u.role !== 'super_admin' &&
+        (currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff'));
+      return `
+      <tr>
+        <td>${escapeHtml(u.username)}</td>
+        <td>${escapeHtml(roleLabel(u.role))}</td>
+        <td>${escapeHtml(u.createdBy)}</td>
+        <td>${escapeHtml((u.createdAt || '').slice(0, 10))}</td>
+        <td>${canDelete ? `<button class="ghost danger-btn" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Delete</button>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadUsersList(){
+    const tbody = document.getElementById('usersTbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('usersEmpty').style.display = 'none';
+    try{
+      const res = await fetch('/api/users', { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedUsers = data.users || [];
+    }catch(e){
+      cachedUsers = [];
+      console.warn('Could not load accounts.', e);
+    }
+    renderUsersRows();
+  }
+
+  async function createUser(){
+    const errEl = document.getElementById('userFormError');
+    errEl.textContent = '';
+    const username = document.getElementById('newUserUsername').value.trim();
+    const password = document.getElementById('newUserPassword').value;
+    // Admin accounts can only ever create Staff accounts; the role picker
+    // is hidden for them, so force the value regardless of DOM state.
+    const role = currentUser.role === 'super_admin'
+      ? document.getElementById('newUserRole').value
+      : 'staff';
+
+    if(!username || !password){
+      errEl.textContent = 'Enter a username and password.';
+      return;
+    }
+    try{
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ username, password, role })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not create that account.';
+        return;
+      }
+      document.getElementById('newUserUsername').value = '';
+      document.getElementById('newUserPassword').value = '';
+      loadUsersList();
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
+  async function deleteUserAccount(username){
+    if(!confirm(`Delete the account "${username}"? This cannot be undone.`)) return;
+    try{
+      const res = await fetch(`/api/users?username=${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Could not delete that account.');
+        return;
+      }
+      cachedUsers = cachedUsers.filter(u => u.username !== username);
+      renderUsersRows();
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+    }
+  }
+
   function showTab(tab){
     const isNew = tab === 'new';
+    const isBrowse = tab === 'browse';
+    const isUsers = tab === 'users';
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
-    document.getElementById('viewBrowse').style.display = isNew ? 'none' : 'block';
+    document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
+    document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
-    document.getElementById('tabBtnBrowse').classList.toggle('active', !isNew);
-    if(!isNew) loadBrowseList();
+    document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
+    document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
+    if(isBrowse) loadBrowseList();
+    if(isUsers) loadUsersList();
   }
 
   // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
@@ -958,6 +1375,13 @@
       }
     }
   });
+
+  // ---- Boot ----
+  if(loadAuthFromStorage()){
+    initApp();
+  }else{
+    showLogin();
+  }
 </script>
 
 </body>

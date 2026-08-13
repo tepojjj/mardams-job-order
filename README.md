@@ -58,10 +58,52 @@ That's it — `/api/counter` will read/write to that KV store.
 The form now uses **Roboto** (loaded from Google Fonts) instead of the
 original Courier New / Georgia mix.
 
+## Login & accounts
+
+The whole tool is now behind a login screen, with three account types:
+
+- **Super Admin** — the one built-in top account. Can do everything,
+  including **deleting** job orders on the Browse tab, and can create or
+  remove both Admin and Staff accounts.
+- **Admin** — can use the form and Browse tab like normal, and has a
+  **Users** tab where they can create and remove **Staff** accounts
+  (limited access). Admins cannot delete job orders, cannot create other
+  Admins, and cannot see/remove other Admin or Super Admin accounts.
+- **Staff** — can create and browse job orders, but has no Users tab and
+  no delete button anywhere.
+
+### Required: set up the Super Admin
+
+There's no sign-up page — the first Super Admin is created automatically
+the first time someone logs in with credentials you set yourself:
+
+1. In the Vercel dashboard, open your project → **Settings → Environment
+   Variables** and add:
+   - `SUPERADMIN_USERNAME` — the login username for the Super Admin
+   - `SUPERADMIN_PASSWORD` — the login password for the Super Admin
+   - `AUTH_SECRET` — any long random string (used to sign login sessions —
+     e.g. generate one with `openssl rand -hex 32`)
+2. Redeploy so the new env vars are picked up.
+3. Open the site and log in once with the `SUPERADMIN_USERNAME` /
+   `SUPERADMIN_PASSWORD` you set. That first successful login creates the
+   real Super Admin account in the KV store (hashed password, not the raw
+   env var). From then on, log in with that same username/password as
+   normal — the env vars are only used for that one-time bootstrap.
+4. From the **Users** tab, the Super Admin can then create Admin and
+   Staff accounts with their own separate passwords.
+
+Sessions last 12 hours; after that, logging in again is required.
+
 ## Files
 
-- `index.html` — the form itself
-- `api/counter.js` — the backend serverless function
+- `index.html` — the form, login screen, and Users tab
+- `api/counter.js` — tracks the running job-order number (login required)
+- `api/orders.js` — saves/lists job orders (login required), deletes job
+  orders (Super Admin only)
+- `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)
+- `api/login.js` — verifies login and issues a session token; also
+  bootstraps the first Super Admin account (see above)
+- `api/_auth.js` — shared password hashing + session token helpers
 - `package.json` — declares the `@vercel/kv` dependency
 
 No `vercel.json` is required — Vercel automatically serves `index.html` as
