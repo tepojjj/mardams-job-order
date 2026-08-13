@@ -139,7 +139,7 @@
 
   .meta-grid{
     display:grid;
-    grid-template-columns:repeat(4, 1fr);
+    grid-template-columns:repeat(2, 1fr);
     gap:0;
     border:1px solid var(--line);
     margin-bottom:26px;
@@ -149,7 +149,7 @@
     border-bottom:1px solid var(--line);
     padding:9px 12px;
   }
-  .meta-cell:nth-child(4n){border-right:none;}
+  .meta-cell:nth-child(2n){border-right:none;}
   .meta-cell label{
     display:block;
     font-size:9.5px;
@@ -633,32 +633,8 @@
 
     <div class="meta-grid">
       <div class="meta-cell"><label>Date</label><input type="date" id="joDate"></div>
-      <div class="meta-cell"><label>Requested By</label><input type="text" id="joRequestedBy"></div>
-      <div class="meta-cell"><label>Department</label><input type="text" id="joDept"></div>
       <div class="meta-cell"><label>Due Date</label><input type="date" id="joDueDate"></div>
-      <div class="meta-cell"><label>Assigned To</label><input type="text" id="joAssignedTo"></div>
-      <div class="meta-cell">
-        <label>Priority</label>
-        <select id="joPriority">
-          <option>Low</option>
-          <option>Medium</option>
-          <option selected>High</option>
-          <option>Urgent</option>
-        </select>
-      </div>
-      <div class="meta-cell">
-        <label>Status</label>
-        <select id="joStatus">
-          <option selected>Open</option>
-          <option>In Progress</option>
-          <option>Complete</option>
-        </select>
-      </div>
-      <div class="meta-cell"><label>Location / Site</label><input type="text" id="joLocation"></div>
     </div>
-
-    <div class="section-label">Scope of Work</div>
-    <textarea id="joScope" placeholder="Describe the job..."></textarea>
 
     <div class="section-label">Reference Photo</div>
     <input type="file" id="photoInput" accept="image/*" style="display:none;">
@@ -715,7 +691,7 @@
 
   <div class="browse-wrap" id="viewBrowse" style="display:none;">
     <div class="browse-toolbar">
-      <input type="text" id="browseSearch" placeholder="Search by job #, name, department, status..." oninput="renderBrowseRows()">
+      <input type="text" id="browseSearch" placeholder="Search by job #..." oninput="renderBrowseRows()">
       <button class="ghost" onclick="loadBrowseList()">↻ Refresh</button>
     </div>
     <table class="browse-table">
@@ -723,10 +699,7 @@
         <tr>
           <th>Job #</th>
           <th>Date</th>
-          <th>Requested By</th>
-          <th>Department</th>
-          <th>Status</th>
-          <th>Priority</th>
+          <th>Due Date</th>
           <th class="num" style="text-align:right;">Total</th>
           <th></th>
         </tr>
@@ -1045,14 +1018,7 @@
     return {
       joNumber: document.getElementById('joNumber').value,
       date: document.getElementById('joDate').value,
-      requestedBy: document.getElementById('joRequestedBy').value,
-      department: document.getElementById('joDept').value,
       dueDate: document.getElementById('joDueDate').value,
-      assignedTo: document.getElementById('joAssignedTo').value,
-      priority: document.getElementById('joPriority').value,
-      status: document.getElementById('joStatus').value,
-      location: document.getElementById('joLocation').value,
-      scope: document.getElementById('joScope').value,
       items: items,
       grandTotal: document.getElementById('grandtotal').textContent,
       notes: document.getElementById('joNotes').value,
@@ -1079,14 +1045,7 @@
   function populateFormFromOrder(data){
     document.getElementById('joNumber').value = data.joNumber || '';
     document.getElementById('joDate').value = data.date || '';
-    document.getElementById('joRequestedBy').value = data.requestedBy || '';
-    document.getElementById('joDept').value = data.department || '';
     document.getElementById('joDueDate').value = data.dueDate || '';
-    document.getElementById('joAssignedTo').value = data.assignedTo || '';
-    if(data.priority) document.getElementById('joPriority').value = data.priority;
-    if(data.status) document.getElementById('joStatus').value = data.status;
-    document.getElementById('joLocation').value = data.location || '';
-    document.getElementById('joScope').value = data.scope || '';
     document.getElementById('joNotes').value = data.notes || '';
     document.getElementById('signRequested').value = data.signRequested || '';
     document.getElementById('signApproved').value = data.signApproved || '';
@@ -1115,14 +1074,6 @@
     }[c]));
   }
 
-  function statusClass(status){
-    if(!status) return '';
-    const s = status.toLowerCase();
-    if(s === 'complete') return 'status-complete';
-    if(s === 'open') return 'status-open';
-    return '';
-  }
-
   function renderBrowseRows(){
     const tbody = document.getElementById('browseTbody');
     const empty = document.getElementById('browseEmpty');
@@ -1130,8 +1081,7 @@
 
     const filtered = cachedOrders.filter(o => {
       if(!q) return true;
-      return [o.joNumber, o.requestedBy, o.department, o.status, o.priority, o.location]
-        .some(v => (v || '').toLowerCase().includes(q));
+      return [o.joNumber].some(v => (v || '').toLowerCase().includes(q));
     });
 
     if(filtered.length === 0){
@@ -1148,10 +1098,7 @@
       <tr>
         <td>${escapeHtml(o.joNumber)}</td>
         <td>${escapeHtml(o.date)}</td>
-        <td>${escapeHtml(o.requestedBy)}</td>
-        <td>${escapeHtml(o.department)}</td>
-        <td><span class="badge ${statusClass(o.status)}">${escapeHtml(o.status)}</span></td>
-        <td>${escapeHtml(o.priority)}</td>
+        <td>${escapeHtml(o.dueDate)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
@@ -1194,7 +1141,7 @@
 
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('browseEmpty').style.display = 'none';
     try{
       const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
