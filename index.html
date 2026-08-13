@@ -44,6 +44,16 @@
     justify-content:flex-end;
     gap:10px;
   }
+  .edit-banner{
+    margin-right:auto;
+    align-self:center;
+    font-size:12.5px;
+    letter-spacing:.03em;
+    color:var(--ink-soft);
+  }
+  .edit-banner b{
+    color:var(--stamp);
+  }
   button{
     font-family:inherit;
     font-size:12.5px;
@@ -435,6 +445,24 @@
     font-size:12.5px;
   }
   table.browse-table tbody tr:nth-child(even){background:var(--row-bg);}
+  .browse-thumb{
+    width:36px;
+    height:36px;
+    object-fit:cover;
+    border-radius:5px;
+    border:1px solid var(--line);
+    cursor:pointer;
+    display:block;
+  }
+  .browse-thumb-empty{
+    width:36px;
+    height:36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
   .badge{
     display:inline-block;
     padding:2px 8px;
@@ -451,6 +479,12 @@
     font-size:10.5px;
     padding:5px 12px;
     letter-spacing:.03em;
+  }
+  .edit-btn{
+    font-size:10.5px;
+    padding:5px 12px;
+    letter-spacing:.03em;
+    margin-left:6px;
   }
   .browse-empty{
     text-align:center;
@@ -613,10 +647,15 @@
   </div>
 
   <div id="viewNew" style="display:none;">
-  <div class="toolbar">
+  <div class="toolbar" id="toolbarNormal">
     <button class="ghost" onclick="resetForm()">Clear Form</button>
     <button class="ghost" onclick="resetCounter()">Reset Counter</button>
     <button class="primary" onclick="printOrder()">Print / Save as PDF</button>
+  </div>
+  <div class="toolbar" id="toolbarEdit" style="display:none;">
+    <span class="edit-banner">Editing JO <b id="editingJoLabel"></b></span>
+    <button class="ghost" onclick="cancelEdit()">Cancel</button>
+    <button class="primary" onclick="saveEditedOrder()">Save Changes</button>
   </div>
 
   <div class="sheet">
@@ -628,7 +667,7 @@
       <div class="stamp-box">
         <div class="title">JOB ORDER</div>
         <input type="text" id="joNumber" placeholder="2026-0001">
-        <button class="new-num-btn" onclick="peekNextNumber()" title="Refresh suggested number">↻ Suggest #</button>
+        <button class="new-num-btn" id="newNumBtn" onclick="peekNextNumber()" title="Refresh suggested number">↻ Suggest #</button>
       </div>
     </div>
 
@@ -707,6 +746,7 @@
     <table class="browse-table">
       <thead>
         <tr>
+          <th style="width:54px;">Photo</th>
           <th>Job #</th>
           <th>Client Name</th>
           <th>Date</th>
@@ -1103,8 +1143,8 @@
   // ---- Browse Job Orders ----
   // Every printed job order is saved (via a shared Vercel KV store, same
   // backend the counter uses) so it can be looked up later from any device.
-  // Note: the reference photo is NOT saved with the browsable record —
-  // only shown on the printed/PDF copy — to keep saved records small.
+  // The reference photo is compressed client-side (compressImage) before
+  // saving so records stay reasonably small.
   const ORDERS_API = '/api/orders';
   let cachedOrders = [];
 
@@ -1129,6 +1169,7 @@
       notes: document.getElementById('joNotes').value,
       signRequested: document.getElementById('signRequested').value,
       signApproved: document.getElementById('signApproved').value,
+      photo: photoPreviewWrap.classList.contains('show') ? photoPreview.src : '',
       savedAt: new Date().toISOString()
     };
   }
@@ -1172,7 +1213,11 @@
     if(items.length === 0){ for(let i=0;i<5;i++) addRow(); }
     calc();
 
-    removePhoto({ stopPropagation(){} });
+    if(data.photo){
+      showPhoto(data.photo);
+    }else{
+      removePhoto({ stopPropagation(){} });
+    }
   }
 
   function escapeHtml(str){
@@ -1203,6 +1248,9 @@
 
     tbody.innerHTML = filtered.map(o => `
       <tr>
+        <td>${o.photo
+          ? `<img class="browse-thumb" src="${o.photo}" alt="Reference photo for ${escapeHtml(o.joNumber)}" onclick="viewPhoto('${escapeHtml(o.joNumber)}')">`
+          : `<div class="browse-thumb-empty">—</div>`}</td>
         <td>${escapeHtml(o.joNumber)}</td>
         <td>${escapeHtml(o.clientName)}</td>
         <td>${escapeHtml(o.date)}</td>
@@ -1211,11 +1259,96 @@
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
           ${currentUser && currentUser.role === 'super_admin'
+            ? `<button class="ghost edit-btn" onclick="editOrder('${escapeHtml(o.joNumber)}')">Edit</button>`
+            : ''}
+          ${currentUser && currentUser.role === 'super_admin'
             ? `<button class="ghost danger-btn" onclick="deleteOrder('${escapeHtml(o.joNumber)}')">Delete</button>`
             : ''}
         </td>
       </tr>
     `).join('');
+  }
+
+  function viewPhoto(id){
+    const order = cachedOrders.find(o => o.joNumber === id);
+    if(!order || !order.photo) return;
+    const w = window.open('', '_blank');
+    if(!w) return;
+    w.document.write(`<title>Reference photo — JO ${escapeHtml(id)}</title><body style="margin:0;background:#161A1E;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${order.photo}" style="max-width:100%;max-height:100vh;"></body>`);
+  }
+
+  // Editing an existing job order is restricted to Super Admin. The Edit
+  // button itself is only rendered for that role (see renderBrowseRows),
+  // and the backend double-checks this on save (see api/orders.js).
+  let editingOrderId = null;
+
+  function editOrder(id){
+    if(!currentUser || currentUser.role !== 'super_admin') return;
+    const order = cachedOrders.find(o => o.joNumber === id);
+    if(!order) return;
+
+    populateFormFromOrder(order);
+    editingOrderId = id;
+    document.getElementById('editingJoLabel').textContent = id;
+    document.getElementById('toolbarNormal').style.display = 'none';
+    document.getElementById('toolbarEdit').style.display = 'flex';
+    document.getElementById('newNumBtn').style.display = 'none';
+    showTab('new');
+  }
+
+  function exitEditMode(){
+    editingOrderId = null;
+    document.getElementById('toolbarNormal').style.display = 'flex';
+    document.getElementById('toolbarEdit').style.display = 'none';
+    document.getElementById('newNumBtn').style.display = '';
+  }
+
+  function cancelEdit(){
+    exitEditMode();
+    showTab('browse');
+  }
+
+  async function saveEditedOrder(){
+    if(!currentUser || currentUser.role !== 'super_admin') return;
+    if(!editingOrderId) return;
+
+    const data = collectFormData();
+    if(!data.joNumber){
+      alert('Job order number is required.');
+      return;
+    }
+
+    const oldId = editingOrderId;
+    const newId = data.joNumber;
+
+    try{
+      const res = await fetch(ORDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: newId, data, isEdit: true })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Could not save changes.');
+        return;
+      }
+
+      // If the JO number itself was changed, the old record is now a
+      // stale duplicate under the previous number — remove it.
+      if(newId !== oldId){
+        await fetch(`${ORDERS_API}?id=${encodeURIComponent(oldId)}`, {
+          method: 'DELETE',
+          headers: { ...authHeaders() }
+        });
+      }
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+      return;
+    }
+
+    exitEditMode();
+    showTab('browse');
   }
 
   function viewOrder(id){
@@ -1249,7 +1382,7 @@
 
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('browseEmpty').style.display = 'none';
     try{
       const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
@@ -1366,6 +1499,7 @@
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isUsers = tab === 'users';
+    if(!isNew && editingOrderId) exitEditMode();
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
@@ -1396,10 +1530,40 @@
     photoInput.value = '';
   }
 
+  // Resize/compress to keep saved job order records small — full-size phone
+  // photos can be several MB, which is too big to store per record.
+  function compressImage(dataUrl, maxDim = 1000, quality = 0.75){
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          if(width > height){
+            height = Math.round(height * (maxDim / width));
+            width = maxDim;
+          }else{
+            width = Math.round(width * (maxDim / height));
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function readFileAsPhoto(file){
     if(!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
-    reader.onload = (e) => showPhoto(e.target.result);
+    reader.onload = async (e) => {
+      const compressed = await compressImage(e.target.result);
+      showPhoto(compressed);
+    };
     reader.readAsDataURL(file);
   }
 
