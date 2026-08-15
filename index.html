@@ -641,7 +641,7 @@
   </div>
 
   <div class="tabs" id="appTabs" style="display:none;">
-    <button class="tab-btn active" id="tabBtnNew" onclick="showTab('new')">New Job Order</button>
+    <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
   </div>
@@ -977,7 +977,17 @@
 
   function resetForm(){
     if(!confirm('Clear all fields on this job order?')) return;
-    document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(el => el.value = '');
+    clearFormForNewOrder();
+  }
+
+  // Tracks whether the form currently holds a saved order that was loaded
+  // in via View or Edit from the Browse tab (as opposed to a fresh blank
+  // form). Used so switching to "New Job Order" knows when it needs to
+  // clear stale data instead of leaving the previously viewed order showing.
+  let loadedOrderId = null;
+
+  function clearFormForNewOrder(){
+    document.querySelectorAll('input[type=text], input[type=number], input[type=date], textarea').forEach(el => el.value = '');
     document.getElementById('materialType').selectedIndex = 0;
     document.getElementById('items').innerHTML = '';
     rowCount = 0;
@@ -988,6 +998,18 @@
     photoPreviewWrap.classList.remove('show');
     photoZone.style.display = 'block';
     photoInput.value = '';
+    loadedOrderId = null;
+  }
+
+  // Bound to the "New Job Order" tab button. If the form currently holds
+  // a previously viewed/edited order, clear it back to a blank form with
+  // a freshly suggested number before switching to it.
+  function newOrderTabClicked(){
+    if(loadedOrderId){
+      if(editingOrderId) exitEditMode();
+      clearFormForNewOrder();
+    }
+    showTab('new');
   }
 
   for(let i=0;i<5;i++) addRow();
@@ -1095,6 +1117,10 @@
       const actuallyPrinted = confirm(`Did you finish printing/saving JO ${claimedNumber}?\n\nClick Cancel if you canceled — this will automatically free up that number to be suggested again.`);
       if(!actuallyPrinted){
         releaseNumber(claimedNumber);
+      }else{
+        // Order is finalized — clear the form and suggest the next number
+        // right away instead of leaving the just-printed order sitting there.
+        clearFormForNewOrder();
       }
     }
     window.addEventListener('afterprint', handleAfterPrint);
@@ -1289,6 +1315,7 @@
 
     populateFormFromOrder(order);
     editingOrderId = id;
+    loadedOrderId = id;
     document.getElementById('editingJoLabel').textContent = id;
     document.getElementById('toolbarNormal').style.display = 'none';
     document.getElementById('toolbarEdit').style.display = 'flex';
@@ -1355,6 +1382,7 @@
     const order = cachedOrders.find(o => o.joNumber === id);
     if(!order) return;
     populateFormFromOrder(order);
+    loadedOrderId = id;
     showTab('new');
   }
 
