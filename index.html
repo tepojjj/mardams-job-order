@@ -1097,6 +1097,18 @@
   async function printOrder(){
     const field = document.getElementById('joNumber');
     const claimedBefore = field.value;
+
+    // Reprinting/saving a PDF of an order that was loaded in via View/Edit
+    // from the Browse tab — it already has a real, previously-claimed
+    // number, so this must NOT touch the shared counter at all (no
+    // claiming a new number, no releasing this one on cancel).
+    if(loadedOrderId){
+      if(!confirm(`Print / Save JO #${claimedBefore} again?\n\nThis reprints the existing job order — it will NOT claim a new number or affect the counter.`)) return;
+      await saveOrder();
+      window.print();
+      return;
+    }
+
     if(!confirm(`Print / Save this job order as JO #${claimedBefore}?\n\nThis will assign it that number.`)) return;
 
     await commitCurrentNumber();
@@ -1216,6 +1228,9 @@
 
   function populateFormFromOrder(data){
     document.getElementById('joNumber').value = data.joNumber || '';
+    // This is a real, already-claimed number from a saved order — never
+    // treat it as an auto-suggested placeholder that's safe to overwrite.
+    numberIsAutoSuggested = false;
     document.getElementById('joClientName').value = data.clientName || '';
     document.getElementById('joDate').value = data.date || '';
     document.getElementById('joDueDate').value = data.dueDate || '';
