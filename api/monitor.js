@@ -57,14 +57,37 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Delete a row. Any logged-in account can remove rows.
+  // Delete a row (by id), or every row linked to a job order (by
+  // joNumber — used when that job order itself gets deleted, so the
+  // monitoring sheet doesn't keep orphaned rows pointing at it).
   if (req.method === 'DELETE') {
     const auth = requireAuth(req, res);
     if (!auth) return;
 
-    const id = req.query.id;
+    const { id, joNumber } = req.query;
+
+    if (joNumber) {
+      const all = (await kv.hgetall(KEY)) || {};
+      const idsToRemove = Object.entries(all)
+        .filter(([, v]) => {
+          try {
+            const row = typeof v === 'string' ? JSON.parse(v) : v;
+            return row && row.joNumber === joNumber;
+          } catch (e) {
+            return false;
+          }
+        })
+        .map(([rowId]) => rowId);
+
+      if (idsToRemove.length > 0) {
+        await kv.hdel(KEY, ...idsToRemove);
+      }
+      res.status(200).json({ ok: true, deleted: idsToRemove.length });
+      return;
+    }
+
     if (!id) {
-      res.status(400).json({ error: 'Missing id' });
+      res.status(400).json({ error: 'Missing id or joNumber' });
       return;
     }
 

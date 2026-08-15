@@ -714,7 +714,18 @@
   .monitor-status.status-printed{background:#DCE6FB; color:#2352A6;}
   .monitor-status.status-done{background:#E4E4E4; color:#3E4A54;}
   .monitor-status.status-cancelled{background:#F0E0E0; color:#8A4B4B;}
-  .monitor-qty-cell{text-align:center; font-weight:600; color:var(--ink-soft);}
+  .monitor-jo-cell{display:flex; align-items:center; gap:4px;}
+  .monitor-jo-cell .monitor-input{min-width:70px;}
+  .monitor-jo-link{
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-size:12px;
+    padding:2px;
+    line-height:1;
+    flex-shrink:0;
+  }
+  .monitor-jo-link:hover{opacity:0.7;}
   .monitor-row-delete{
     background:none;
     border:none;
@@ -898,6 +909,7 @@
         </thead>
         <tbody id="monitorTbody"></tbody>
       </table>
+      <datalist id="monitorJoList"></datalist>
     </div>
     <div class="browse-empty" id="monitorEmpty" style="display:none;">No rows yet — click "+ Add Row" to start tracking.</div>
   </div>
@@ -1546,7 +1558,7 @@
   // Deleting a job order is restricted server-side to the Super Admin
   // account — the button itself is also only shown to that role.
   async function deleteOrder(id){
-    if(!confirm(`Delete job order ${id}? This cannot be undone.`)) return;
+    if(!confirm(`Delete job order ${id}? This will also remove any matching rows from the Monitoring Sheet. This cannot be undone.`)) return;
     try{
       const res = await fetch(`${ORDERS_API}?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -1560,6 +1572,7 @@
       }
       cachedOrders = cachedOrders.filter(o => o.joNumber !== id);
       renderBrowseRows();
+      deleteMonitorRowsByJoNumber(id);
     }catch(e){
       alert('Could not reach the server. Please try again.');
     }
@@ -1643,15 +1656,37 @@
     tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Loading…</td></tr>`;
     document.getElementById('monitorEmpty').style.display = 'none';
     try{
-      const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json();
+      const [monitorRes, ordersRes] = await Promise.all([
+        fetch(MONITOR_API, { headers: { ...authHeaders() } }),
+        fetch(ORDERS_API, { headers: { ...authHeaders() } })
+      ]);
+      if(handleAuthFailure(monitorRes.status) || handleAuthFailure(ordersRes.status)) return;
+      const data = await monitorRes.json();
       cachedMonitorRows = data.rows || [];
+      const ordersData = await ordersRes.json();
+      cachedOrders = ordersData.orders || [];
     }catch(e){
-      cachedMonitorRows = [];
+      cachedMonitorRows = cachedMonitorRows || [];
       console.warn('Could not load the monitoring sheet.', e);
     }
+    renderMonitorJoList();
     renderMonitorRows();
+  }
+
+  // JO No. connects each monitoring row to an actual saved job order (when
+  // one exists with that number) — the datalist suggests real JO numbers
+  // as you type, and a small "View" link appears once the number matches
+  // a saved order. Every other field on the row stays plain manual entry.
+  function renderMonitorJoList(){
+    const list = document.getElementById('monitorJoList');
+    list.innerHTML = cachedOrders.map(o =>
+      `<option value="${escapeHtml(o.joNumber)}">${escapeHtml(o.clientName || '')}</option>`
+    ).join('');
+  }
+
+  function viewOrderFromMonitor(id){
+    if(!cachedOrders.find(o => o.joNumber === id)) return;
+    viewOrder(id);
   }
 
   function clearMonitorDateFilter(){
@@ -1686,10 +1721,14 @@
     tbody.innerHTML = filtered.map(r => {
       const id = escapeHtml(r.id);
       const statusCls = MONITOR_STATUS_CLASS[r.status] || '';
+      const isConnected = !!r.joNumber && cachedOrders.some(o => o.joNumber === r.joNumber);
       return `
       <tr>
         <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="joNumber" value="${escapeHtml(r.joNumber)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td class="monitor-jo-cell">
+          <input type="text" class="monitor-input" list="monitorJoList" data-id="${id}" data-field="joNumber" value="${escapeHtml(r.joNumber)}" placeholder="—" onchange="saveMonitorField(this); renderMonitorRows();">
+          ${isConnected ? `<button type="button" class="monitor-jo-link" title="View this job order" onclick="viewOrderFromMonitor('${escapeHtml(r.joNumber)}')">🔗</button>` : ''}
+        </td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)"></td>
@@ -1729,6 +1768,24 @@
       if(handleAuthFailure(res.status)) return;
     }catch(e){
       console.warn('Could not delete the row from the server.', e);
+    }
+  }
+
+  // Called when a job order is deleted from the Browse tab — removes every
+  // monitoring row connected to that JO number (server-side, in one call)
+  // and drops them from the local cache so the sheet reflects it right
+  // away if it's already loaded.
+  async function deleteMonitorRowsByJoNumber(joNumber){
+    cachedMonitorRows = cachedMonitorRows.filter(r => r.joNumber !== joNumber);
+    if(document.getElementById('viewMonitor').style.display !== 'none') renderMonitorRows();
+    try{
+      const res = await fetch(`${MONITOR_API}?joNumber=${encodeURIComponent(joNumber)}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      handleAuthFailure(res.status);
+    }catch(e){
+      console.warn('Could not remove linked monitoring rows from the server.', e);
     }
   }
 
