@@ -631,14 +631,34 @@
   }
   .monitor-toolbar{
     display:flex;
+    flex-wrap:wrap;
+    align-items:center;
     gap:10px;
     margin-bottom:16px;
   }
-  .monitor-toolbar input{
+  .monitor-toolbar input[type="text"]{
     flex:1;
+    min-width:180px;
     font-family:inherit;
     font-size:13px;
     padding:9px 12px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .date-filter-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:11px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .date-filter-label input[type="date"]{
+    font-family:inherit;
+    font-size:13px;
+    padding:8px 10px;
     border:1px solid var(--line);
     background:var(--field-bg);
     color:var(--ink);
@@ -651,7 +671,7 @@
   }
   table.monitor-table{
     width:100%;
-    min-width:1560px;
+    min-width:1500px;
     border-collapse:collapse;
   }
   table.monitor-table thead th{
@@ -674,7 +694,6 @@
   table.monitor-table thead th.size-head.medium{background:#D8ECE3;}
   table.monitor-table thead th.size-head.large{background:#F5E6C8;}
   table.monitor-table thead th.size-head.xlarge{background:#E4DCF5;}
-  table.monitor-table thead th.size-head.other{background:#EAEAEA;}
   table.monitor-table tbody td{
     border:1px solid var(--line);
     padding:5px 8px;
@@ -682,11 +701,7 @@
     white-space:nowrap;
   }
   table.monitor-table tbody tr:nth-child(even){background:var(--row-bg);}
-  table.monitor-table td.monitor-desc{
-    white-space:normal;
-    max-width:220px;
-    min-width:160px;
-  }
+  table.monitor-table td.monitor-desc-cell{min-width:160px;}
   table.monitor-table td.size-col{text-align:center;}
   table.monitor-table td.size-col.xxsmall,
   table.monitor-table td.size-col.xsmall{background:#FBEEF4;}
@@ -694,8 +709,7 @@
   table.monitor-table td.size-col.medium{background:#EEF7F2;}
   table.monitor-table td.size-col.large{background:#FBF5E6;}
   table.monitor-table td.size-col.xlarge{background:#F3EFFA;}
-  table.monitor-table td.size-col.other{background:#F4F4F4;}
-  .monitor-input, .monitor-status{
+  .monitor-input, .monitor-status, .monitor-size-input{
     width:100%;
     min-width:84px;
     font-family:inherit;
@@ -706,43 +720,29 @@
     color:var(--ink);
     border-radius:3px;
   }
-  .monitor-input:hover, .monitor-status:hover{border-color:var(--line); background:var(--field-bg);}
-  .monitor-input:focus, .monitor-status:focus{border-color:var(--stamp); background:#fff; outline:none;}
+  .monitor-size-input{min-width:56px; text-align:center;}
+  .monitor-input:hover, .monitor-status:hover, .monitor-size-input:hover{border-color:var(--line); background:var(--field-bg);}
+  .monitor-input:focus, .monitor-status:focus, .monitor-size-input:focus{border-color:var(--stamp); background:#fff; outline:none;}
   .monitor-status{cursor:pointer; font-weight:600;}
   .monitor-status.status-forprint{background:#DCF3E4; color:#1E7A42;}
   .monitor-status.status-forheat{background:#FBDCDC; color:#B23A1B;}
   .monitor-status.status-printed{background:#DCE6FB; color:#2352A6;}
   .monitor-status.status-done{background:#E4E4E4; color:#3E4A54;}
   .monitor-status.status-cancelled{background:#F0E0E0; color:#8A4B4B;}
-  .month-tabs{
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-    margin-top:16px;
-    padding-top:14px;
-    border-top:1px solid var(--line);
-  }
-  .month-tab-btn{
-    font-family:inherit;
-    font-size:11px;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-    padding:6px 12px;
-    border:1px solid var(--line);
-    background:var(--field-bg);
+  .monitor-qty-cell{text-align:center; font-weight:600; color:var(--ink-soft);}
+  .monitor-row-delete{
+    background:none;
+    border:none;
     color:var(--ink-soft);
     cursor:pointer;
-    border-radius:4px;
+    font-size:14px;
+    padding:2px 4px;
   }
-  .month-tab-btn.active{
-    background:var(--stamp);
-    border-color:var(--stamp);
-    color:#fff;
-  }
-  .month-tab-btn:hover{opacity:.85;}
+  .monitor-row-delete:hover{color:var(--stamp);}
 </style>
 </head>
 <body>
+
 
   <div class="login-overlay" id="loginOverlay">
     <div class="login-card">
@@ -886,7 +886,12 @@
   <div class="monitor-wrap" id="viewMonitor" style="display:none;">
     <div class="monitor-toolbar">
       <input type="text" id="monitorSearch" placeholder="Search by job # or client..." oninput="renderMonitorRows()">
+      <label class="date-filter-label">Filter by date
+        <input type="date" id="monitorDateFilter" oninput="renderMonitorRows()">
+      </label>
+      <button class="ghost" id="monitorDateClear" onclick="clearMonitorDateFilter()" style="display:none;">✕ Clear date</button>
       <button class="ghost" onclick="loadMonitorList()">↻ Refresh</button>
+      <button class="primary" onclick="addMonitorRow()">+ Add Row</button>
     </div>
     <div class="monitor-scroll">
       <table class="monitor-table">
@@ -909,28 +914,13 @@
             <th class="size-head medium">Medium</th>
             <th class="size-head large">Large</th>
             <th class="size-head xlarge">X-Large</th>
-            <th class="size-head other">Other</th>
+            <th style="width:30px;"></th>
           </tr>
         </thead>
         <tbody id="monitorTbody"></tbody>
       </table>
     </div>
-    <div class="browse-empty" id="monitorEmpty" style="display:none;">No job orders saved yet — job orders are saved automatically when you print one.</div>
-    <div class="month-tabs" id="monitorMonthTabs">
-      <button class="month-tab-btn active" data-month="all" onclick="setMonitorMonth('all')">All</button>
-      <button class="month-tab-btn" data-month="0" onclick="setMonitorMonth('0')">January</button>
-      <button class="month-tab-btn" data-month="1" onclick="setMonitorMonth('1')">February</button>
-      <button class="month-tab-btn" data-month="2" onclick="setMonitorMonth('2')">March</button>
-      <button class="month-tab-btn" data-month="3" onclick="setMonitorMonth('3')">April</button>
-      <button class="month-tab-btn" data-month="4" onclick="setMonitorMonth('4')">May</button>
-      <button class="month-tab-btn" data-month="5" onclick="setMonitorMonth('5')">June</button>
-      <button class="month-tab-btn" data-month="6" onclick="setMonitorMonth('6')">July</button>
-      <button class="month-tab-btn" data-month="7" onclick="setMonitorMonth('7')">August</button>
-      <button class="month-tab-btn" data-month="8" onclick="setMonitorMonth('8')">September</button>
-      <button class="month-tab-btn" data-month="9" onclick="setMonitorMonth('9')">October</button>
-      <button class="month-tab-btn" data-month="10" onclick="setMonitorMonth('10')">November</button>
-      <button class="month-tab-btn" data-month="11" onclick="setMonitorMonth('11')">December</button>
-    </div>
+    <div class="browse-empty" id="monitorEmpty" style="display:none;">No rows yet — click "+ Add Row" to start tracking.</div>
   </div>
 
   <div class="browse-wrap" id="viewUsers" style="display:none;">
@@ -1613,14 +1603,14 @@
   }
 
   // ---- Monitoring Sheet ----
-  // Reuses the same saved job orders (cachedOrders) as the Browse tab, but
-  // presents them one row per order with a size breakdown, plus a set of
-  // production-tracking fields (Status/Artist/Machine/ICC Profile) that
-  // don't exist on the job order form itself — those live only here, saved
-  // into each order's `monitor` sub-object. Any logged-in user can edit
-  // them; that's intentionally looser than the Super-Admin-only restriction
-  // on editing the core order details from the Browse tab.
-  const MONITOR_SIZE_MAP = { 'S':'small', 'M':'medium', 'L':'large', 'XL':'xlarge' };
+  // A standalone manual tracker, independent of saved job orders — every
+  // row and every cell is typed in by hand, stored via its own backend
+  // (api/monitor.js / KV key "monitoring-sheet"). Qty is the one computed
+  // cell: it's always the sum of the six size columns for that row, same
+  // as the =SUM(...) formula in the reference spreadsheet. Any logged-in
+  // user can add, edit, or delete rows.
+  const MONITOR_API = '/api/monitor';
+  const MONITOR_SIZE_COLS = ['xxsmall','xsmall','small','medium','large','xlarge'];
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
   const MONITOR_STATUS_CLASS = {
     'FOR PRINT':'status-forprint',
@@ -1629,7 +1619,12 @@
     'DONE':'status-done',
     'CANCELLED':'status-cancelled'
   };
-  let monitorMonthFilter = 'all';
+  const MONITOR_MATERIAL_OPTIONS = ['Cooltex 140gsm','Cooltex 170gsm','Cooltex 200gsm','Double square'];
+  let cachedMonitorRows = [];
+
+  function monitorRowId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'row_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  }
 
   function monitorStatusOptionsHtml(selected){
     return '<option value="">—</option>' + MONITOR_STATUS_OPTIONS.map(s =>
@@ -1637,10 +1632,14 @@
     ).join('');
   }
 
-  function monitorMonthIndex(dateStr){
-    if(!dateStr) return null;
-    const d = new Date(dateStr + 'T00:00:00');
-    return isNaN(d) ? null : d.getMonth();
+  function monitorMaterialOptionsHtml(selected){
+    return '<option value="">—</option>' + MONITOR_MATERIAL_OPTIONS.map(s =>
+      `<option value="${s}"${s === selected ? ' selected' : ''}>${s}</option>`
+    ).join('');
+  }
+
+  function monitorRowQty(row){
+    return MONITOR_SIZE_COLS.reduce((sum, k) => sum + (parseFloat(row[k]) || 0), 0);
   }
 
   async function loadMonitorList(){
@@ -1648,22 +1647,19 @@
     tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('monitorEmpty').style.display = 'none';
     try{
-      const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
+      const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
-      cachedOrders = data.orders || [];
+      cachedMonitorRows = data.rows || [];
     }catch(e){
-      cachedOrders = [];
-      console.warn('Could not load job orders for the monitoring sheet.', e);
+      cachedMonitorRows = [];
+      console.warn('Could not load the monitoring sheet.', e);
     }
     renderMonitorRows();
   }
 
-  function setMonitorMonth(m){
-    monitorMonthFilter = m;
-    document.querySelectorAll('.month-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.month === m);
-    });
+  function clearMonitorDateFilter(){
+    document.getElementById('monitorDateFilter').value = '';
     renderMonitorRows();
   }
 
@@ -1671,90 +1667,108 @@
     const tbody = document.getElementById('monitorTbody');
     const empty = document.getElementById('monitorEmpty');
     const q = (document.getElementById('monitorSearch').value || '').toLowerCase();
+    const dateFilter = document.getElementById('monitorDateFilter').value;
+    document.getElementById('monitorDateClear').style.display = dateFilter ? '' : 'none';
 
-    const filtered = cachedOrders.filter(o => {
-      if(monitorMonthFilter !== 'all'){
-        const mi = monitorMonthIndex(o.date);
-        if(mi === null || String(mi) !== monitorMonthFilter) return false;
-      }
+    const filtered = cachedMonitorRows.filter(r => {
+      if(dateFilter && r.date !== dateFilter) return false;
       if(!q) return true;
-      return [o.joNumber, o.clientName].some(v => (v || '').toLowerCase().includes(q));
-    }).sort((a, b) => (a.date || '').localeCompare(b.date || '') || String(a.joNumber || '').localeCompare(String(b.joNumber || '')));
+      return [r.joNumber, r.clientName].some(v => (v || '').toLowerCase().includes(q));
+    }).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
 
     if(filtered.length === 0){
       tbody.innerHTML = '';
       empty.style.display = 'block';
-      empty.textContent = cachedOrders.length === 0
-        ? 'No job orders saved yet — job orders are saved automatically when you print one.'
-        : 'No job orders match this filter.';
+      empty.textContent = cachedMonitorRows.length === 0
+        ? 'No rows yet — click "+ Add Row" to start tracking.'
+        : 'No rows match this filter.';
       return;
     }
     empty.style.display = 'none';
 
-    tbody.innerHTML = filtered.map(o => {
-      const items = o.items || [];
-      const totalQty = items.reduce((sum, it) => sum + (parseFloat(it.qty) || 0), 0);
-      const descText = items.map(it => it.desc).filter(Boolean).join(', ');
-      const sizeSums = { xxsmall: 0, xsmall: 0, small: 0, medium: 0, large: 0, xlarge: 0, other: 0 };
-      items.forEach(it => {
-        const qty = parseFloat(it.qty) || 0;
-        if(!it.unit) return;
-        const col = MONITOR_SIZE_MAP[it.unit] || 'other';
-        sizeSums[col] += qty;
-      });
-      const mon = o.monitor || {};
-      const jo = escapeHtml(o.joNumber);
-      const statusCls = MONITOR_STATUS_CLASS[mon.status] || '';
+    tbody.innerHTML = filtered.map(r => {
+      const id = escapeHtml(r.id);
+      const statusCls = MONITOR_STATUS_CLASS[r.status] || '';
+      const sizeCells = MONITOR_SIZE_COLS.map(k =>
+        `<td class="num size-col ${k}"><input type="number" step="any" class="monitor-size-input" data-id="${id}" data-field="${k}" value="${r[k] || ''}" placeholder="0" onchange="saveMonitorField(this, true)"></td>`
+      ).join('');
       return `
       <tr>
-        <td>${escapeHtml(o.date)}</td>
-        <td>${jo}</td>
-        <td>${escapeHtml(o.clientName)}</td>
-        <td class="monitor-desc" title="${escapeHtml(descText)}">${escapeHtml(descText) || '—'}</td>
-        <td class="num">${totalQty || ''}</td>
-        <td>${escapeHtml(o.materialType)}</td>
-        <td><select class="monitor-status ${statusCls}" data-jo="${jo}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(mon.status)}</select></td>
-        <td><input type="text" class="monitor-input" data-jo="${jo}" data-field="artist" value="${escapeHtml(mon.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-jo="${jo}" data-field="machine" value="${escapeHtml(mon.machine)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-jo="${jo}" data-field="icc" value="${escapeHtml(mon.icc)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td>${escapeHtml(o.dueDate)}</td>
-        <td class="num size-col xxsmall">${sizeSums.xxsmall || ''}</td>
-        <td class="num size-col xsmall">${sizeSums.xsmall || ''}</td>
-        <td class="num size-col small">${sizeSums.small || ''}</td>
-        <td class="num size-col medium">${sizeSums.medium || ''}</td>
-        <td class="num size-col large">${sizeSums.large || ''}</td>
-        <td class="num size-col xlarge">${sizeSums.xlarge || ''}</td>
-        <td class="num size-col other">${sizeSums.other || ''}</td>
+        <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="joNumber" value="${escapeHtml(r.joNumber)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td class="monitor-qty-cell" id="qty_${id}">${monitorRowQty(r) || 0}</td>
+        <td><select class="monitor-input" data-id="${id}" data-field="material" onchange="saveMonitorField(this)">${monitorMaterialOptionsHtml(r.material)}</select></td>
+        <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="machine" value="${escapeHtml(r.machine)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="icc" value="${escapeHtml(r.icc)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="date" class="monitor-input" data-id="${id}" data-field="dueDate" value="${r.dueDate || ''}" onchange="saveMonitorField(this)"></td>
+        ${sizeCells}
+        <td><button class="monitor-row-delete" title="Delete row" onclick="deleteMonitorRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
   }
 
-  // Any logged-in user can edit these cells — save the whole order record
-  // back (not flagged isEdit, so it uses the regular any-authenticated-user
-  // path in api/orders.js rather than the Super-Admin-only edit path).
-  async function saveMonitorField(el){
-    const jo = el.dataset.jo;
+  function addMonitorRow(){
+    const row = {
+      id: monitorRowId(),
+      date: '', joNumber: '', clientName: '', description: '', material: '',
+      status: '', artist: '', machine: '', icc: '', dueDate: '',
+      xxsmall: '', xsmall: '', small: '', medium: '', large: '', xlarge: '',
+      createdAt: new Date().toISOString()
+    };
+    cachedMonitorRows.push(row);
+    renderMonitorRows();
+    persistMonitorRow(row);
+  }
+
+  async function deleteMonitorRow(id){
+    if(!confirm('Delete this row?')) return;
+    cachedMonitorRows = cachedMonitorRows.filter(r => r.id !== id);
+    renderMonitorRows();
+    try{
+      const res = await fetch(`${MONITOR_API}?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+    }catch(e){
+      console.warn('Could not delete the row from the server.', e);
+    }
+  }
+
+  async function saveMonitorField(el, isSizeField){
+    const id = el.dataset.id;
     const field = el.dataset.field;
     const value = el.value;
-    const order = cachedOrders.find(o => o.joNumber === jo);
-    if(!order) return;
-    order.monitor = order.monitor || {};
-    order.monitor[field] = value;
+    const row = cachedMonitorRows.find(r => r.id === id);
+    if(!row) return;
+    row[field] = value;
     if(field === 'status'){
       el.className = 'monitor-status ' + (MONITOR_STATUS_CLASS[value] || '');
     }
+    if(isSizeField){
+      const qtyCell = document.getElementById('qty_' + id);
+      if(qtyCell) qtyCell.textContent = monitorRowQty(row) || 0;
+    }
+    persistMonitorRow(row);
+  }
+
+  async function persistMonitorRow(row){
     try{
-      const res = await fetch(ORDERS_API, {
+      const res = await fetch(MONITOR_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ id: order.joNumber, data: order })
+        body: JSON.stringify({ id: row.id, data: row })
       });
       if(handleAuthFailure(res.status)) return;
       if(!res.ok){
-        console.warn('Could not save the monitoring update.');
+        console.warn('Could not save the row.');
       }
     }catch(e){
-      console.warn('Could not reach the server to save the monitoring update.', e);
+      console.warn('Could not reach the server to save the row.', e);
     }
   }
 
