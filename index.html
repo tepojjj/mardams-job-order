@@ -909,7 +909,6 @@
         </thead>
         <tbody id="monitorTbody"></tbody>
       </table>
-      <datalist id="monitorJoList"></datalist>
     </div>
     <div class="browse-empty" id="monitorEmpty" style="display:none;">No rows yet — click "+ Add Row" to start tracking.</div>
   </div>
@@ -1378,6 +1377,51 @@
     }catch(e){
       console.warn('Could not save the job order to the backend.', e);
     }
+    await syncMonitorRowFromOrder(data);
+  }
+
+  // Whenever a job order is saved (new, reprinted, or edited), push its
+  // Date, Due Date, Client Name, and JO No. into the matching Monitoring
+  // Sheet row — creating that row if it doesn't exist yet. Every other
+  // monitoring field (Description, Qty, Material, Status, Artist, Machine,
+  // ICC Profile, Remarks) is left exactly as-is for manual entry.
+  async function syncMonitorRowFromOrder(data, previousJoNumber){
+    if(!data.joNumber) return;
+    try{
+      const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const resData = await res.json();
+      const rows = resData.rows || [];
+      let row = rows.find(r => r.joNumber === data.joNumber);
+      if(!row && previousJoNumber){
+        row = rows.find(r => r.joNumber === previousJoNumber);
+      }
+      if(row){
+        row.joNumber = data.joNumber;
+        row.date = data.date || '';
+        row.dueDate = data.dueDate || '';
+        row.clientName = data.clientName || '';
+      }else{
+        row = {
+          id: monitorRowId(),
+          date: data.date || '', joNumber: data.joNumber, clientName: data.clientName || '',
+          description: '', qty: '', material: '',
+          status: '', artist: '', machine: '', icc: '',
+          dueDate: data.dueDate || '', remarks: '',
+          createdAt: new Date().toISOString()
+        };
+      }
+      await fetch(MONITOR_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: row.id, data: row })
+      });
+      const idx = cachedMonitorRows.findIndex(r => r.id === row.id);
+      if(idx >= 0) cachedMonitorRows[idx] = row; else cachedMonitorRows.push(row);
+      if(document.getElementById('viewMonitor').style.display !== 'none') renderMonitorRows();
+    }catch(e){
+      console.warn('Could not sync the monitoring sheet from this job order.', e);
+    }
   }
 
   function populateFormFromOrder(data){
@@ -1543,6 +1587,8 @@
       return;
     }
 
+    await syncMonitorRowFromOrder(data, oldId !== newId ? oldId : undefined);
+
     exitEditMode();
     showTab('browse');
   }
@@ -1669,19 +1715,22 @@
       cachedMonitorRows = cachedMonitorRows || [];
       console.warn('Could not load the monitoring sheet.', e);
     }
-    renderMonitorJoList();
     renderMonitorRows();
   }
 
-  // JO No. connects each monitoring row to an actual saved job order (when
-  // one exists with that number) — the datalist suggests real JO numbers
-  // as you type, and a small "View" link appears once the number matches
-  // a saved order. Every other field on the row stays plain manual entry.
-  function renderMonitorJoList(){
-    const list = document.getElementById('monitorJoList');
-    list.innerHTML = cachedOrders.map(o =>
-      `<option value="${escapeHtml(o.joNumber)}">${escapeHtml(o.clientName || '')}</option>`
+  // JO No. connects each monitoring row to an actual saved job order — the
+  // dropdown only lists real, currently-saved JO numbers, so a row can't
+  // point at one that doesn't exist. Every other field on the row stays
+  // plain manual entry.
+  function monitorJoOptionsHtml(selected){
+    const known = cachedOrders.some(o => o.joNumber === selected);
+    let options = '<option value="">— select —</option>' + cachedOrders.map(o =>
+      `<option value="${escapeHtml(o.joNumber)}"${o.joNumber === selected ? ' selected' : ''}>${escapeHtml(o.joNumber)}${o.clientName ? ' — ' + escapeHtml(o.clientName) : ''}</option>`
     ).join('');
+    if(selected && !known){
+      options += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (not found)</option>`;
+    }
+    return options;
   }
 
   function viewOrderFromMonitor(id){
@@ -1726,7 +1775,7 @@
       <tr>
         <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)"></td>
         <td class="monitor-jo-cell">
-          <input type="text" class="monitor-input" list="monitorJoList" data-id="${id}" data-field="joNumber" value="${escapeHtml(r.joNumber)}" placeholder="—" onchange="saveMonitorField(this); renderMonitorRows();">
+          <select class="monitor-input" data-id="${id}" data-field="joNumber" onchange="saveMonitorField(this); renderMonitorRows();">${monitorJoOptionsHtml(r.joNumber)}</select>
           ${isConnected ? `<button type="button" class="monitor-jo-link" title="View this job order" onclick="viewOrderFromMonitor('${escapeHtml(r.joNumber)}')">🔗</button>` : ''}
         </td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)"></td>
