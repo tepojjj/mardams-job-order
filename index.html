@@ -687,13 +687,6 @@
     top:0;
     z-index:1;
   }
-  table.monitor-table thead th.size-head{color:#161A1E; text-align:center;}
-  table.monitor-table thead th.size-head.kids{background:#F6D9E6;}
-  table.monitor-table thead th.size-head.adult-s{background:#DCE4FB;}
-  table.monitor-table thead th.size-head.adult-m{background:#D8ECE3;}
-  table.monitor-table thead th.size-head.adult-l{background:#F5E6C8;}
-  table.monitor-table thead th.size-head.adult-xl{background:#E4DCF5;}
-  table.monitor-table thead th.size-head.plus{background:#EAEAEA;}
   table.monitor-table tbody td{
     border:1px solid var(--line);
     padding:5px 8px;
@@ -702,14 +695,7 @@
   }
   table.monitor-table tbody tr:nth-child(even){background:var(--row-bg);}
   table.monitor-table td.monitor-desc-cell{min-width:160px;}
-  table.monitor-table td.size-col{text-align:center;}
-  table.monitor-table td.size-col.kids{background:#FBEEF4;}
-  table.monitor-table td.size-col.adult-s{background:#EEF1FC;}
-  table.monitor-table td.size-col.adult-m{background:#EEF7F2;}
-  table.monitor-table td.size-col.adult-l{background:#FBF5E6;}
-  table.monitor-table td.size-col.adult-xl{background:#F3EFFA;}
-  table.monitor-table td.size-col.plus{background:#F4F4F4;}
-  .monitor-input, .monitor-status, .monitor-size-input{
+  .monitor-input, .monitor-status{
     width:100%;
     min-width:84px;
     font-family:inherit;
@@ -720,9 +706,8 @@
     color:var(--ink);
     border-radius:3px;
   }
-  .monitor-size-input{min-width:46px; text-align:center;}
-  .monitor-input:hover, .monitor-status:hover, .monitor-size-input:hover{border-color:var(--line); background:var(--field-bg);}
-  .monitor-input:focus, .monitor-status:focus, .monitor-size-input:focus{border-color:var(--stamp); background:#fff; outline:none;}
+  .monitor-input:hover, .monitor-status:hover{border-color:var(--line); background:var(--field-bg);}
+  .monitor-input:focus, .monitor-status:focus{border-color:var(--stamp); background:#fff; outline:none;}
   .monitor-status{cursor:pointer; font-weight:600;}
   .monitor-status.status-forprint{background:#DCF3E4; color:#1E7A42;}
   .monitor-status.status-forheat{background:#FBDCDC; color:#B23A1B;}
@@ -908,6 +893,7 @@
             <th>Machine</th>
             <th>ICC Profile</th>
             <th>Due Date</th>
+            <th>Remarks</th>
           </tr>
         </thead>
         <tbody id="monitorTbody"></tbody>
@@ -1598,11 +1584,8 @@
   // ---- Monitoring Sheet ----
   // A standalone manual tracker, independent of saved job orders — every
   // row and every cell is typed in by hand, stored via its own backend
-  // (api/monitor.js / KV key "monitoring-sheet"). Qty is the one computed
-  // cell: it's always the sum of the size columns for that row (same size
-  // list as the job order form's line-item Size dropdown — SIZE_OPTIONS,
-  // declared above), same as the =SUM(...) formula in the reference
-  // spreadsheet. Any logged-in user can add, edit, or delete rows.
+  // (api/monitor.js / KV key "monitoring-sheet"). Any logged-in user can
+  // add, edit, or delete rows.
   const MONITOR_API = '/api/monitor';
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
   const MONITOR_STATUS_CLASS = {
@@ -1613,32 +1596,13 @@
     'CANCELLED':'status-cancelled'
   };
   const MONITOR_MATERIAL_OPTIONS = ['Cooltex 140gsm','Cooltex 170gsm','Cooltex 200gsm','Double square'];
-  const MONITOR_KIDS_SIZES = ['S-8','S-10','S-12','S-14','S-16','S-18','S-20'];
-  const MONITOR_PLUS_SIZES = ['2XL','3XL','4XL','5XL','6XL'];
+  const MONITOR_MACHINE_OPTIONS = ['MIMAKI TS-100','UG MIMAKI TS-55'];
+  const MONITOR_ICC_OPTIONS = ['BPX','MARDAM','TS-100 ICC'];
   let cachedMonitorRows = [];
-
-  // Same size list as the job order form's line-item Size dropdown (see
-  // SIZE_OPTIONS above) — kept in sync by reusing that constant directly
-  // rather than a separate hardcoded list.
-  function monitorSizeGroupClass(size){
-    if(MONITOR_KIDS_SIZES.includes(size)) return 'kids';
-    if(MONITOR_PLUS_SIZES.includes(size)) return 'plus';
-    if(size === 'S') return 'adult-s';
-    if(size === 'M') return 'adult-m';
-    if(size === 'L') return 'adult-l';
-    if(size === 'XL') return 'adult-xl';
-    return '';
-  }
 
   function initMonitorHeader(){
     const row = document.getElementById('monitorHeadRow');
     if(row.dataset.sizesBuilt) return;
-    SIZE_OPTIONS.forEach(s => {
-      const th = document.createElement('th');
-      th.className = 'size-head ' + monitorSizeGroupClass(s);
-      th.textContent = s;
-      row.appendChild(th);
-    });
     const thDel = document.createElement('th');
     thDel.style.width = '30px';
     row.appendChild(thDel);
@@ -1661,14 +1625,22 @@
     ).join('');
   }
 
-  function monitorRowQty(row){
-    return SIZE_OPTIONS.reduce((sum, s) => sum + (parseFloat(row[s]) || 0), 0);
+  function monitorMachineOptionsHtml(selected){
+    return '<option value="">—</option>' + MONITOR_MACHINE_OPTIONS.map(s =>
+      `<option value="${s}"${s === selected ? ' selected' : ''}>${s}</option>`
+    ).join('');
+  }
+
+  function monitorIccOptionsHtml(selected){
+    return '<option value="">—</option>' + MONITOR_ICC_OPTIONS.map(s =>
+      `<option value="${s}"${s === selected ? ' selected' : ''}>${s}</option>`
+    ).join('');
   }
 
   async function loadMonitorList(){
     initMonitorHeader();
     const tbody = document.getElementById('monitorTbody');
-    tbody.innerHTML = `<tr><td colspan="${11 + SIZE_OPTIONS.length + 1}" style="text-align:center;">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Loading…</td></tr>`;
     document.getElementById('monitorEmpty').style.display = 'none';
     try{
       const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
@@ -1714,23 +1686,20 @@
     tbody.innerHTML = filtered.map(r => {
       const id = escapeHtml(r.id);
       const statusCls = MONITOR_STATUS_CLASS[r.status] || '';
-      const sizeCells = SIZE_OPTIONS.map(s =>
-        `<td class="num size-col ${monitorSizeGroupClass(s)}"><input type="number" step="any" class="monitor-size-input" data-id="${id}" data-field="${s}" value="${r[s] || ''}" placeholder="0" onchange="saveMonitorField(this, true)"></td>`
-      ).join('');
       return `
       <tr>
         <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="joNumber" value="${escapeHtml(r.joNumber)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td class="monitor-qty-cell" id="qty_${id}">${monitorRowQty(r) || 0}</td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)"></td>
         <td><select class="monitor-input" data-id="${id}" data-field="material" onchange="saveMonitorField(this)">${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="machine" value="${escapeHtml(r.machine)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="icc" value="${escapeHtml(r.icc)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><select class="monitor-input" data-id="${id}" data-field="machine" onchange="saveMonitorField(this)">${monitorMachineOptionsHtml(r.machine)}</select></td>
+        <td><select class="monitor-input" data-id="${id}" data-field="icc" onchange="saveMonitorField(this)">${monitorIccOptionsHtml(r.icc)}</select></td>
         <td><input type="date" class="monitor-input" data-id="${id}" data-field="dueDate" value="${r.dueDate || ''}" onchange="saveMonitorField(this)"></td>
-        ${sizeCells}
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="remarks" value="${escapeHtml(r.remarks)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><button class="monitor-row-delete" title="Delete row" onclick="deleteMonitorRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
@@ -1739,11 +1708,10 @@
   function addMonitorRow(){
     const row = {
       id: monitorRowId(),
-      date: '', joNumber: '', clientName: '', description: '', material: '',
-      status: '', artist: '', machine: '', icc: '', dueDate: '',
+      date: '', joNumber: '', clientName: '', description: '', qty: '', material: '',
+      status: '', artist: '', machine: '', icc: '', dueDate: '', remarks: '',
       createdAt: new Date().toISOString()
     };
-    SIZE_OPTIONS.forEach(s => { row[s] = ''; });
     cachedMonitorRows.push(row);
     renderMonitorRows();
     persistMonitorRow(row);
@@ -1764,7 +1732,7 @@
     }
   }
 
-  async function saveMonitorField(el, isSizeField){
+  async function saveMonitorField(el){
     const id = el.dataset.id;
     const field = el.dataset.field;
     const value = el.value;
@@ -1773,10 +1741,6 @@
     row[field] = value;
     if(field === 'status'){
       el.className = 'monitor-status ' + (MONITOR_STATUS_CLASS[value] || '');
-    }
-    if(isSizeField){
-      const qtyCell = document.getElementById('qty_' + id);
-      if(qtyCell) qtyCell.textContent = monitorRowQty(row) || 0;
     }
     persistMonitorRow(row);
   }

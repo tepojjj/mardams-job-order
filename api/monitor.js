@@ -3,8 +3,8 @@ const { requireAuth } = require('./_auth');
 
 // The Monitoring Sheet is a standalone manual tracker — separate from the
 // job-order records in api/orders.js. Rows are typed in by hand (Date, JO
-// number, client, description, sizes, etc.) rather than being derived from
-// any saved job order. All rows live in one Redis hash: { [rowId]: JSON }.
+// number, client, description, remarks, etc.) rather than being derived
+// from any saved job order. All rows live in one Redis hash: { [rowId]: JSON }.
 const KEY = 'monitoring-sheet';
 
 module.exports = async (req, res) => {
