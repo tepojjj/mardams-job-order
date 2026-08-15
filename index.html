@@ -671,7 +671,7 @@
   }
   table.monitor-table{
     width:100%;
-    min-width:1500px;
+    min-width:2100px;
     border-collapse:collapse;
   }
   table.monitor-table thead th{
@@ -687,13 +687,13 @@
     top:0;
     z-index:1;
   }
-  table.monitor-table thead th.size-head{color:#161A1E;}
-  table.monitor-table thead th.size-head.xxsmall,
-  table.monitor-table thead th.size-head.xsmall{background:#F6D9E6;}
-  table.monitor-table thead th.size-head.small{background:#DCE4FB;}
-  table.monitor-table thead th.size-head.medium{background:#D8ECE3;}
-  table.monitor-table thead th.size-head.large{background:#F5E6C8;}
-  table.monitor-table thead th.size-head.xlarge{background:#E4DCF5;}
+  table.monitor-table thead th.size-head{color:#161A1E; text-align:center;}
+  table.monitor-table thead th.size-head.kids{background:#F6D9E6;}
+  table.monitor-table thead th.size-head.adult-s{background:#DCE4FB;}
+  table.monitor-table thead th.size-head.adult-m{background:#D8ECE3;}
+  table.monitor-table thead th.size-head.adult-l{background:#F5E6C8;}
+  table.monitor-table thead th.size-head.adult-xl{background:#E4DCF5;}
+  table.monitor-table thead th.size-head.plus{background:#EAEAEA;}
   table.monitor-table tbody td{
     border:1px solid var(--line);
     padding:5px 8px;
@@ -703,12 +703,12 @@
   table.monitor-table tbody tr:nth-child(even){background:var(--row-bg);}
   table.monitor-table td.monitor-desc-cell{min-width:160px;}
   table.monitor-table td.size-col{text-align:center;}
-  table.monitor-table td.size-col.xxsmall,
-  table.monitor-table td.size-col.xsmall{background:#FBEEF4;}
-  table.monitor-table td.size-col.small{background:#EEF1FC;}
-  table.monitor-table td.size-col.medium{background:#EEF7F2;}
-  table.monitor-table td.size-col.large{background:#FBF5E6;}
-  table.monitor-table td.size-col.xlarge{background:#F3EFFA;}
+  table.monitor-table td.size-col.kids{background:#FBEEF4;}
+  table.monitor-table td.size-col.adult-s{background:#EEF1FC;}
+  table.monitor-table td.size-col.adult-m{background:#EEF7F2;}
+  table.monitor-table td.size-col.adult-l{background:#FBF5E6;}
+  table.monitor-table td.size-col.adult-xl{background:#F3EFFA;}
+  table.monitor-table td.size-col.plus{background:#F4F4F4;}
   .monitor-input, .monitor-status, .monitor-size-input{
     width:100%;
     min-width:84px;
@@ -720,7 +720,7 @@
     color:var(--ink);
     border-radius:3px;
   }
-  .monitor-size-input{min-width:56px; text-align:center;}
+  .monitor-size-input{min-width:46px; text-align:center;}
   .monitor-input:hover, .monitor-status:hover, .monitor-size-input:hover{border-color:var(--line); background:var(--field-bg);}
   .monitor-input:focus, .monitor-status:focus, .monitor-size-input:focus{border-color:var(--stamp); background:#fff; outline:none;}
   .monitor-status{cursor:pointer; font-weight:600;}
@@ -896,7 +896,7 @@
     <div class="monitor-scroll">
       <table class="monitor-table">
         <thead>
-          <tr>
+          <tr id="monitorHeadRow">
             <th>Date</th>
             <th>J.O. No</th>
             <th>Client Name</th>
@@ -908,13 +908,6 @@
             <th>Machine</th>
             <th>ICC Profile</th>
             <th>Due Date</th>
-            <th class="size-head xxsmall">XX-Small</th>
-            <th class="size-head xsmall">X-Small</th>
-            <th class="size-head small">Small</th>
-            <th class="size-head medium">Medium</th>
-            <th class="size-head large">Large</th>
-            <th class="size-head xlarge">X-Large</th>
-            <th style="width:30px;"></th>
           </tr>
         </thead>
         <tbody id="monitorTbody"></tbody>
@@ -1606,11 +1599,11 @@
   // A standalone manual tracker, independent of saved job orders — every
   // row and every cell is typed in by hand, stored via its own backend
   // (api/monitor.js / KV key "monitoring-sheet"). Qty is the one computed
-  // cell: it's always the sum of the six size columns for that row, same
-  // as the =SUM(...) formula in the reference spreadsheet. Any logged-in
-  // user can add, edit, or delete rows.
+  // cell: it's always the sum of the size columns for that row (same size
+  // list as the job order form's line-item Size dropdown — SIZE_OPTIONS,
+  // declared above), same as the =SUM(...) formula in the reference
+  // spreadsheet. Any logged-in user can add, edit, or delete rows.
   const MONITOR_API = '/api/monitor';
-  const MONITOR_SIZE_COLS = ['xxsmall','xsmall','small','medium','large','xlarge'];
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
   const MONITOR_STATUS_CLASS = {
     'FOR PRINT':'status-forprint',
@@ -1620,7 +1613,37 @@
     'CANCELLED':'status-cancelled'
   };
   const MONITOR_MATERIAL_OPTIONS = ['Cooltex 140gsm','Cooltex 170gsm','Cooltex 200gsm','Double square'];
+  const MONITOR_KIDS_SIZES = ['S-8','S-10','S-12','S-14','S-16','S-18','S-20'];
+  const MONITOR_PLUS_SIZES = ['2XL','3XL','4XL','5XL','6XL'];
   let cachedMonitorRows = [];
+
+  // Same size list as the job order form's line-item Size dropdown (see
+  // SIZE_OPTIONS above) — kept in sync by reusing that constant directly
+  // rather than a separate hardcoded list.
+  function monitorSizeGroupClass(size){
+    if(MONITOR_KIDS_SIZES.includes(size)) return 'kids';
+    if(MONITOR_PLUS_SIZES.includes(size)) return 'plus';
+    if(size === 'S') return 'adult-s';
+    if(size === 'M') return 'adult-m';
+    if(size === 'L') return 'adult-l';
+    if(size === 'XL') return 'adult-xl';
+    return '';
+  }
+
+  function initMonitorHeader(){
+    const row = document.getElementById('monitorHeadRow');
+    if(row.dataset.sizesBuilt) return;
+    SIZE_OPTIONS.forEach(s => {
+      const th = document.createElement('th');
+      th.className = 'size-head ' + monitorSizeGroupClass(s);
+      th.textContent = s;
+      row.appendChild(th);
+    });
+    const thDel = document.createElement('th');
+    thDel.style.width = '30px';
+    row.appendChild(thDel);
+    row.dataset.sizesBuilt = '1';
+  }
 
   function monitorRowId(){
     return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'row_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -1639,12 +1662,13 @@
   }
 
   function monitorRowQty(row){
-    return MONITOR_SIZE_COLS.reduce((sum, k) => sum + (parseFloat(row[k]) || 0), 0);
+    return SIZE_OPTIONS.reduce((sum, s) => sum + (parseFloat(row[s]) || 0), 0);
   }
 
   async function loadMonitorList(){
+    initMonitorHeader();
     const tbody = document.getElementById('monitorTbody');
-    tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${11 + SIZE_OPTIONS.length + 1}" style="text-align:center;">Loading…</td></tr>`;
     document.getElementById('monitorEmpty').style.display = 'none';
     try{
       const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
@@ -1664,6 +1688,7 @@
   }
 
   function renderMonitorRows(){
+    initMonitorHeader();
     const tbody = document.getElementById('monitorTbody');
     const empty = document.getElementById('monitorEmpty');
     const q = (document.getElementById('monitorSearch').value || '').toLowerCase();
@@ -1689,8 +1714,8 @@
     tbody.innerHTML = filtered.map(r => {
       const id = escapeHtml(r.id);
       const statusCls = MONITOR_STATUS_CLASS[r.status] || '';
-      const sizeCells = MONITOR_SIZE_COLS.map(k =>
-        `<td class="num size-col ${k}"><input type="number" step="any" class="monitor-size-input" data-id="${id}" data-field="${k}" value="${r[k] || ''}" placeholder="0" onchange="saveMonitorField(this, true)"></td>`
+      const sizeCells = SIZE_OPTIONS.map(s =>
+        `<td class="num size-col ${monitorSizeGroupClass(s)}"><input type="number" step="any" class="monitor-size-input" data-id="${id}" data-field="${s}" value="${r[s] || ''}" placeholder="0" onchange="saveMonitorField(this, true)"></td>`
       ).join('');
       return `
       <tr>
@@ -1716,9 +1741,9 @@
       id: monitorRowId(),
       date: '', joNumber: '', clientName: '', description: '', material: '',
       status: '', artist: '', machine: '', icc: '', dueDate: '',
-      xxsmall: '', xsmall: '', small: '', medium: '', large: '', xlarge: '',
       createdAt: new Date().toISOString()
     };
+    SIZE_OPTIONS.forEach(s => { row[s] = ''; });
     cachedMonitorRows.push(row);
     renderMonitorRows();
     persistMonitorRow(row);
