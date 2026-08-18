@@ -1389,10 +1389,27 @@
   }
 
   // Whenever a job order is saved (new, reprinted, or edited), push its
-  // Date, Due Date, Client Name, and JO No. into the matching Monitoring
-  // Sheet row — creating that row if it doesn't exist yet. Every other
-  // monitoring field (Description, Qty, Material, Status, Artist, Machine,
-  // ICC Profile, Remarks) is left exactly as-is for manual entry.
+  // Date, Due Date, Client Name, JO No., Material, and Description into
+  // the matching Monitoring Sheet row — creating that row if it doesn't
+  // exist yet. Description is built from the order's line-item
+  // descriptions, deduped (case-insensitive) and joined with commas, so
+  // repeating the same item text across several lines only shows once.
+  // Qty, Status, Artist, Machine, ICC Profile, and Remarks stay exactly
+  // as-is for manual entry — those aren't tracked on the job order form.
+  function descriptionFromItems(items){
+    const seen = new Set();
+    const parts = [];
+    (items || []).forEach(item => {
+      const desc = (item.desc || '').trim();
+      if(!desc) return;
+      const key = desc.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      parts.push(desc);
+    });
+    return parts.join(', ');
+  }
+
   async function syncMonitorRowFromOrder(data, previousJoNumber){
     if(!data.joNumber) return;
     try{
@@ -1409,11 +1426,13 @@
         row.date = data.date || '';
         row.dueDate = data.dueDate || '';
         row.clientName = data.clientName || '';
+        row.material = data.materialType || '';
+        row.description = descriptionFromItems(data.items);
       }else{
         row = {
           id: monitorRowId(),
           date: data.date || '', joNumber: data.joNumber, clientName: data.clientName || '',
-          description: '', qty: '', material: '',
+          description: descriptionFromItems(data.items), qty: '', material: data.materialType || '',
           status: '', artist: '', machine: '', icc: '',
           dueDate: data.dueDate || '', remarks: '',
           createdAt: new Date().toISOString()
