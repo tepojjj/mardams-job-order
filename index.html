@@ -22,7 +22,7 @@
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:linear-gradient(135deg, #2A4D7A 0%, #2F6B4F 45%, #3FA06A 75%, #B0524A 100%);
+    background:linear-gradient(135deg, #8FAAD4 0%, #93C4A9 45%, #A8E0BF 75%, #E3A79E 100%);
     background-attachment:fixed;
     font-family:'Roboto', ui-sans-serif, sans-serif;
     color:var(--ink);
@@ -397,17 +397,16 @@
     border:none;
     border-bottom:2px solid transparent;
     background:none;
-    color:rgba(255,255,255,.8);
-    text-shadow:0 1px 2px rgba(0,0,0,.25);
+    color:var(--ink-soft);
     cursor:pointer;
     border-radius:0;
   }
   .tab-btn.active{
-    color:#fff;
-    border-bottom-color:#fff;
+    color:var(--stamp);
+    border-bottom-color:var(--stamp);
     font-weight:700;
   }
-  .tab-btn:hover{opacity:1; color:#fff;}
+  .tab-btn:hover{opacity:.85;}
 
   .browse-wrap{
     max-width:900px;
@@ -574,11 +573,10 @@
   }
   .account-bar .who{
     font-size:11.5px;
-    color:rgba(255,255,255,.85);
+    color:var(--ink-soft);
     letter-spacing:.03em;
-    text-shadow:0 1px 2px rgba(0,0,0,.25);
   }
-  .account-bar .who b{color:#fff;}
+  .account-bar .who b{color:var(--ink);}
   .role-pill{
     display:inline-block;
     padding:2px 8px;
@@ -586,8 +584,8 @@
     font-size:9.5px;
     letter-spacing:.06em;
     text-transform:uppercase;
-    border:1px solid #fff;
-    color:#fff;
+    border:1px solid var(--stamp);
+    color:var(--stamp);
     margin-left:6px;
   }
 
