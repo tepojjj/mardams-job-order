@@ -1498,11 +1498,7 @@
           createdAt: new Date().toISOString()
         };
       }
-      await fetch(MONITOR_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ id: row.id, data: row })
-      });
+      await persistMonitorRow(row);
       const idx = cachedMonitorRows.findIndex(r => r.id === row.id);
       if(idx >= 0) cachedMonitorRows[idx] = row; else cachedMonitorRows.push(row);
       if(document.getElementById('viewMonitor').style.display !== 'none') renderMonitorRows();
@@ -1734,6 +1730,7 @@
   // (api/monitor.js / KV key "monitoring-sheet"). Any logged-in user can
   // add, edit, or delete rows.
   const MONITOR_API = '/api/monitor';
+  const SHEETS_SYNC_API = '/api/sheets-sync';
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
   const MONITOR_STATUS_CLASS = {
     'FOR PRINT':'status-forprint',
@@ -1963,6 +1960,7 @@
     }catch(e){
       console.warn('Could not delete the row from the server.', e);
     }
+    deleteRowFromGoogleSheets(id);
   }
 
   // Called when a job order is deleted from the Browse tab — removes every
@@ -1970,6 +1968,7 @@
   // and drops them from the local cache so the sheet reflects it right
   // away if it's already loaded.
   async function deleteMonitorRowsByJoNumber(joNumber){
+    const removedIds = cachedMonitorRows.filter(r => r.joNumber === joNumber).map(r => r.id);
     cachedMonitorRows = cachedMonitorRows.filter(r => r.joNumber !== joNumber);
     if(document.getElementById('viewMonitor').style.display !== 'none') renderMonitorRows();
     try{
@@ -1981,6 +1980,7 @@
     }catch(e){
       console.warn('Could not remove linked monitoring rows from the server.', e);
     }
+    removedIds.forEach(deleteRowFromGoogleSheets);
   }
 
   async function saveMonitorField(el){
@@ -2010,6 +2010,32 @@
     }catch(e){
       console.warn('Could not reach the server to save the row.', e);
     }
+    syncRowToGoogleSheets(row);
+  }
+
+  // ---- Google Sheets integration ----
+  // Every time a Monitoring Sheet row is created, edited, or deleted, this
+  // mirrors that change into a Google Sheet via a small server-side proxy
+  // (api/sheets-sync.js), which forwards it to a Google Apps Script Web
+  // App tied to the target spreadsheet. This is entirely best-effort and
+  // fire-and-forget — if it's not configured yet, or Google is briefly
+  // unreachable, the actual save to this app's own storage above is
+  // completely unaffected. See README.md "Google Sheets integration" for
+  // setup.
+  function syncRowToGoogleSheets(row){
+    fetch(SHEETS_SYNC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ row })
+    }).catch(e => console.warn('Google Sheets sync skipped (not configured or unreachable).', e));
+  }
+
+  function deleteRowFromGoogleSheets(id){
+    fetch(SHEETS_SYNC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ action: 'delete', id })
+    }).catch(e => console.warn('Google Sheets sync skipped (not configured or unreachable).', e));
   }
 
   // ---- Users (Admin / Super Admin only) ----

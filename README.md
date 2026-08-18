@@ -94,16 +94,65 @@ the first time someone logs in with credentials you set yourself:
 
 Sessions last 12 hours; after that, logging in again is required.
 
+## Google Sheets integration
+
+The Monitoring Sheet can automatically mirror every add/edit/delete into a
+Google Sheet, live — no manual copy/paste, no scheduled export. This is
+**optional**; the app works exactly the same without it.
+
+How it works: this app's own storage (Vercel KV) stays the source of
+truth. Every time a Monitoring Sheet row changes, the browser calls
+`/api/sheets-sync` (a Vercel function), which forwards that row to a
+Google Apps Script Web App tied to your target spreadsheet, which writes
+it in. If it's not set up, or Google is briefly unreachable, this fails
+silently — it never blocks or slows down saving to the Monitoring Sheet
+itself.
+
+### Setup
+
+1. Open (or create) the Google Sheet you want the data mirrored into.
+2. **Extensions → Apps Script**, delete any placeholder code, and paste in
+   the contents of `google-apps-script.gs` (included in this project).
+3. In that pasted script, replace `SHARED_SECRET` with a long random
+   string — e.g. generate one with `openssl rand -hex 24`.
+4. **Deploy → New deployment → type: Web app.**
+   - Execute as: **Me**
+   - Who has access: **Anyone** (this has to be "Anyone" so Vercel can
+     reach it — the shared secret is what actually protects your sheet
+     from strangers, since nobody else will know it)
+5. Copy the Web App URL it gives you (ends in `/exec`).
+6. In the Vercel dashboard → your project → **Settings → Environment
+   Variables**, add:
+   - `GOOGLE_SHEETS_WEBHOOK_URL` — the URL from step 5
+   - `GOOGLE_SHEETS_SECRET` — the same random string from step 3
+7. Redeploy the Vercel project so it picks up the new env vars.
+
+From then on, a tab named **"Monitoring Sheet"** is created automatically
+in that spreadsheet (with headers) the first time a row syncs, and every
+add/edit/delete in this app's Monitoring Sheet updates it within a couple
+of seconds.
+
+If you ever edit `google-apps-script.gs` later, use **Deploy → New
+deployment** again (not just save) — otherwise the live URL keeps running
+the old code.
+
 ## Files
 
-- `index.html` — the form, login screen, and Users tab
+- `index.html` — the form, login screen, Monitoring Sheet, and Users tab
 - `api/counter.js` — tracks the running job-order number (login required)
 - `api/orders.js` — saves/lists job orders (login required), deletes job
   orders (Super Admin only)
+- `api/monitor.js` — saves/lists/deletes Monitoring Sheet rows (login
+  required)
+- `api/sheets-sync.js` — forwards Monitoring Sheet changes to the Google
+  Sheets webhook, if configured (see "Google Sheets integration" above)
 - `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)
 - `api/login.js` — verifies login and issues a session token; also
   bootstraps the first Super Admin account (see above)
 - `api/_auth.js` — shared password hashing + session token helpers
+- `google-apps-script.gs` — paste this into your Google Sheet's Apps
+  Script editor to receive the synced data (see "Google Sheets
+  integration" above)
 - `package.json` — declares the `@vercel/kv` dependency
 
 No `vercel.json` is required — Vercel automatically serves `index.html` as
