@@ -207,7 +207,7 @@
     font-size:10.5px;
     letter-spacing:.08em;
     text-transform:uppercase;
-    color:var(--stamp);
+    color:#DC2626;
     font-weight:700;
   }
 
@@ -848,7 +848,7 @@
       </select>
     </div>
 
-    <div class="section-label">REMARKS</div>
+    <div class="section-label" style="color:#DC2626;">REMARKS</div>
     <textarea id="joNotes" placeholder="Any additional instructions..." style="min-height:36px;"></textarea>
 
     <div class="sign-grid">
@@ -1395,13 +1395,14 @@
   }
 
   // Whenever a job order is saved (new, reprinted, or edited), push its
-  // Date, Due Date, Client Name, JO No., Material, and Description into
-  // the matching Monitoring Sheet row — creating that row if it doesn't
-  // exist yet. Description is built from the order's line-item
-  // descriptions, deduped (case-insensitive) and joined with commas, so
-  // repeating the same item text across several lines only shows once.
-  // Qty, Status, Artist, Machine, ICC Profile, and Remarks stay exactly
-  // as-is for manual entry — those aren't tracked on the job order form.
+  // Date, Due Date, Client Name, JO No., Material, Description, and total
+  // Qty (summed across every line item, all sizes combined) into the
+  // matching Monitoring Sheet row — creating that row if it doesn't exist
+  // yet. Description is built from the order's line-item descriptions,
+  // deduped (case-insensitive) and joined with commas, so repeating the
+  // same item text across several lines only shows once. Status, Artist,
+  // Machine, ICC Profile, and Remarks stay exactly as-is for manual entry
+  // — those aren't tracked on the job order form.
   function descriptionFromItems(items){
     const seen = new Set();
     const parts = [];
@@ -1414,6 +1415,11 @@
       parts.push(desc);
     });
     return parts.join(', ');
+  }
+
+  function totalQtyFromItems(items){
+    const total = (items || []).reduce((sum, item) => sum + (parseFloat(item.qty) || 0), 0);
+    return total ? String(total) : '';
   }
 
   async function syncMonitorRowFromOrder(data, previousJoNumber){
@@ -1434,11 +1440,12 @@
         row.clientName = data.clientName || '';
         row.material = data.materialType || '';
         row.description = descriptionFromItems(data.items);
+        row.qty = totalQtyFromItems(data.items);
       }else{
         row = {
           id: monitorRowId(),
           date: data.date || '', joNumber: data.joNumber, clientName: data.clientName || '',
-          description: descriptionFromItems(data.items), qty: '', material: data.materialType || '',
+          description: descriptionFromItems(data.items), qty: totalQtyFromItems(data.items), material: data.materialType || '',
           status: '', artist: '', machine: '', icc: '',
           dueDate: data.dueDate || '', remarks: '',
           createdAt: new Date().toISOString()
@@ -1758,7 +1765,7 @@
   function monitorJoOptionsHtml(selected){
     const known = cachedOrders.some(o => o.joNumber === selected);
     let options = '<option value="">— select —</option>' + cachedOrders.map(o =>
-      `<option value="${escapeHtml(o.joNumber)}"${o.joNumber === selected ? ' selected' : ''}>${escapeHtml(o.joNumber)}${o.clientName ? ' — ' + escapeHtml(o.clientName) : ''}</option>`
+      `<option value="${escapeHtml(o.joNumber)}"${o.joNumber === selected ? ' selected' : ''}>${escapeHtml(o.joNumber)}</option>`
     ).join('');
     if(selected && !known){
       options += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (not found)</option>`;
@@ -1806,13 +1813,13 @@
       const isConnected = !!r.joNumber && cachedOrders.some(o => o.joNumber === r.joNumber);
       // Once a row is linked to a real, saved job order, the fields that
       // come FROM that order (Date, Due Date, Client Name, Description,
-      // Material) are locked here — editing them in the Monitoring Sheet
-      // would drift out of sync with the job order itself. To change any
-      // of these, edit the job order in the Browse Job Orders tab, which
-      // pushes the update back into this row automatically. Unlinked rows
-      // (no matching job order — e.g. a manually added tracking row) stay
-      // fully editable since there's nothing for them to fall out of sync
-      // with.
+      // Qty, Material) are locked here — editing them in the Monitoring
+      // Sheet would drift out of sync with the job order itself. To change
+      // any of these, edit the job order in the Browse Job Orders tab,
+      // which pushes the update back into this row automatically. Unlinked
+      // rows (no matching job order — e.g. a manually added tracking row)
+      // stay fully editable since there's nothing for them to fall out of
+      // sync with.
       const lockTitle = 'title="Linked to a job order — edit this in the Browse Job Orders tab to keep both in sync."';
       const lockedCls = isConnected ? ' monitor-locked' : '';
       const lockedAttrs = isConnected ? `readonly ${lockTitle}` : '';
@@ -1826,7 +1833,7 @@
         </td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
-        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)"></td>
+        <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><select class="monitor-input${lockedCls}" data-id="${id}" data-field="material" onchange="saveMonitorField(this)" ${lockedSelectAttrs}>${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
