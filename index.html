@@ -776,6 +776,9 @@
   }
   .monitor-row-delete:hover{color:var(--stamp);}
 
+  body.hide-revenue .monitor-revenue-col,
+  body.hide-revenue .monitor-summary{display:none !important;}
+
   .monitor-summary{
     display:flex;
     justify-content:flex-end;
@@ -1052,7 +1055,7 @@
             <th>Client Name</th>
             <th>Description</th>
             <th>Qty.</th>
-            <th class="num">Grand Total</th>
+            <th class="num monitor-revenue-col" id="monitorGrandTotalHead">Grand Total</th>
             <th>Material</th>
             <th>Status</th>
             <th>Artist</th>
@@ -1209,6 +1212,13 @@
     return 'Staff';
   }
 
+  // Revenue (Grand Total column, the Monitoring Sheet revenue summary,
+  // and the Analytics tab) is Super Admin-only — Admins and Staff work
+  // with the Monitoring Sheet without seeing money figures.
+  function canSeeRevenue(){
+    return !!currentUser && currentUser.role === 'super_admin';
+  }
+
   function showLogin(msg){
     clearAuth();
     document.getElementById('loginOverlay').style.display = 'flex';
@@ -1231,6 +1241,8 @@
     const canManageUsers = currentUser.role === 'admin' || currentUser.role === 'super_admin';
     document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
     document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
+    document.getElementById('tabBtnAnalytics').style.display = canSeeRevenue() ? '' : 'none';
+    document.body.classList.toggle('hide-revenue', !canSeeRevenue());
 
     showTab('new');
     peekNextNumber();
@@ -2046,7 +2058,7 @@
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
-        <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="grandTotal" value="${r.grandTotal || ''}" placeholder="0.00" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
+        <td class="num monitor-revenue-col"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="grandTotal" value="${r.grandTotal || ''}" placeholder="0.00" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><select class="monitor-input${lockedCls}" data-id="${id}" data-field="material" onchange="saveMonitorField(this)" ${lockedSelectAttrs}>${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
@@ -2067,6 +2079,7 @@
   // as "overall revenue" when nothing is filtered, and "revenue for this
   // filter" when it is.
   function renderMonitorSummary(rows){
+    if(!canSeeRevenue()) return;
     const total = (rows || []).reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
     document.getElementById('monitorRevenue').textContent = formatCurrency(total);
     const dateFilter = document.getElementById('monitorDateFilter').value;
@@ -2110,18 +2123,23 @@
       alert('There are no rows to export' + (document.getElementById('monitorSearch').value || document.getElementById('monitorDateFilter').value ? ' for the current filter.' : '.'));
       return;
     }
-    const headers = ['Date','J.O. No','Client Name','Description','Qty','Grand Total','Material','Status','Artist','Machine','ICC Profile','Due Date','Remarks'];
+    const showRevenue = canSeeRevenue();
+    const headers = ['Date','J.O. No','Client Name','Description','Qty', ...(showRevenue ? ['Grand Total'] : []), 'Material','Status','Artist','Machine','ICC Profile','Due Date','Remarks'];
     const lines = [headers.map(csvCell).join(',')];
     rows.forEach(r => {
       lines.push([
         r.date || '', r.joNumber || '', r.clientName || '', r.description || '',
-        r.qty || '', r.grandTotal || '', r.material || '', r.status || '', r.artist || '',
+        r.qty || '', ...(showRevenue ? [r.grandTotal || ''] : []), r.material || '', r.status || '', r.artist || '',
         r.machine || '', r.icc || '', r.dueDate || '', r.remarks || ''
       ].map(csvCell).join(','));
     });
-    const csvTotal = rows.reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
-    lines.push(['', '', '', '', '', '', '', '', '', '', '', '', ''].map(csvCell).join(','));
-    lines.push(['', '', '', '', 'TOTAL REVENUE', csvTotal.toFixed(2), '', '', '', '', '', '', ''].map(csvCell).join(','));
+    if(showRevenue){
+      const csvTotal = rows.reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
+      const blankRow = headers.map(() => '');
+      const totalRow = headers.map(h => h === 'Qty' ? 'TOTAL REVENUE' : (h === 'Grand Total' ? csvTotal.toFixed(2) : ''));
+      lines.push(blankRow.map(csvCell).join(','));
+      lines.push(totalRow.map(csvCell).join(','));
+    }
     // Leading BOM so Excel opens UTF-8 accented characters correctly.
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -2478,6 +2496,7 @@
   }
 
   function showTab(tab){
+    if(tab === 'analytics' && !canSeeRevenue()) tab = 'new';
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
