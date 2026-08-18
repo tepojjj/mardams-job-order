@@ -933,6 +933,7 @@
       </label>
       <button class="ghost" id="monitorDateClear" onclick="clearMonitorDateFilter()" style="display:none;">✕ Clear date</button>
       <button class="ghost" onclick="loadMonitorList()">↻ Refresh</button>
+      <button class="ghost" onclick="exportMonitorCsv()">⇩ Export CSV</button>
       <button class="primary" onclick="addMonitorRow()">+ Add Row</button>
     </div>
     <div class="monitor-scroll">
@@ -1830,19 +1831,24 @@
     renderMonitorRows();
   }
 
-  function renderMonitorRows(){
-    initMonitorHeader();
-    const tbody = document.getElementById('monitorTbody');
-    const empty = document.getElementById('monitorEmpty');
+  function getFilteredMonitorRows(){
     const q = (document.getElementById('monitorSearch').value || '').toLowerCase();
     const dateFilter = document.getElementById('monitorDateFilter').value;
-    document.getElementById('monitorDateClear').style.display = dateFilter ? '' : 'none';
-
-    const filtered = cachedMonitorRows.filter(r => {
+    return cachedMonitorRows.filter(r => {
       if(dateFilter && r.date !== dateFilter) return false;
       if(!q) return true;
       return [r.joNumber, r.clientName].some(v => (v || '').toLowerCase().includes(q));
     }).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
+  }
+
+  function renderMonitorRows(){
+    initMonitorHeader();
+    const tbody = document.getElementById('monitorTbody');
+    const empty = document.getElementById('monitorEmpty');
+    const dateFilter = document.getElementById('monitorDateFilter').value;
+    document.getElementById('monitorDateClear').style.display = dateFilter ? '' : 'none';
+
+    const filtered = getFilteredMonitorRows();
 
     if(filtered.length === 0){
       tbody.innerHTML = '';
@@ -1903,6 +1909,45 @@
     cachedMonitorRows.push(row);
     renderMonitorRows();
     persistMonitorRow(row);
+  }
+
+  // Exports exactly what's currently visible in the table — respecting
+  // the search box and date filter — as a .csv file. CSV opens directly
+  // in Excel/Google Sheets, so no extra library is needed for this.
+  function csvCell(value){
+    const s = String(value == null ? '' : value);
+    // Quote any field containing a comma, quote, or newline; double up
+    // internal quotes per the CSV spec.
+    if(/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportMonitorCsv(){
+    const rows = getFilteredMonitorRows();
+    if(rows.length === 0){
+      alert('There are no rows to export' + (document.getElementById('monitorSearch').value || document.getElementById('monitorDateFilter').value ? ' for the current filter.' : '.'));
+      return;
+    }
+    const headers = ['Date','J.O. No','Client Name','Description','Qty','Material','Status','Artist','Machine','ICC Profile','Due Date','Remarks'];
+    const lines = [headers.map(csvCell).join(',')];
+    rows.forEach(r => {
+      lines.push([
+        r.date || '', r.joNumber || '', r.clientName || '', r.description || '',
+        r.qty || '', r.material || '', r.status || '', r.artist || '',
+        r.machine || '', r.icc || '', r.dueDate || '', r.remarks || ''
+      ].map(csvCell).join(','));
+    });
+    // Leading BOM so Excel opens UTF-8 accented characters correctly.
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `monitoring-sheet-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   async function deleteMonitorRow(id){
