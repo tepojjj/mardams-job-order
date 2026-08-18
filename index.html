@@ -1160,6 +1160,11 @@
         <div class="stat-sub" id="statRecentSub">Last 7 days</div>
       </div>
       <div class="stat-card">
+        <div class="stat-label">Done Job Orders</div>
+        <div class="stat-value" id="statDone">0</div>
+        <div class="stat-sub" id="statDoneSub"></div>
+      </div>
+      <div class="stat-card">
         <div class="stat-label">Total Qty</div>
         <div class="stat-value" id="statQty">0</div>
       </div>
@@ -1170,11 +1175,6 @@
     </div>
 
     <div class="chart-block">
-      <div class="section-label">Revenue Trend</div>
-      <div class="chart-card" id="revenueChartCard"></div>
-    </div>
-
-    <div class="chart-block">
       <div class="section-label">Orders Tracked Over Time</div>
       <div class="chart-card" id="ordersChartCard"></div>
     </div>
@@ -1182,6 +1182,16 @@
     <div class="chart-block">
       <div class="section-label">Job Order Status Breakdown</div>
       <div class="chart-card" id="statusChartCard"></div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Completion Rate</div>
+      <div class="chart-card" id="completionGaugeCard"></div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Top Clients by Revenue</div>
+      <div class="chart-card" id="topClientsChartCard"></div>
     </div>
   </div>
 
@@ -2364,6 +2374,11 @@
     document.getElementById('statRecent').textContent = recentCount.toLocaleString('en-PH');
     document.getElementById('statRecentSub').textContent = `Last ${MONITOR_RECENT_DAYS} days`;
 
+    // Done Job Orders — status is exactly "DONE" on the Monitoring Sheet.
+    const doneCount = rows.filter(r => r.status === 'DONE').length;
+    document.getElementById('statDone').textContent = doneCount.toLocaleString('en-PH');
+    document.getElementById('statDoneSub').textContent = orderCount ? `${Math.round((doneCount / orderCount) * 100)}% of tracked orders` : '';
+
     // Bucket rows by date (day or month), keeping only dated rows, sorted
     // chronologically.
     const buckets = {};
@@ -2376,9 +2391,10 @@
     });
     const keys = Object.keys(buckets).sort();
 
-    renderRevenueTrendChart(keys, buckets);
     renderOrdersTrendChart(keys, buckets);
     renderStatusBreakdown(rows);
+    renderCompletionGauge(rows, orderCount, doneCount);
+    renderTopClientsChart(rows);
   }
 
   function analyticsLabel(key, groupBy){
@@ -2429,16 +2445,6 @@
     </svg>`;
   }
 
-  function renderRevenueTrendChart(keys, buckets){
-    renderBarChart(
-      document.getElementById('revenueChartCard'),
-      keys,
-      k => buckets[k].revenue,
-      v => formatCurrency(v),
-      'var(--stamp)'
-    );
-  }
-
   function renderOrdersTrendChart(keys, buckets){
     renderBarChart(
       document.getElementById('ordersChartCard'),
@@ -2449,6 +2455,8 @@
     );
   }
 
+  // Pie/donut chart of job order status counts, with a colored legend
+  // (replaces the old horizontal-bar version — same data, same colors).
   function renderStatusBreakdown(rows){
     const container = document.getElementById('statusChartCard');
     const counts = {};
@@ -2468,21 +2476,127 @@
       return;
     }
     const total = entries.reduce((sum, [, v]) => sum + v, 0);
-    const w = 420, barH = 26, gap = 10;
+    const size = 220, cx = size / 2, cy = size / 2, r = size / 2 - 6;
+
+    let slices = '';
+    let angle = -90; // start at 12 o'clock
+    entries.forEach(([label, val]) => {
+      const pct = val / total;
+      const sweep = pct * 360;
+      const startRad = (angle * Math.PI) / 180;
+      const endRad = ((angle + sweep) * Math.PI) / 180;
+      const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
+      const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
+      const largeArc = sweep > 180 ? 1 : 0;
+      const isActive = MONITOR_ACTIVE_STATUSES.includes(label);
+      if(pct >= 0.9995){
+        // Single full-circle slice: draw as a circle instead of a degenerate arc.
+        slices += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[label] || '#B9C2CB'}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></circle>`;
+      } else {
+        slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[label] || '#B9C2CB'}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></path>`;
+      }
+      angle += sweep;
+    });
+
+    const legend = entries.map(([label, val]) => {
+      const pct = Math.round((val / total) * 100);
+      const isActive = MONITOR_ACTIVE_STATUSES.includes(label);
+      return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;">
+        <span style="width:9px;height:9px;background:${colors[label] || '#B9C2CB'};display:inline-block;border-radius:2px;"></span>
+        ${label}${isActive ? ' •' : ''} — ${val} (${pct}%)
+      </span>`;
+    }).join('');
+
+    container.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:20px;">
+        <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="display:block;flex-shrink:0;">${slices}</svg>
+        <div class="chart-legend" style="max-width:280px;">${legend}</div>
+      </div>` +
+      '<div class="chart-legend" style="margin-top:8px;"><span>• = counted as an Active Job Order</span></div>';
+  }
+
+  // Semi-circular gauge showing the completion rate (Done ÷ Tracked
+  // Orders) as a percentage, needle-style.
+  function renderCompletionGauge(rows, orderCount, doneCount){
+    const container = document.getElementById('completionGaugeCard');
+    if(orderCount === 0){
+      container.innerHTML = '<div class="chart-empty">No rows yet.</div>';
+      return;
+    }
+    const pct = doneCount / orderCount; // 0..1
+    const w = 280, h = 170, cx = w / 2, cy = 150, r = 110;
+
+    // Gauge arc runs from 180° (left) to 0° (right) along the top half.
+    const angleForPct = p => 180 - p * 180;
+    const trackEnd = angleForPct(1);
+    const valueEnd = angleForPct(pct);
+
+    const polar = (deg) => {
+      const rad = (deg * Math.PI) / 180;
+      return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
+    };
+    const [tx1, ty1] = polar(180);
+    const [tx2, ty2] = polar(trackEnd);
+    const [vx1, vy1] = polar(180);
+    const [vx2, vy2] = polar(valueEnd);
+    const valueLargeArc = (180 - valueEnd) > 180 ? 1 : 0;
+
+    const trackPath = `M${tx1.toFixed(2)},${ty1.toFixed(2)} A${r},${r} 0 1 1 ${tx2.toFixed(2)},${ty2.toFixed(2)}`;
+    const valuePath = pct > 0
+      ? `M${vx1.toFixed(2)},${vy1.toFixed(2)} A${r},${r} 0 ${valueLargeArc} 1 ${vx2.toFixed(2)},${vy2.toFixed(2)}`
+      : '';
+
+    // Needle
+    const needleAngle = angleForPct(pct);
+    const needleRad = (needleAngle * Math.PI) / 180;
+    const nx = cx + (r - 18) * Math.cos(needleRad);
+    const ny = cy - (r - 18) * Math.sin(needleRad);
+
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;margin:0 auto;">
+        <path d="${trackPath}" fill="none" stroke="var(--line)" stroke-width="16" stroke-linecap="round"></path>
+        ${valuePath ? `<path d="${valuePath}" fill="none" stroke="var(--stamp)" stroke-width="16" stroke-linecap="round"></path>` : ''}
+        <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"></line>
+        <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
+        <text x="${cx}" y="${cy - 26}" text-anchor="middle" font-size="26" font-weight="700" fill="var(--ink)">${Math.round(pct * 100)}%</text>
+        <text x="${cx}" y="${(cy - 4).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--ink-soft)">${doneCount} of ${orderCount} done</text>
+      </svg>`;
+  }
+
+  // Horizontal bar chart of the top clients by total revenue (Grand
+  // Total summed per clientName). Shows at most the top 8 so the chart
+  // stays readable.
+  function renderTopClientsChart(rows){
+    const container = document.getElementById('topClientsChartCard');
+    const totals = {};
+    rows.forEach(r => {
+      const name = (r.clientName || '').trim();
+      if(!name) return;
+      totals[name] = (totals[name] || 0) + (parseFloat(r.grandTotal) || 0);
+    });
+    const entries = Object.entries(totals)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+
+    if(entries.length === 0){
+      container.innerHTML = '<div class="chart-empty">No client revenue to show yet.</div>';
+      return;
+    }
+    const maxVal = Math.max(...entries.map(([, v]) => v), 1);
+    const w = 560, barH = 26, gap = 10;
+    const labelW = 150;
     const h = entries.length * (barH + gap);
     let bars = '';
     entries.forEach(([label, val], i) => {
-      const pct = val / total;
-      const barW = Math.max(2, pct * (w - 140));
+      const barW = Math.max(2, (val / maxVal) * (w - labelW - 90));
       const y = i * (barH + gap);
-      const isActive = MONITOR_ACTIVE_STATUSES.includes(label);
       bars += `
-        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${label}${isActive ? ' •' : ''}</text>
-        <rect x="130" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="${colors[label] || '#B9C2CB'}" rx="2"></rect>
-        <text x="${(140 + barW).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)">${val} (${Math.round(pct * 100)}%)</text>`;
+        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${escapeHtml(label.length > 18 ? label.slice(0, 17) + '…' : label)}</text>
+        <rect x="${labelW}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="var(--stamp)" rx="2">
+          <title>${escapeHtml(label)}: ${formatCurrency(val)}</title>
+        </rect>
+        <text x="${(labelW + barW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)">${formatCurrency(val)}</text>`;
     });
-    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>` +
-      '<div class="chart-legend"><span>• = counted as an Active Job Order</span></div>';
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
   }
 
   // ---- Google Sheets integration ----
