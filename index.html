@@ -433,6 +433,7 @@
     color:var(--ink-soft);
     cursor:pointer;
     border-radius:0;
+    transition:color .2s ease, border-color .2s ease;
   }
   .tab-btn.active{
     color:var(--stamp);
@@ -440,6 +441,22 @@
     font-weight:700;
   }
   .tab-btn:hover{opacity:.85;}
+
+  /* ---- View transitions ---- */
+  @keyframes viewFadeIn{
+    from{opacity:0; transform:translateY(8px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .view-fade-in{
+    animation:viewFadeIn .32s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes appShellIn{
+    from{opacity:0; transform:translateY(-6px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .app-shell-in{
+    animation:appShellIn .4s cubic-bezier(.16,1,.3,1);
+  }
 
   .browse-wrap{
     max-width:900px;
@@ -561,6 +578,22 @@
     justify-content:center;
     z-index:100;
     padding:16px;
+    opacity:1;
+    transition:opacity .35s ease;
+  }
+  .login-overlay.fade-out{
+    opacity:0;
+    pointer-events:none;
+  }
+  @keyframes loginCardIn{
+    from{opacity:0; transform:translateY(16px) scale(.97);}
+    to{opacity:1; transform:translateY(0) scale(1);}
+  }
+  @keyframes shakeX{
+    10%,90%{transform:translateX(-1px);}
+    20%,80%{transform:translateX(2px);}
+    30%,50%,70%{transform:translateX(-4px);}
+    40%,60%{transform:translateX(4px);}
   }
   .login-card{
     width:100%;
@@ -570,6 +603,12 @@
     border-radius:8px;
     box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 12px 28px -18px rgba(22,26,30,0.18);
     padding:32px 30px;
+  }
+  .login-card.card-in{
+    animation:loginCardIn .5s cubic-bezier(.16,1,.3,1);
+  }
+  .login-card.shake{
+    animation:shakeX .4s ease;
   }
   .login-card label{
     display:block;
@@ -775,6 +814,13 @@
     padding:2px 4px;
   }
   .monitor-row-delete:hover{color:var(--stamp);}
+
+  @media (prefers-reduced-motion: reduce){
+    .login-card.card-in, .login-card.shake, .view-fade-in, .app-shell-in, .login-overlay{
+      animation:none !important;
+      transition:none !important;
+    }
+  }
 
   body.hide-revenue .monitor-revenue-col,
   body.hide-revenue .monitor-summary{display:none !important;}
@@ -1221,7 +1267,9 @@
 
   function showLogin(msg){
     clearAuth();
-    document.getElementById('loginOverlay').style.display = 'flex';
+    const overlay = document.getElementById('loginOverlay');
+    overlay.style.display = 'flex';
+    overlay.classList.remove('fade-out');
     document.getElementById('accountBar').style.display = 'none';
     document.getElementById('appTabs').style.display = 'none';
     document.getElementById('viewNew').style.display = 'none';
@@ -1229,12 +1277,31 @@
     document.getElementById('viewUsers').style.display = 'none';
     document.getElementById('loginError').textContent = msg || '';
     document.getElementById('loginPassword').value = '';
+    replayAnimation(document.querySelector('.login-card'), 'card-in');
+  }
+
+  // Restarts a CSS animation on an element by removing its animation
+  // class, forcing a reflow, then re-adding it — needed because just
+  // re-adding a class that's already present doesn't replay a CSS
+  // animation.
+  function replayAnimation(el, className){
+    if(!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
   }
 
   function initApp(){
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('accountBar').style.display = 'flex';
-    document.getElementById('appTabs').style.display = 'flex';
+    const overlay = document.getElementById('loginOverlay');
+    overlay.classList.add('fade-out');
+    setTimeout(() => { overlay.style.display = 'none'; }, 350);
+
+    const accountBar = document.getElementById('accountBar');
+    const appTabs = document.getElementById('appTabs');
+    accountBar.style.display = 'flex';
+    appTabs.style.display = 'flex';
+    replayAnimation(accountBar, 'app-shell-in');
+    replayAnimation(appTabs, 'app-shell-in');
     document.getElementById('accountInfo').innerHTML =
       'Signed in as <b>' + escapeHtml(currentUser.username) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
 
@@ -1255,6 +1322,7 @@
     errEl.textContent = '';
     if(!username || !password){
       errEl.textContent = 'Enter a username and password.';
+      replayAnimation(document.querySelector('.login-card'), 'shake');
       return;
     }
     const btn = document.getElementById('loginBtn');
@@ -1268,12 +1336,14 @@
       const data = await res.json();
       if(!res.ok){
         errEl.textContent = data.error || 'Login failed.';
+        replayAnimation(document.querySelector('.login-card'), 'shake');
         return;
       }
       saveAuth(data.token, data.user);
       initApp();
     }catch(e){
       errEl.textContent = 'Could not reach the server. Please try again.';
+      replayAnimation(document.querySelector('.login-card'), 'shake');
     }finally{
       btn.disabled = false;
     }
@@ -2513,6 +2583,8 @@
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : 'viewUsers';
+    replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
     if(isAnalytics) loadAnalytics();
