@@ -200,8 +200,14 @@
   .material-row{
     display:flex;
     align-items:center;
+    justify-content:space-between;
     gap:10px;
     margin:14px 0 4px;
+  }
+  .material-row-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
   }
   .material-row label{
     font-size:10.5px;
@@ -209,6 +215,33 @@
     text-transform:uppercase;
     color:#DC2626;
     font-weight:700;
+  }
+  .artist-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .artist-row label{
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--stamp);
+    font-weight:700;
+  }
+  .artist-input{
+    font-family:inherit;
+    font-size:12.5px;
+    padding:7px 10px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:var(--field-bg);
+    color:var(--ink);
+    width:200px;
+  }
+  .artist-input:focus{
+    outline:none;
+    border-color:var(--stamp);
+    background:#fff;
   }
 
   textarea{
@@ -838,14 +871,20 @@
     </div>
 
     <div class="material-row">
-      <label for="materialType">Materials</label>
-      <select id="materialType" class="material-select">
-        <option value="">Select material…</option>
-        <option>Cooltex 140gsm</option>
-        <option>Cooltex 170gsm</option>
-        <option>Cooltex 200gsm</option>
-        <option>Double square</option>
-      </select>
+      <div class="material-row-left">
+        <label for="materialType">Materials</label>
+        <select id="materialType" class="material-select">
+          <option value="">Select material…</option>
+          <option>Cooltex 140gsm</option>
+          <option>Cooltex 170gsm</option>
+          <option>Cooltex 200gsm</option>
+          <option>Double square</option>
+        </select>
+      </div>
+      <div class="artist-row">
+        <label for="joArtist">Artist</label>
+        <input type="text" id="joArtist" class="artist-input" placeholder="Artist name">
+      </div>
     </div>
 
     <div class="section-label" style="color:#DC2626;">REMARKS</div>
@@ -1369,6 +1408,7 @@
       date: document.getElementById('joDate').value,
       dueDate: document.getElementById('joDueDate').value,
       materialType: document.getElementById('materialType').value,
+      artist: document.getElementById('joArtist').value,
       items: items,
       grandTotal: document.getElementById('grandtotal').textContent,
       notes: document.getElementById('joNotes').value,
@@ -1397,12 +1437,8 @@
   // Whenever a job order is saved (new, reprinted, or edited), push its
   // Date, Due Date, Client Name, JO No., Material, Description, and total
   // Qty (summed across every line item, all sizes combined) into the
-  // matching Monitoring Sheet row — creating that row if it doesn't exist
-  // yet. Description is built from the order's line-item descriptions,
-  // deduped (case-insensitive) and joined with commas, so repeating the
-  // same item text across several lines only shows once. Status, Artist,
-  // Machine, ICC Profile, and Remarks stay exactly as-is for manual entry
-  // — those aren't tracked on the job order form.
+  // matching Monitoring Sheet row. The helpers below build Description
+  // (deduped line items) and total Qty for that sync.
   function descriptionFromItems(items){
     const seen = new Set();
     const parts = [];
@@ -1422,6 +1458,15 @@
     return total ? String(total) : '';
   }
 
+  // Whenever a job order is saved (new, reprinted, or edited), push its
+  // Date, Due Date, Client Name, JO No., Material, Artist, Description,
+  // and total Qty (summed across every line item, all sizes combined)
+  // into the matching Monitoring Sheet row — creating that row if it
+  // doesn't exist yet. Description is built from the order's line-item
+  // descriptions, deduped (case-insensitive) and joined with commas, so
+  // repeating the same item text across several lines only shows once.
+  // Status, Machine, ICC Profile, and Remarks stay exactly as-is for
+  // manual entry — those aren't tracked on the job order form.
   async function syncMonitorRowFromOrder(data, previousJoNumber){
     if(!data.joNumber) return;
     try{
@@ -1439,6 +1484,7 @@
         row.dueDate = data.dueDate || '';
         row.clientName = data.clientName || '';
         row.material = data.materialType || '';
+        row.artist = data.artist || '';
         row.description = descriptionFromItems(data.items);
         row.qty = totalQtyFromItems(data.items);
       }else{
@@ -1446,7 +1492,7 @@
           id: monitorRowId(),
           date: data.date || '', joNumber: data.joNumber, clientName: data.clientName || '',
           description: descriptionFromItems(data.items), qty: totalQtyFromItems(data.items), material: data.materialType || '',
-          status: '', artist: '', machine: '', icc: '',
+          status: '', artist: data.artist || '', machine: '', icc: '',
           dueDate: data.dueDate || '', remarks: '',
           createdAt: new Date().toISOString()
         };
@@ -1473,6 +1519,7 @@
     document.getElementById('joDate').value = data.date || '';
     document.getElementById('joDueDate').value = data.dueDate || '';
     document.getElementById('materialType').value = data.materialType || '';
+    document.getElementById('joArtist').value = data.artist || '';
     document.getElementById('joNotes').value = data.notes || '';
     document.getElementById('signRequested').value = data.signRequested || '';
     document.getElementById('signApproved').value = data.signApproved || '';
@@ -1813,13 +1860,13 @@
       const isConnected = !!r.joNumber && cachedOrders.some(o => o.joNumber === r.joNumber);
       // Once a row is linked to a real, saved job order, the fields that
       // come FROM that order (Date, Due Date, Client Name, Description,
-      // Qty, Material) are locked here — editing them in the Monitoring
-      // Sheet would drift out of sync with the job order itself. To change
-      // any of these, edit the job order in the Browse Job Orders tab,
-      // which pushes the update back into this row automatically. Unlinked
-      // rows (no matching job order — e.g. a manually added tracking row)
-      // stay fully editable since there's nothing for them to fall out of
-      // sync with.
+      // Qty, Material, Artist) are locked here — editing them in the
+      // Monitoring Sheet would drift out of sync with the job order
+      // itself. To change any of these, edit the job order in the Browse
+      // Job Orders tab, which pushes the update back into this row
+      // automatically. Unlinked rows (no matching job order — e.g. a
+      // manually added tracking row) stay fully editable since there's
+      // nothing for them to fall out of sync with.
       const lockTitle = 'title="Linked to a job order — edit this in the Browse Job Orders tab to keep both in sync."';
       const lockedCls = isConnected ? ' monitor-locked' : '';
       const lockedAttrs = isConnected ? `readonly ${lockTitle}` : '';
@@ -1836,7 +1883,7 @@
         <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><select class="monitor-input${lockedCls}" data-id="${id}" data-field="material" onchange="saveMonitorField(this)" ${lockedSelectAttrs}>${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><select class="monitor-input" data-id="${id}" data-field="machine" onchange="saveMonitorField(this)">${monitorMachineOptionsHtml(r.machine)}</select></td>
         <td><select class="monitor-input" data-id="${id}" data-field="icc" onchange="saveMonitorField(this)">${monitorIccOptionsHtml(r.icc)}</select></td>
         <td><input type="date" class="monitor-input${lockedCls}" data-id="${id}" data-field="dueDate" value="${r.dueDate || ''}" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
