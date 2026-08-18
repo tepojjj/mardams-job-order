@@ -709,6 +709,12 @@
   }
   .monitor-input:hover, .monitor-status:hover{border-color:var(--line); background:var(--field-bg);}
   .monitor-input:focus, .monitor-status:focus{border-color:var(--stamp); background:#fff; outline:none;}
+  .monitor-input.monitor-locked{
+    color:var(--ink-soft);
+    background:var(--field-bg);
+    cursor:not-allowed;
+  }
+  .monitor-input.monitor-locked:hover{border-color:transparent; background:var(--field-bg);}
   .monitor-status{cursor:pointer; font-weight:600;}
   .monitor-status.status-forprint{background:#DCF3E4; color:#1E7A42;}
   .monitor-status.status-forheat{background:#FBDCDC; color:#B23A1B;}
@@ -1798,22 +1804,35 @@
       const id = escapeHtml(r.id);
       const statusCls = MONITOR_STATUS_CLASS[r.status] || '';
       const isConnected = !!r.joNumber && cachedOrders.some(o => o.joNumber === r.joNumber);
+      // Once a row is linked to a real, saved job order, the fields that
+      // come FROM that order (Date, Due Date, Client Name, Description,
+      // Material) are locked here — editing them in the Monitoring Sheet
+      // would drift out of sync with the job order itself. To change any
+      // of these, edit the job order in the Browse Job Orders tab, which
+      // pushes the update back into this row automatically. Unlinked rows
+      // (no matching job order — e.g. a manually added tracking row) stay
+      // fully editable since there's nothing for them to fall out of sync
+      // with.
+      const lockTitle = 'title="Linked to a job order — edit this in the Browse Job Orders tab to keep both in sync."';
+      const lockedCls = isConnected ? ' monitor-locked' : '';
+      const lockedAttrs = isConnected ? `readonly ${lockTitle}` : '';
+      const lockedSelectAttrs = isConnected ? `disabled ${lockTitle}` : '';
       return `
       <tr>
-        <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)"></td>
+        <td><input type="date" class="monitor-input${lockedCls}" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td class="monitor-jo-cell">
           <select class="monitor-input" data-id="${id}" data-field="joNumber" onchange="saveMonitorField(this); renderMonitorRows();">${monitorJoOptionsHtml(r.joNumber)}</select>
           ${isConnected ? `<button type="button" class="monitor-jo-link" title="View this job order" onclick="viewOrderFromMonitor('${escapeHtml(r.joNumber)}')">🔗</button>` : ''}
         </td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)"></td>
+        <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
+        <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)"></td>
-        <td><select class="monitor-input" data-id="${id}" data-field="material" onchange="saveMonitorField(this)">${monitorMaterialOptionsHtml(r.material)}</select></td>
+        <td><select class="monitor-input${lockedCls}" data-id="${id}" data-field="material" onchange="saveMonitorField(this)" ${lockedSelectAttrs}>${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><select class="monitor-input" data-id="${id}" data-field="machine" onchange="saveMonitorField(this)">${monitorMachineOptionsHtml(r.machine)}</select></td>
         <td><select class="monitor-input" data-id="${id}" data-field="icc" onchange="saveMonitorField(this)">${monitorIccOptionsHtml(r.icc)}</select></td>
-        <td><input type="date" class="monitor-input" data-id="${id}" data-field="dueDate" value="${r.dueDate || ''}" onchange="saveMonitorField(this)"></td>
+        <td><input type="date" class="monitor-input${lockedCls}" data-id="${id}" data-field="dueDate" value="${r.dueDate || ''}" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="remarks" value="${escapeHtml(r.remarks)}" placeholder="—" onchange="saveMonitorField(this)"></td>
         <td><button class="monitor-row-delete" title="Delete row" onclick="deleteMonitorRow('${id}')">✕</button></td>
       </tr>`;
