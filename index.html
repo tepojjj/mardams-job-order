@@ -899,6 +899,12 @@
     color:var(--ink);
     font-variant-numeric:tabular-nums;
   }
+  .stat-card .stat-sub{
+    font-size:10.5px;
+    color:var(--ink-soft);
+    margin-top:5px;
+  }
+  .stat-card.highlight .stat-sub{color:#B9C2CB;}
   .stat-card.highlight{
     background:var(--ink);
     border-color:var(--ink);
@@ -1144,6 +1150,16 @@
         <div class="stat-value" id="statOrders">0</div>
       </div>
       <div class="stat-card">
+        <div class="stat-label">Active Job Orders</div>
+        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-sub" id="statActiveSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Recent Job Orders</div>
+        <div class="stat-value" id="statRecent">0</div>
+        <div class="stat-sub" id="statRecentSub">Last 7 days</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-label">Total Qty</div>
         <div class="stat-value" id="statQty">0</div>
       </div>
@@ -1164,7 +1180,7 @@
     </div>
 
     <div class="chart-block">
-      <div class="section-label">Status Breakdown</div>
+      <div class="section-label">Job Order Status Breakdown</div>
       <div class="chart-card" id="statusChartCard"></div>
     </div>
   </div>
@@ -1975,6 +1991,11 @@
   const MONITOR_API = '/api/monitor';
   const SHEETS_SYNC_API = '/api/sheets-sync';
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
+  // "Active" = still in production, using the same status dropdown values
+  // as the Monitoring Sheet — everything that hasn't been printed,
+  // finished, or cancelled yet.
+  const MONITOR_ACTIVE_STATUSES = ['FOR PRINT','FOR HEAT'];
+  const MONITOR_RECENT_DAYS = 7;
   const MONITOR_STATUS_CLASS = {
     'FOR PRINT':'status-forprint',
     'FOR HEAT':'status-forheat',
@@ -2322,6 +2343,27 @@
     document.getElementById('statQty').textContent = totalQty.toLocaleString('en-PH');
     document.getElementById('statAvg').textContent = formatCurrency(orderCount ? totalRevenue / orderCount : 0);
 
+    // Active Job Orders — status still "FOR PRINT" or "FOR HEAT" (i.e. not
+    // yet PRINTED, DONE, or CANCELLED), straight off the same status
+    // dropdown used on the Monitoring Sheet.
+    const forPrintCount = rows.filter(r => r.status === 'FOR PRINT').length;
+    const forHeatCount = rows.filter(r => r.status === 'FOR HEAT').length;
+    const activeCount = forPrintCount + forHeatCount;
+    document.getElementById('statActive').textContent = activeCount.toLocaleString('en-PH');
+    document.getElementById('statActiveSub').textContent = `${forPrintCount} For Print · ${forHeatCount} For Heat`;
+
+    // Recent Job Orders — dated within the last MONITOR_RECENT_DAYS days.
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - (MONITOR_RECENT_DAYS - 1));
+    const recentCount = rows.filter(r => {
+      if(!r.date) return false;
+      const d = new Date(r.date + 'T00:00:00');
+      return !isNaN(d) && d >= cutoff;
+    }).length;
+    document.getElementById('statRecent').textContent = recentCount.toLocaleString('en-PH');
+    document.getElementById('statRecentSub').textContent = `Last ${MONITOR_RECENT_DAYS} days`;
+
     // Bucket rows by date (day or month), keeping only dated rows, sorted
     // chronologically.
     const buckets = {};
@@ -2433,12 +2475,14 @@
       const pct = val / total;
       const barW = Math.max(2, pct * (w - 140));
       const y = i * (barH + gap);
+      const isActive = MONITOR_ACTIVE_STATUSES.includes(label);
       bars += `
-        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${label}</text>
+        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${label}${isActive ? ' •' : ''}</text>
         <rect x="130" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="${colors[label] || '#B9C2CB'}" rx="2"></rect>
         <text x="${(140 + barW).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)">${val} (${Math.round(pct * 100)}%)</text>`;
     });
-    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>` +
+      '<div class="chart-legend"><span>• = counted as an Active Job Order</span></div>';
   }
 
   // ---- Google Sheets integration ----
