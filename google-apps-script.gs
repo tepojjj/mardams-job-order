@@ -33,8 +33,8 @@
 var SHEET_NAME = 'Monitoring Sheet';
 var SHARED_SECRET = 'REPLACE_WITH_A_LONG_RANDOM_STRING';
 var HEADERS = ['ID', 'Date', 'J.O. No', 'Client Name', 'Description', 'Qty',
-               'Material', 'Status', 'Artist', 'Machine', 'ICC Profile',
-               'Due Date', 'Remarks', 'Last Synced'];
+               'Grand Total', 'Material', 'Status', 'Artist', 'Machine',
+               'ICC Profile', 'Due Date', 'Remarks', 'Last Synced'];
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -67,9 +67,9 @@ function doPost(e) {
 
     var values = [
       row.id, row.date || '', row.joNumber || '', row.clientName || '',
-      row.description || '', row.qty || '', row.material || '', row.status || '',
-      row.artist || '', row.machine || '', row.icc || '', row.dueDate || '',
-      row.remarks || '', new Date()
+      row.description || '', row.qty || '', row.grandTotal || '', row.material || '',
+      row.status || '', row.artist || '', row.machine || '', row.icc || '',
+      row.dueDate || '', row.remarks || '', new Date()
     ];
 
     var data = sheet.getDataRange().getValues();

@@ -775,6 +775,112 @@
     padding:2px 4px;
   }
   .monitor-row-delete:hover{color:var(--stamp);}
+
+  .monitor-summary{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:14px;
+  }
+  .monitor-summary-box{
+    width:280px;
+    border:1px solid var(--ink);
+  }
+  .monitor-summary-row{
+    display:flex;
+    justify-content:space-between;
+    padding:10px 14px;
+    font-size:13px;
+    background:var(--ink);
+    color:#fff;
+    font-weight:700;
+  }
+  .monitor-summary-row span:last-child{font-variant-numeric:tabular-nums;}
+  .monitor-summary-hint{
+    text-align:right;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+
+  /* ---- Analytics tab ---- */
+  .analytics-wrap{
+    max-width:1400px;
+    margin:0 auto;
+    background:var(--card);
+    border:1px solid var(--line);
+    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    padding:28px 30px 26px;
+  }
+  .analytics-toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .analytics-toolbar select{
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .stat-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+    gap:12px;
+    margin-bottom:24px;
+  }
+  .stat-card{
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    padding:14px 16px;
+  }
+  .stat-card .stat-label{
+    font-size:10px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .stat-card .stat-value{
+    font-size:22px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+  }
+  .stat-card.highlight{
+    background:var(--ink);
+    border-color:var(--ink);
+  }
+  .stat-card.highlight .stat-label{color:#B9C2CB;}
+  .stat-card.highlight .stat-value{color:#fff;}
+  .chart-block{
+    margin-bottom:26px;
+  }
+  .chart-block .section-label{margin-top:0;}
+  .chart-card{
+    border:1px solid var(--line);
+    padding:14px 16px 10px;
+    overflow-x:auto;
+  }
+  .chart-empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:30px 10px;
+  }
+  .chart-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-top:10px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+  .chart-legend span{display:inline-flex; align-items:center; gap:6px;}
+  .chart-legend i{width:10px; height:10px; border-radius:2px; display:inline-block;}
 </style>
 </head>
 <body>
@@ -802,6 +908,7 @@
     <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
+    <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
   </div>
 
@@ -945,6 +1052,7 @@
             <th>Client Name</th>
             <th>Description</th>
             <th>Qty.</th>
+            <th class="num">Grand Total</th>
             <th>Material</th>
             <th>Status</th>
             <th>Artist</th>
@@ -958,6 +1066,58 @@
       </table>
     </div>
     <div class="browse-empty" id="monitorEmpty" style="display:none;">No rows yet — click "+ Add Row" to start tracking.</div>
+    <div class="monitor-summary">
+      <div class="monitor-summary-box">
+        <div class="monitor-summary-row"><span>Revenue (Grand Total)</span><span id="monitorRevenue">₱0.00</span></div>
+      </div>
+    </div>
+    <div class="monitor-summary-hint" id="monitorRevenueHint"></div>
+  </div>
+
+  <div class="analytics-wrap" id="viewAnalytics" style="display:none;">
+    <div class="analytics-toolbar">
+      <label class="date-filter-label">Group by
+        <select id="analyticsGroupBy" onchange="renderAnalytics()">
+          <option value="day">Day</option>
+          <option value="month" selected>Month</option>
+        </select>
+      </label>
+      <button class="ghost" onclick="loadAnalytics()">↻ Refresh</button>
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card highlight">
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" id="statRevenue">₱0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tracked Orders</div>
+        <div class="stat-value" id="statOrders">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Qty</div>
+        <div class="stat-value" id="statQty">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg. Order Value</div>
+        <div class="stat-value" id="statAvg">₱0.00</div>
+      </div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Revenue Trend</div>
+      <div class="chart-card" id="revenueChartCard"></div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Orders Tracked Over Time</div>
+      <div class="chart-card" id="ordersChartCard"></div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Status Breakdown</div>
+      <div class="chart-card" id="statusChartCard"></div>
+    </div>
   </div>
 
   <div class="browse-wrap" id="viewUsers" style="display:none;">
@@ -1436,10 +1596,10 @@
   }
 
   // Whenever a job order is saved (new, reprinted, or edited), push its
-  // Date, Due Date, Client Name, JO No., Material, Description, and total
-  // Qty (summed across every line item, all sizes combined) into the
-  // matching Monitoring Sheet row. The helpers below build Description
-  // (deduped line items) and total Qty for that sync.
+  // Date, Due Date, Client Name, JO No., Material, Description, total
+  // Qty (summed across every line item, all sizes combined), and Grand
+  // Total into the matching Monitoring Sheet row. The helpers below build
+  // Description (deduped line items) and total Qty for that sync.
   function descriptionFromItems(items){
     const seen = new Set();
     const parts = [];
@@ -1461,13 +1621,13 @@
 
   // Whenever a job order is saved (new, reprinted, or edited), push its
   // Date, Due Date, Client Name, JO No., Material, Artist, Description,
-  // and total Qty (summed across every line item, all sizes combined)
-  // into the matching Monitoring Sheet row — creating that row if it
-  // doesn't exist yet. Description is built from the order's line-item
-  // descriptions, deduped (case-insensitive) and joined with commas, so
-  // repeating the same item text across several lines only shows once.
-  // Status, Machine, ICC Profile, and Remarks stay exactly as-is for
-  // manual entry — those aren't tracked on the job order form.
+  // total Qty (summed across every line item, all sizes combined), and
+  // Grand Total into the matching Monitoring Sheet row — creating that
+  // row if it doesn't exist yet. Description is built from the order's
+  // line-item descriptions, deduped (case-insensitive) and joined with
+  // commas, so repeating the same item text across several lines only
+  // shows once. Status, Machine, ICC Profile, and Remarks stay exactly
+  // as-is for manual entry — those aren't tracked on the job order form.
   async function syncMonitorRowFromOrder(data, previousJoNumber){
     if(!data.joNumber) return;
     try{
@@ -1488,11 +1648,12 @@
         row.artist = data.artist || '';
         row.description = descriptionFromItems(data.items);
         row.qty = totalQtyFromItems(data.items);
+        row.grandTotal = data.grandTotal || '';
       }else{
         row = {
           id: monitorRowId(),
           date: data.date || '', joNumber: data.joNumber, clientName: data.clientName || '',
-          description: descriptionFromItems(data.items), qty: totalQtyFromItems(data.items), material: data.materialType || '',
+          description: descriptionFromItems(data.items), qty: totalQtyFromItems(data.items), grandTotal: data.grandTotal || '', material: data.materialType || '',
           status: '', artist: data.artist || '', machine: '', icc: '',
           dueDate: data.dueDate || '', remarks: '',
           createdAt: new Date().toISOString()
@@ -1784,7 +1945,7 @@
   async function loadMonitorList(){
     initMonitorHeader();
     const tbody = document.getElementById('monitorTbody');
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center;">Loading…</td></tr>`;
     document.getElementById('monitorEmpty').style.display = 'none';
     try{
       const [monitorRes, ordersRes] = await Promise.all([
@@ -1853,6 +2014,7 @@
       empty.textContent = cachedMonitorRows.length === 0
         ? 'No rows yet — click "+ Add Row" to start tracking.'
         : 'No rows match this filter.';
+      renderMonitorSummary(filtered);
       return;
     }
     empty.style.display = 'none';
@@ -1884,6 +2046,7 @@
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="clientName" value="${escapeHtml(r.clientName)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="description" value="${escapeHtml(r.description)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
+        <td class="num"><input type="number" step="any" class="monitor-input${lockedCls}" data-id="${id}" data-field="grandTotal" value="${r.grandTotal || ''}" placeholder="0.00" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
         <td><select class="monitor-input${lockedCls}" data-id="${id}" data-field="material" onchange="saveMonitorField(this)" ${lockedSelectAttrs}>${monitorMaterialOptionsHtml(r.material)}</select></td>
         <td><select class="monitor-status ${statusCls}" data-id="${id}" data-field="status" onchange="saveMonitorField(this)">${monitorStatusOptionsHtml(r.status)}</select></td>
         <td><input type="text" class="monitor-input${lockedCls}" data-id="${id}" data-field="artist" value="${escapeHtml(r.artist)}" placeholder="—" onchange="saveMonitorField(this)" ${lockedAttrs}></td>
@@ -1894,12 +2057,34 @@
         <td><button class="monitor-row-delete" title="Delete row" onclick="deleteMonitorRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
+    renderMonitorSummary(filtered);
+  }
+
+  // Grand Total is the per-order revenue figure (pulled straight from the
+  // linked job order's Grand Total, or typed by hand on unlinked rows).
+  // This sums it across whatever rows are currently shown — respecting
+  // the search box and date filter, same as the CSV export — so it reads
+  // as "overall revenue" when nothing is filtered, and "revenue for this
+  // filter" when it is.
+  function renderMonitorSummary(rows){
+    const total = (rows || []).reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
+    document.getElementById('monitorRevenue').textContent = formatCurrency(total);
+    const dateFilter = document.getElementById('monitorDateFilter').value;
+    const q = document.getElementById('monitorSearch').value;
+    const hint = document.getElementById('monitorRevenueHint');
+    hint.textContent = (dateFilter || q)
+      ? `Based on ${rows.length} filtered row${rows.length === 1 ? '' : 's'}`
+      : `Based on all ${rows.length} row${rows.length === 1 ? '' : 's'}`;
+  }
+
+  function formatCurrency(n){
+    return '₱' + (n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function addMonitorRow(){
     const row = {
       id: monitorRowId(),
-      date: '', joNumber: '', clientName: '', description: '', qty: '', material: '',
+      date: '', joNumber: '', clientName: '', description: '', qty: '', grandTotal: '', material: '',
       status: '', artist: '', machine: '', icc: '', dueDate: '', remarks: '',
       createdAt: new Date().toISOString()
     };
@@ -1925,15 +2110,18 @@
       alert('There are no rows to export' + (document.getElementById('monitorSearch').value || document.getElementById('monitorDateFilter').value ? ' for the current filter.' : '.'));
       return;
     }
-    const headers = ['Date','J.O. No','Client Name','Description','Qty','Material','Status','Artist','Machine','ICC Profile','Due Date','Remarks'];
+    const headers = ['Date','J.O. No','Client Name','Description','Qty','Grand Total','Material','Status','Artist','Machine','ICC Profile','Due Date','Remarks'];
     const lines = [headers.map(csvCell).join(',')];
     rows.forEach(r => {
       lines.push([
         r.date || '', r.joNumber || '', r.clientName || '', r.description || '',
-        r.qty || '', r.material || '', r.status || '', r.artist || '',
+        r.qty || '', r.grandTotal || '', r.material || '', r.status || '', r.artist || '',
         r.machine || '', r.icc || '', r.dueDate || '', r.remarks || ''
       ].map(csvCell).join(','));
     });
+    const csvTotal = rows.reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
+    lines.push(['', '', '', '', '', '', '', '', '', '', '', '', ''].map(csvCell).join(','));
+    lines.push(['', '', '', '', 'TOTAL REVENUE', csvTotal.toFixed(2), '', '', '', '', '', '', ''].map(csvCell).join(','));
     // Leading BOM so Excel opens UTF-8 accented characters correctly.
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -2011,6 +2199,158 @@
       console.warn('Could not reach the server to save the row.', e);
     }
     syncRowToGoogleSheets(row);
+  }
+
+  // ---- Analytics ----
+  // Reuses the same Monitoring Sheet data (each row's Grand Total is the
+  // revenue figure) to show trend charts. Grouped by day or month, drawn
+  // as plain inline SVG — no charting library needed.
+  async function loadAnalytics(){
+    try{
+      const res = await fetch(MONITOR_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedMonitorRows = data.rows || [];
+    }catch(e){
+      console.warn('Could not load analytics data.', e);
+    }
+    renderAnalytics();
+  }
+
+  function analyticsBucketKey(dateStr, groupBy){
+    if(!dateStr) return 'No date';
+    return groupBy === 'day' ? dateStr : dateStr.slice(0, 7); // YYYY-MM
+  }
+
+  function renderAnalytics(){
+    const groupBy = document.getElementById('analyticsGroupBy').value;
+    const rows = cachedMonitorRows || [];
+
+    const totalRevenue = rows.reduce((sum, r) => sum + (parseFloat(r.grandTotal) || 0), 0);
+    const totalQty = rows.reduce((sum, r) => sum + (parseFloat(r.qty) || 0), 0);
+    const orderCount = rows.length;
+    document.getElementById('statRevenue').textContent = formatCurrency(totalRevenue);
+    document.getElementById('statOrders').textContent = orderCount.toLocaleString('en-PH');
+    document.getElementById('statQty').textContent = totalQty.toLocaleString('en-PH');
+    document.getElementById('statAvg').textContent = formatCurrency(orderCount ? totalRevenue / orderCount : 0);
+
+    // Bucket rows by date (day or month), keeping only dated rows, sorted
+    // chronologically.
+    const buckets = {};
+    rows.forEach(r => {
+      if(!r.date) return;
+      const key = analyticsBucketKey(r.date, groupBy);
+      if(!buckets[key]) buckets[key] = { revenue: 0, orders: 0 };
+      buckets[key].revenue += parseFloat(r.grandTotal) || 0;
+      buckets[key].orders += 1;
+    });
+    const keys = Object.keys(buckets).sort();
+
+    renderRevenueTrendChart(keys, buckets);
+    renderOrdersTrendChart(keys, buckets);
+    renderStatusBreakdown(rows);
+  }
+
+  function analyticsLabel(key, groupBy){
+    if(groupBy === 'month'){
+      const [y, m] = key.split('-');
+      const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${names[parseInt(m, 10) - 1] || m} ${y}`;
+    }
+    const d = new Date(key + 'T00:00:00');
+    return isNaN(d) ? key : `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  // Shared bar-chart renderer for both the revenue and orders trend
+  // charts — takes the bucketed keys plus a value-getter so both charts
+  // reuse the same layout/scaling code.
+  function renderBarChart(container, keys, getValue, formatValue, barColor){
+    if(keys.length === 0){
+      container.innerHTML = '<div class="chart-empty">Not enough dated rows yet to show a trend. Add a date to your Monitoring Sheet rows.</div>';
+      return;
+    }
+    const groupBy = document.getElementById('analyticsGroupBy').value;
+    const values = keys.map(getValue);
+    const maxVal = Math.max(...values, 1);
+    const w = Math.max(560, keys.length * 64);
+    const h = 220;
+    const padBottom = 34;
+    const padTop = 18;
+    const barW = Math.min(40, (w / keys.length) - 14);
+    const chartH = h - padBottom - padTop;
+
+    let bars = '';
+    keys.forEach((key, i) => {
+      const val = values[i];
+      const barH = maxVal ? (val / maxVal) * chartH : 0;
+      const x = (w / keys.length) * i + ((w / keys.length) - barW) / 2;
+      const y = padTop + (chartH - barH);
+      bars += `
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${barColor}" rx="2">
+          <title>${analyticsLabel(key, groupBy)}: ${formatValue(val)}</title>
+        </rect>
+        <text x="${(x + barW / 2).toFixed(1)}" y="${(h - padBottom + 16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${analyticsLabel(key, groupBy)}</text>
+        <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${formatValue(val)}</text>`;
+    });
+
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">
+      <line x1="0" y1="${(h - padBottom).toFixed(1)}" x2="${w}" y2="${(h - padBottom).toFixed(1)}" stroke="var(--line)" stroke-width="1"></line>
+      ${bars}
+    </svg>`;
+  }
+
+  function renderRevenueTrendChart(keys, buckets){
+    renderBarChart(
+      document.getElementById('revenueChartCard'),
+      keys,
+      k => buckets[k].revenue,
+      v => formatCurrency(v),
+      'var(--stamp)'
+    );
+  }
+
+  function renderOrdersTrendChart(keys, buckets){
+    renderBarChart(
+      document.getElementById('ordersChartCard'),
+      keys,
+      k => buckets[k].orders,
+      v => String(v),
+      '#2352A6'
+    );
+  }
+
+  function renderStatusBreakdown(rows){
+    const container = document.getElementById('statusChartCard');
+    const counts = {};
+    MONITOR_STATUS_OPTIONS.forEach(s => counts[s] = 0);
+    let unset = 0;
+    rows.forEach(r => {
+      if(r.status && counts.hasOwnProperty(r.status)) counts[r.status] += 1;
+      else if(!r.status) unset += 1;
+    });
+    const colors = {
+      'FOR PRINT': '#1E7A42', 'FOR HEAT': '#B23A1B', 'PRINTED': '#2352A6',
+      'DONE': '#3E4A54', 'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
+    };
+    const entries = [...MONITOR_STATUS_OPTIONS.map(s => [s, counts[s]]), ['Unset', unset]].filter(([, v]) => v > 0);
+    if(entries.length === 0){
+      container.innerHTML = '<div class="chart-empty">No rows yet.</div>';
+      return;
+    }
+    const total = entries.reduce((sum, [, v]) => sum + v, 0);
+    const w = 420, barH = 26, gap = 10;
+    const h = entries.length * (barH + gap);
+    let bars = '';
+    entries.forEach(([label, val], i) => {
+      const pct = val / total;
+      const barW = Math.max(2, pct * (w - 140));
+      const y = i * (barH + gap);
+      bars += `
+        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${label}</text>
+        <rect x="130" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="${colors[label] || '#B9C2CB'}" rx="2"></rect>
+        <text x="${(140 + barW).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)">${val} (${Math.round(pct * 100)}%)</text>`;
+    });
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
   }
 
   // ---- Google Sheets integration ----
@@ -2141,18 +2481,22 @@
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
+    const isAnalytics = tab === 'analytics';
     const isUsers = tab === 'users';
     if(!isNew && editingOrderId) exitEditMode();
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
+    document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
+    document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
+    if(isAnalytics) loadAnalytics();
     if(isUsers) loadUsersList();
   }
 
