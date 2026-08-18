@@ -1170,11 +1170,15 @@
   calc();
 
   // ---- Job order number ----
-  // Clicking "Suggest #" (or opening/refreshing the New Job Order tab)
-  // actually claims and saves the next number right away — it's not just
-  // a preview. That means the shared counter advances every time a number
-  // is suggested, so the count always continues from whatever was last
-  // shown, whether or not that order ever got printed.
+  // Browsing/opening the form only PREVIEWS the next number (peek — no save).
+  // The number is only "used up" and saved to the shared counter when you
+  // actually print/save the order. This matters with multiple people using
+  // the form at once: if suggesting a number claimed it immediately, every
+  // tab open/refresh (even ones that never get printed) would burn a
+  // number and leave permanent gaps in the sequence. Peeking avoids that —
+  // and claiming is atomic, so two people previewing the same number at
+  // the same time still can't collide: whoever prints first gets it, and
+  // the other's print automatically claims the next number instead.
   // Backed by a shared Netlify Function, so the counter is the same across
   // every device/browser that uses this form — not just the one you're on.
   const API = '/api/counter';
@@ -1193,16 +1197,10 @@
   async function peekNextNumber(){
     const field = document.getElementById('joNumber');
     try{
-      const res = await fetch(API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action: 'increment' })
-      });
+      const res = await fetch(API, { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
-      if(Number.isFinite(data.value)){
-        field.value = formatJO(data.value);
-      }
+      field.value = formatJO(data.next);
       numberIsAutoSuggested = true;
     }catch(e){
       field.value = formatJO(1);
@@ -1221,8 +1219,23 @@
     const field = document.getElementById('joNumber');
 
     if(numberIsAutoSuggested){
-      // Already claimed and saved to the backend the moment it was
-      // suggested — nothing left to do here.
+      // Atomically claim the next number — race-safe even if someone else
+      // is printing at the same instant. Whatever the server actually
+      // lands on is what gets printed, so update the field to match.
+      try{
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ action: 'increment' })
+        });
+        if(handleAuthFailure(res.status)) return;
+        const data = await res.json();
+        if(Number.isFinite(data.value)){
+          field.value = formatJO(data.value);
+        }
+      }catch(e){
+        console.warn('Could not claim the next job order number from the backend.', e);
+      }
       return;
     }
 
