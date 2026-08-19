@@ -1139,6 +1139,11 @@
   <div class="toolbar" id="toolbarNormal">
     <button class="ghost" onclick="resetForm()">Clear Form</button>
     <button class="ghost" onclick="resetCounter()">Reset Counter</button>
+    <button class="primary" onclick="saveNewOrder()">Save</button>
+  </div>
+  <div class="toolbar" id="toolbarView" style="display:none;">
+    <span class="edit-banner">Viewing JO <b id="viewingJoLabel"></b></span>
+    <button class="ghost" onclick="backToBrowseFromView()">Back to Browse</button>
     <button class="primary" onclick="printOrder()">Print / Save as PDF</button>
   </div>
   <div class="toolbar" id="toolbarEdit" style="display:none;">
@@ -1569,10 +1574,10 @@
   }
 
   // Revenue (Grand Total column, the Monitoring Sheet revenue summary,
-  // and the Analytics tab) is Super Admin-only — Admins and Staff work
+  // and the Analytics tab) is Admin and Super Admin only — Staff work
   // with the Monitoring Sheet without seeing money figures.
   function canSeeRevenue(){
-    return !!currentUser && currentUser.role === 'super_admin';
+    return !!currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin');
   }
 
   // Attendance results and Payroll are Super Admin-only. Staff and Admin
@@ -1760,13 +1765,15 @@
     photoZone.style.display = 'block';
     photoInput.value = '';
     loadedOrderId = null;
+    document.getElementById('toolbarView').style.display = 'none';
+    document.getElementById('toolbarNormal').style.display = 'flex';
   }
 
   // Bound to the "New Job Order" tab button. If the form currently holds
   // a previously viewed/edited order, clear it back to a blank form with
   // a freshly suggested number before switching to it.
   function newOrderTabClicked(){
-    if(loadedOrderId){
+    if(loadedOrderId || editingOrderId){
       if(editingOrderId) exitEditMode();
       clearFormForNewOrder();
     }
@@ -1862,22 +1869,30 @@
     }
   }
 
+  // Printing only ever happens here, on an order that's already been
+  // saved (loaded in via View from the Browse tab) — it never claims or
+  // releases a job order number, so reprinting the same order any number
+  // of times has zero effect on the counter or the saved record.
   async function printOrder(){
-    const field = document.getElementById('joNumber');
-    const claimedBefore = field.value;
-
-    // Reprinting/saving a PDF of an order that was loaded in via View/Edit
-    // from the Browse tab — it already has a real, previously-claimed
-    // number, so this must NOT touch the shared counter at all (no
-    // claiming a new number, no releasing this one on cancel).
-    if(loadedOrderId){
-      if(!confirm(`Print / Save JO #${claimedBefore} again?\n\nThis reprints the existing job order — it will NOT claim a new number or affect the counter.`)) return;
-      await saveOrder();
-      window.print();
+    if(!loadedOrderId){
+      alert('Save this job order first — you can print it from the Browse Job Orders tab afterward.');
       return;
     }
+    const field = document.getElementById('joNumber');
+    if(!confirm(`Print / Save JO #${field.value} again?\n\nThis reprints the existing job order — it will NOT claim a new number or affect the counter.`)) return;
+    await saveOrder();
+    window.print();
+  }
 
-    if(!confirm(`Print / Save this job order as JO #${claimedBefore}?\n\nThis will assign it that number.`)) return;
+  // Saves a brand-new job order — claims the next number and stores the
+  // order, with no print step involved. Printing/reprinting is done
+  // separately from the Browse Job Orders tab once the order is saved,
+  // so it never risks claiming a number twice or getting mixed up with
+  // how many times something was printed.
+  async function saveNewOrder(){
+    const field = document.getElementById('joNumber');
+    const claimedBefore = field.value;
+    if(!confirm(`Save this job order as JO #${claimedBefore}?\n\nThis will assign it that number. You can print it anytime afterward from the Browse Job Orders tab.`)) return;
 
     await commitCurrentNumber();
     await saveOrder();
@@ -1886,50 +1901,8 @@
     // (someone else could have claimed it a split second earlier), so
     // read the field again after commitCurrentNumber() has updated it.
     const claimedNumber = field.value;
-
-    // The browser doesn't tell us whether the person actually printed/saved
-    // or hit Cancel — 'afterprint' fires either way once the dialog closes.
-    // So we ask right after it closes, and auto-release the number if they
-    // say they canceled. This confirm() is a native browser dialog, so it
-    // never shows up on the printed page itself.
-    function handleAfterPrint(){
-      window.removeEventListener('afterprint', handleAfterPrint);
-      const actuallyPrinted = confirm(`Did you finish printing/saving JO ${claimedNumber}?\n\nClick Cancel if you canceled — this will automatically free up that number to be suggested again.`);
-      if(!actuallyPrinted){
-        releaseNumber(claimedNumber);
-      }else{
-        // Order is finalized — clear the form and suggest the next number
-        // right away instead of leaving the just-printed order sitting there.
-        clearFormForNewOrder();
-      }
-    }
-    window.addEventListener('afterprint', handleAfterPrint);
-
-    window.print();
-  }
-
-  async function releaseNumber(joNumberValue){
-    const match = joNumberValue.match(/(\d+)\s*$/);
-    if(!match) return;
-    const value = parseInt(match[1], 10);
-    if(isNaN(value)) return;
-
-    try{
-      const res = await fetch(API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action: 'release', value })
-      });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json();
-      if(data.released){
-        await peekNextNumber();
-      }else{
-        console.warn(`Couldn't release JO ${joNumberValue} — a newer number has already been claimed since.`);
-      }
-    }catch(e){
-      console.warn('Could not release the job order number on the backend.', e);
-    }
+    alert(`Job order ${claimedNumber} saved. You can view or print it from the Browse Job Orders tab.`);
+    clearFormForNewOrder();
   }
 
   async function resetCounter(){
@@ -2146,7 +2119,7 @@
           ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
             ? `<button class="ghost edit-btn" onclick="editOrder('${escapeHtml(o.joNumber)}')">Edit</button>`
             : ''}
-          ${currentUser && currentUser.role === 'super_admin'
+          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
             ? `<button class="ghost danger-btn" onclick="deleteOrder('${escapeHtml(o.joNumber)}')">Delete</button>`
             : ''}
         </td>
@@ -2178,6 +2151,7 @@
     loadedOrderId = id;
     document.getElementById('editingJoLabel').textContent = id;
     document.getElementById('toolbarNormal').style.display = 'none';
+    document.getElementById('toolbarView').style.display = 'none';
     document.getElementById('toolbarEdit').style.display = 'flex';
     document.getElementById('newNumBtn').style.display = 'none';
     showTab('new');
@@ -2186,6 +2160,7 @@
   function exitEditMode(){
     editingOrderId = null;
     document.getElementById('toolbarNormal').style.display = 'flex';
+    document.getElementById('toolbarView').style.display = 'none';
     document.getElementById('toolbarEdit').style.display = 'none';
     document.getElementById('newNumBtn').style.display = '';
   }
@@ -2243,13 +2218,25 @@
   function viewOrder(id){
     const order = cachedOrders.find(o => o.joNumber === id);
     if(!order) return;
+    if(editingOrderId) exitEditMode();
     populateFormFromOrder(order);
     loadedOrderId = id;
+    document.getElementById('viewingJoLabel').textContent = id;
+    document.getElementById('toolbarNormal').style.display = 'none';
+    document.getElementById('toolbarView').style.display = 'flex';
     showTab('new');
   }
 
-  // Deleting a job order is restricted server-side to the Super Admin
-  // account — the button itself is also only shown to that role.
+  // "Back to Browse" from the view screen — just navigates back without
+  // touching anything, since viewing/printing a saved order never claims
+  // or changes a job order number.
+  function backToBrowseFromView(){
+    clearFormForNewOrder();
+    showTab('browse');
+  }
+
+  // Deleting a job order is restricted (client and server-side) to Admin
+  // and Super Admin accounts — Staff has view-only access.
   async function deleteOrder(id){
     if(!confirm(`Delete job order ${id}? This will also remove any matching rows from the Monitoring Sheet. This cannot be undone.`)) return;
     try{

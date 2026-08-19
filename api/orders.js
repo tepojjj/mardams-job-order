@@ -61,9 +61,9 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Delete a job order. Restricted to the Super Admin account only.
+  // Delete a job order. Restricted to Admin and Super Admin accounts.
   if (req.method === 'DELETE') {
-    const auth = requireRole(req, res, ['super_admin']);
+    const auth = requireRole(req, res, ['admin', 'super_admin']);
     if (!auth) return;
 
     const id = req.query.id;
