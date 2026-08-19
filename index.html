@@ -547,6 +547,7 @@
   @media print{
     .tabs{display:none !important;}
     .account-bar{display:none !important;}
+    .settings-overlay{display:none !important;}
     .browse-wrap{display:none;}
     .monitor-wrap{display:none;}
     body{background:#fff; padding:0;}
@@ -659,6 +660,168 @@
     border:1px solid var(--stamp);
     color:var(--stamp);
     margin-left:6px;
+  }
+  .account-avatar{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    object-fit:cover;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    vertical-align:middle;
+  }
+  .account-avatar-fallback{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:var(--ink);
+    color:#fff;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:700;
+    vertical-align:middle;
+  }
+
+  /* ---- Settings modal ---- */
+  .settings-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(22,26,30,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:110;
+    padding:16px;
+    opacity:1;
+    transition:opacity .25s ease;
+  }
+  .settings-overlay.fade-out{
+    opacity:0;
+    pointer-events:none;
+  }
+  .settings-card{
+    width:100%;
+    max-width:420px;
+    max-height:88vh;
+    overflow-y:auto;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:8px;
+    box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 20px 44px -20px rgba(22,26,30,0.28);
+    padding:26px 26px 24px;
+  }
+  .settings-card.card-in{
+    animation:loginCardIn .4s cubic-bezier(.16,1,.3,1);
+  }
+  .settings-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .settings-header h2{
+    font-size:15px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    margin:0;
+  }
+  .settings-close{
+    background:none;
+    border:none;
+    font-size:18px;
+    line-height:1;
+    color:var(--ink-soft);
+    cursor:pointer;
+    padding:2px 4px;
+  }
+  .settings-close:hover{color:var(--ink);}
+  .settings-section{
+    margin-bottom:22px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+  }
+  .settings-section:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
+  .settings-section-label{
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:12px;
+  }
+  .avatar-row{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:14px;
+  }
+  .avatar-upload-zone{
+    width:72px;
+    height:72px;
+    border-radius:50%;
+    border:1.5px dashed var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    overflow:hidden;
+    background:var(--field-bg);
+    flex-shrink:0;
+    position:relative;
+  }
+  .avatar-upload-zone.drag{border-color:var(--stamp);}
+  .avatar-upload-zone img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+  .avatar-upload-zone .avatar-placeholder{
+    font-size:22px;
+    color:var(--ink-soft);
+  }
+  .avatar-actions{display:flex; flex-direction:column; gap:6px;}
+  .avatar-actions .hint{font-size:10.5px; color:var(--ink-soft);}
+  .avatar-remove-link{
+    background:none;
+    border:none;
+    padding:0;
+    font-size:11px;
+    color:var(--stamp);
+    text-decoration:underline;
+    cursor:pointer;
+    text-align:left;
+    width:fit-content;
+  }
+  .settings-field{margin-bottom:12px;}
+  .settings-field label{
+    display:block;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+  }
+  .settings-field input{
+    width:100%;
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    background:var(--field-bg);
+    color:var(--ink);
+    box-sizing:border-box;
+  }
+  .settings-msg{
+    font-size:11.5px;
+    margin-top:8px;
+    min-height:14px;
+  }
+  .settings-msg.error{color:var(--stamp);}
+  .settings-msg.success{color:#1E7A42;}
+  .settings-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:14px;
   }
 
   /* ---- Users tab ---- */
@@ -816,7 +979,8 @@
   .monitor-row-delete:hover{color:var(--stamp);}
 
   @media (prefers-reduced-motion: reduce){
-    .login-card.card-in, .login-card.shake, .view-fade-in, .app-shell-in, .login-overlay{
+    .login-card.card-in, .login-card.shake, .view-fade-in, .app-shell-in, .login-overlay,
+    .settings-card.card-in, .settings-overlay{
       animation:none !important;
       transition:none !important;
     }
@@ -1121,8 +1285,62 @@
   </div>
 
   <div class="account-bar" id="accountBar" style="display:none;">
+    <span id="accountAvatarWrap"></span>
     <span class="who" id="accountInfo"></span>
+    <button class="ghost" onclick="openSettings()">Settings</button>
     <button class="ghost" onclick="doLogout()">Log Out</button>
+  </div>
+
+  <div class="settings-overlay" id="settingsOverlay" style="display:none;">
+    <div class="settings-card" id="settingsCard">
+      <div class="settings-header">
+        <h2>Account Settings</h2>
+        <button class="settings-close" onclick="closeSettings()" title="Close">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Profile</div>
+        <input type="file" id="avatarInput" accept="image/*" style="display:none;">
+        <div class="avatar-row">
+          <div class="avatar-upload-zone" id="avatarZone">
+            <span class="avatar-placeholder" id="avatarPlaceholder">＋</span>
+            <img id="avatarPreview" src="" alt="Profile photo" style="display:none;">
+          </div>
+          <div class="avatar-actions">
+            <span class="hint">Click the circle to upload a photo.</span>
+            <button type="button" class="avatar-remove-link" id="avatarRemoveBtn" onclick="removeAvatar()" style="display:none;">Remove photo</button>
+          </div>
+        </div>
+        <div class="settings-field">
+          <label for="settingsDisplayName">Display Name</label>
+          <input type="text" id="settingsDisplayName" placeholder="e.g. Juan Dela Cruz" maxlength="60">
+        </div>
+        <div class="settings-actions">
+          <button class="primary" onclick="saveProfile()">Save Profile</button>
+        </div>
+        <div class="settings-msg" id="profileMsg"></div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-label">Change Password</div>
+        <div class="settings-field">
+          <label for="settingsCurrentPassword">Current Password</label>
+          <input type="password" id="settingsCurrentPassword" autocomplete="current-password">
+        </div>
+        <div class="settings-field">
+          <label for="settingsNewPassword">New Password</label>
+          <input type="password" id="settingsNewPassword" autocomplete="new-password">
+        </div>
+        <div class="settings-field">
+          <label for="settingsConfirmPassword">Confirm New Password</label>
+          <input type="password" id="settingsConfirmPassword" autocomplete="new-password">
+        </div>
+        <div class="settings-actions">
+          <button class="primary" onclick="changePassword()">Update Password</button>
+        </div>
+        <div class="settings-msg" id="passwordMsg"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tabs" id="appTabs" style="display:none;">
@@ -1133,6 +1351,7 @@
     <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
     <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
+    <button class="tab-btn" id="tabBtnAccountLog" onclick="showTab('accountlog')" style="display:none;">Account Log</button>
   </div>
 
   <div id="viewNew" style="display:none;">
@@ -1485,6 +1704,26 @@
     <div class="browse-empty" id="usersEmpty" style="display:none;"></div>
   </div>
 
+  <div class="browse-wrap" id="viewAccountLog" style="display:none;">
+    <div class="section-label" style="margin-top:0;">Account Changes</div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">
+      Password changes and resets, and display name changes, for every account. Passwords themselves are never stored or shown here — only who changed what, and when. Not visible to Staff accounts.
+    </div>
+    <table class="browse-table">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Account</th>
+          <th>Change</th>
+          <th>Details</th>
+          <th>Changed By</th>
+        </tr>
+      </thead>
+      <tbody id="accountLogTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="accountLogEmpty" style="display:none;"></div>
+  </div>
+
   <div class="drilldown-overlay" id="payEditOverlay" onclick="if(event.target===this) closePayEdit();">
     <div class="drilldown-modal" style="max-width:380px;">
       <div class="drilldown-head">
@@ -1508,6 +1747,26 @@
           <input type="time" id="payEditTimeOut">
           <div class="login-error" id="payEditError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drilldown-overlay" id="resetPasswordOverlay" onclick="if(event.target===this) closeResetPassword();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Reset Password</div>
+          <div class="drilldown-sub" id="resetPasswordUsername">—</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closeResetPassword();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <div class="drilldown-sub" style="margin-bottom:2px;">This sets a new password for this account. Their attendance, payroll, and job order history are not affected.</div>
+          <input type="password" id="resetPasswordNew" placeholder="New password (min 6 characters)">
+          <div class="login-error" id="resetPasswordError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="submitResetPassword()">Set New Password</button>
         </div>
       </div>
     </div>
@@ -1592,6 +1851,7 @@
     const overlay = document.getElementById('loginOverlay');
     overlay.style.display = 'flex';
     overlay.classList.remove('fade-out');
+    document.getElementById('settingsOverlay').style.display = 'none';
     document.getElementById('accountBar').style.display = 'none';
     document.getElementById('appTabs').style.display = 'none';
     document.getElementById('viewNew').style.display = 'none';
@@ -1624,11 +1884,12 @@
     appTabs.style.display = 'flex';
     replayAnimation(accountBar, 'app-shell-in');
     replayAnimation(appTabs, 'app-shell-in');
-    document.getElementById('accountInfo').innerHTML =
-      'Signed in as <b>' + escapeHtml(currentUser.username) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
+    renderAccountBar();
+    loadOwnProfile();
 
     const canManageUsers = currentUser.role === 'admin' || currentUser.role === 'super_admin';
     document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
+    document.getElementById('tabBtnAccountLog').style.display = canManageUsers ? '' : 'none';
     document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
     document.getElementById('tabBtnAnalytics').style.display = canSeeRevenue() ? '' : 'none';
     document.getElementById('tabBtnPayroll').style.display = isSuperAdmin() ? '' : 'none';
@@ -1637,6 +1898,179 @@
 
     showTab('new');
     peekNextNumber();
+  }
+
+  // ---- Account bar (avatar + name) ----
+  function renderAccountBar(){
+    const nameToShow = (currentUser.displayName && currentUser.displayName.trim()) ? currentUser.displayName.trim() : currentUser.username;
+    document.getElementById('accountInfo').innerHTML =
+      'Signed in as <b>' + escapeHtml(nameToShow) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
+    const wrap = document.getElementById('accountAvatarWrap');
+    if(currentUser.photo){
+      wrap.innerHTML = `<img class="account-avatar" src="${currentUser.photo}" alt="Profile photo">`;
+    }else{
+      const initial = (nameToShow || '?').trim().charAt(0).toUpperCase() || '?';
+      wrap.innerHTML = `<span class="account-avatar-fallback">${escapeHtml(initial)}</span>`;
+    }
+  }
+
+  // Pulls the caller's own display name / photo (not returned by /api/login)
+  // so the account bar shows whatever was last saved from Settings, even
+  // from a different device/browser.
+  async function loadOwnProfile(){
+    try{
+      const res = await fetch(PROFILE_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok) return;
+      const data = await res.json();
+      currentUser.displayName = data.displayName || '';
+      currentUser.photo = data.photo || null;
+      saveAuth(authToken, currentUser);
+      renderAccountBar();
+    }catch(e){
+      console.warn('Could not load your profile.', e);
+    }
+  }
+
+  // ---- Settings modal ----
+  // Self-service only — every account (Staff, Admin, Super Admin) can open
+  // this to change their own password and set their own display name /
+  // profile photo. Backed by api/profile.js, which always acts on the
+  // caller's own account (from their verified token), never a username
+  // passed in from the client.
+  const PROFILE_API = '/api/profile';
+  // undefined = avatar untouched this session, null = removal staged,
+  // a data URL = a new photo staged — only sent to the server once Save
+  // Profile is clicked.
+  let pendingAvatarPhoto;
+
+  function openSettings(){
+    if(!currentUser) return;
+    pendingAvatarPhoto = undefined;
+    document.getElementById('settingsDisplayName').value = currentUser.displayName || '';
+    setSettingsMsg('profileMsg', '');
+    setSettingsMsg('passwordMsg', '');
+    document.getElementById('settingsCurrentPassword').value = '';
+    document.getElementById('settingsNewPassword').value = '';
+    document.getElementById('settingsConfirmPassword').value = '';
+    showAvatarPreview(currentUser.photo || null);
+    const overlay = document.getElementById('settingsOverlay');
+    overlay.style.display = 'flex';
+    overlay.classList.remove('fade-out');
+    replayAnimation(document.getElementById('settingsCard'), 'card-in');
+  }
+
+  function closeSettings(){
+    const overlay = document.getElementById('settingsOverlay');
+    overlay.classList.add('fade-out');
+    setTimeout(() => { overlay.style.display = 'none'; }, 250);
+  }
+
+  function setSettingsMsg(id, text, kind){
+    const el = document.getElementById(id);
+    el.textContent = text || '';
+    el.className = 'settings-msg' + (kind ? ' ' + kind : '');
+  }
+
+  function showAvatarPreview(photoUrl){
+    const img = document.getElementById('avatarPreview');
+    const placeholder = document.getElementById('avatarPlaceholder');
+    const removeBtn = document.getElementById('avatarRemoveBtn');
+    if(photoUrl){
+      img.src = photoUrl;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+      removeBtn.style.display = '';
+    }else{
+      img.src = '';
+      img.style.display = 'none';
+      placeholder.style.display = '';
+      removeBtn.style.display = 'none';
+    }
+  }
+
+  function removeAvatar(){
+    pendingAvatarPhoto = null;
+    showAvatarPreview(null);
+  }
+
+  function readFileAsAvatar(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      // Smaller max dimension than the job-order reference photo — this is
+      // just a small round avatar, no need to keep it large.
+      const compressed = await compressImage(e.target.result, 320, 0.85);
+      pendingAvatarPhoto = compressed;
+      showAvatarPreview(compressed);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveProfile(){
+    setSettingsMsg('profileMsg', '');
+    const displayName = document.getElementById('settingsDisplayName').value.trim();
+    const body = { action: 'update-profile', displayName };
+    if(pendingAvatarPhoto !== undefined) body.photo = pendingAvatarPhoto;
+    try{
+      const res = await fetch(PROFILE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(body)
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        setSettingsMsg('profileMsg', data.error || 'Could not save your profile.', 'error');
+        return;
+      }
+      currentUser.displayName = data.displayName || '';
+      currentUser.photo = data.photo || null;
+      pendingAvatarPhoto = undefined;
+      saveAuth(authToken, currentUser);
+      renderAccountBar();
+      setSettingsMsg('profileMsg', 'Profile saved.', 'success');
+    }catch(e){
+      setSettingsMsg('profileMsg', 'Could not reach the server. Please try again.', 'error');
+    }
+  }
+
+  async function changePassword(){
+    setSettingsMsg('passwordMsg', '');
+    const currentPassword = document.getElementById('settingsCurrentPassword').value;
+    const newPassword = document.getElementById('settingsNewPassword').value;
+    const confirmPassword = document.getElementById('settingsConfirmPassword').value;
+    if(!currentPassword || !newPassword || !confirmPassword){
+      setSettingsMsg('passwordMsg', 'Fill in all three password fields.', 'error');
+      return;
+    }
+    if(newPassword.length < 6){
+      setSettingsMsg('passwordMsg', 'New password must be at least 6 characters.', 'error');
+      return;
+    }
+    if(newPassword !== confirmPassword){
+      setSettingsMsg('passwordMsg', 'New password and confirmation do not match.', 'error');
+      return;
+    }
+    try{
+      const res = await fetch(PROFILE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'change-password', currentPassword, newPassword })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        setSettingsMsg('passwordMsg', data.error || 'Could not update your password.', 'error');
+        return;
+      }
+      document.getElementById('settingsCurrentPassword').value = '';
+      document.getElementById('settingsNewPassword').value = '';
+      document.getElementById('settingsConfirmPassword').value = '';
+      setSettingsMsg('passwordMsg', 'Password updated.', 'success');
+    }catch(e){
+      setSettingsMsg('passwordMsg', 'Could not reach the server. Please try again.', 'error');
+    }
   }
 
   async function doLogin(){
@@ -2993,6 +3427,7 @@
 
   // ---- Users (Admin / Super Admin only) ----
   let cachedUsers = [];
+  let cachedAccountLog = [];
 
   function renderUsersRows(){
     const tbody = document.getElementById('usersTbody');
@@ -3008,6 +3443,8 @@
       const isSelf = currentUser && u.username === currentUser.username;
       const canDelete = !isSelf && u.role !== 'super_admin' &&
         (currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff'));
+      const canResetPassword = !isSelf && u.role !== 'super_admin' &&
+        (currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff'));
       const payTypeLabel = u.payType === 'daily' ? 'Daily Rate' : u.payType === 'fixed' ? 'Fixed Monthly' : '—';
       const rateLabel = typeof u.rate === 'number' ? formatCurrency(u.rate) : '—';
       const shiftLabel = (u.regularTimeIn || u.regularTimeOut) ? `${u.regularTimeIn || '—'}–${u.regularTimeOut || '—'}` : '—';
@@ -3022,6 +3459,7 @@
         <td>${escapeHtml((u.createdAt || '').slice(0, 10))}</td>
         <td>
           ${isSuperAdmin() ? `<button class="ghost edit-btn" onclick="openPayEdit('${escapeHtml(u.username)}')">Pay/Shift</button>` : ''}
+          ${canResetPassword ? `<button class="ghost edit-btn" onclick="openResetPassword('${escapeHtml(u.username)}')">Reset Password</button>` : ''}
           ${canDelete ? `<button class="ghost danger-btn" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Delete</button>` : ''}
         </td>
       </tr>`;
@@ -3151,6 +3589,108 @@
     }
   }
 
+  // ---- Reset Password (Admin / Super Admin resetting another account) ----
+  function openResetPassword(username){
+    document.getElementById('resetPasswordUsername').textContent = username;
+    document.getElementById('resetPasswordNew').value = '';
+    document.getElementById('resetPasswordError').textContent = '';
+    document.getElementById('resetPasswordOverlay').dataset.username = username;
+    document.getElementById('resetPasswordOverlay').classList.add('open');
+  }
+
+  function closeResetPassword(){
+    document.getElementById('resetPasswordOverlay').classList.remove('open');
+  }
+
+  async function submitResetPassword(){
+    const username = document.getElementById('resetPasswordOverlay').dataset.username;
+    const errEl = document.getElementById('resetPasswordError');
+    errEl.textContent = '';
+    const newPassword = document.getElementById('resetPasswordNew').value;
+    if(!newPassword || newPassword.length < 6){
+      errEl.textContent = 'Enter a password of at least 6 characters.';
+      return;
+    }
+    try{
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ username, newPassword })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not reset that password.';
+        return;
+      }
+      closeResetPassword();
+      alert(`Password reset for "${username}". Let them know their new password.`);
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
+  // ---- Account Log (Admin / Super Admin only) ----
+  // Read-only history of password changes/resets and display-name changes
+  // across every account, so admins can look up what happened (and who
+  // did it, and when) if a staffer forgets what they set something to.
+  const ACCOUNT_LOG_TYPE_LABEL = {
+    'password-change': 'Password changed',
+    'password-reset': 'Password reset',
+    'display-name-change': 'Display name changed'
+  };
+
+  function accountLogDetails(entry){
+    if(entry.type === 'display-name-change'){
+      const from = entry.from ? escapeHtml(entry.from) : '(none)';
+      const to = entry.to ? escapeHtml(entry.to) : '(none)';
+      return `${from} → ${to}`;
+    }
+    if(entry.type === 'password-reset'){
+      return 'New password set by an admin';
+    }
+    if(entry.type === 'password-change'){
+      return 'Changed by the account holder';
+    }
+    return '—';
+  }
+
+  function renderAccountLogRows(){
+    const tbody = document.getElementById('accountLogTbody');
+    const empty = document.getElementById('accountLogEmpty');
+    if(cachedAccountLog.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No account changes yet.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = cachedAccountLog.map(entry => `
+      <tr>
+        <td>${escapeHtml((entry.changedAt || '').replace('T', ' ').slice(0, 16))}</td>
+        <td>${escapeHtml(entry.username || '—')}</td>
+        <td>${escapeHtml(ACCOUNT_LOG_TYPE_LABEL[entry.type] || entry.type || '—')}</td>
+        <td>${accountLogDetails(entry)}</td>
+        <td>${escapeHtml(entry.changedBy || '—')}</td>
+      </tr>`).join('');
+  }
+
+  async function loadAccountLog(){
+    const tbody = document.getElementById('accountLogTbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('accountLogEmpty').style.display = 'none';
+    try{
+      const res = await fetch('/api/account-log', { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedAccountLog = data.entries || [];
+    }catch(e){
+      cachedAccountLog = [];
+      console.warn('Could not load the account log.', e);
+    }
+    renderAccountLogRows();
+  }
+
   async function deleteUserAccount(username){
     if(!confirm(`Delete the account "${username}"? This cannot be undone.`)) return;
     try{
@@ -3174,6 +3714,7 @@
   function showTab(tab){
     if(tab === 'analytics' && !canSeeRevenue()) tab = 'new';
     if(tab === 'payroll' && !isSuperAdmin()) tab = 'new';
+    if(tab === 'accountlog' && !(currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin'))) tab = 'new';
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
@@ -3181,6 +3722,7 @@
     const isAttendance = tab === 'attendance';
     const isPayroll = tab === 'payroll';
     const isUsers = tab === 'users';
+    const isAccountLog = tab === 'accountlog';
     if(!isNew && editingOrderId) exitEditMode();
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
@@ -3189,6 +3731,7 @@
     document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
     document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
+    document.getElementById('viewAccountLog').style.display = isAccountLog ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
@@ -3196,7 +3739,8 @@
     document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
     document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : 'viewUsers';
+    document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
@@ -3204,6 +3748,7 @@
     if(isAttendance) loadAttendance();
     if(isPayroll) loadPayrollView();
     if(isUsers) loadUsersList();
+    if(isAccountLog) loadAccountLog();
   }
 
   // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
@@ -3289,6 +3834,31 @@
         break;
       }
     }
+  });
+
+  // ---- Settings avatar: click-to-upload and drag-drop ----
+  const avatarInput = document.getElementById('avatarInput');
+  const avatarZone = document.getElementById('avatarZone');
+
+  avatarZone.addEventListener('click', () => avatarInput.click());
+
+  avatarInput.addEventListener('change', () => {
+    if(avatarInput.files && avatarInput.files[0]) readFileAsAvatar(avatarInput.files[0]);
+  });
+
+  avatarZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    avatarZone.classList.add('drag');
+  });
+  avatarZone.addEventListener('dragleave', () => avatarZone.classList.remove('drag'));
+  avatarZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    avatarZone.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) readFileAsAvatar(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('settingsOverlay').addEventListener('click', (e) => {
+    if(e.target.id === 'settingsOverlay') closeSettings();
   });
 
   // ---- Attendance ----

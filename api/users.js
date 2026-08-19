@@ -1,5 +1,6 @@
 const { kv } = require('@vercel/kv');
 const { hashPassword, requireRole } = require('./_auth');
+const { logAccountChange } = require('./_account-log');
 
 const USERS_KEY = 'app-users';
 
@@ -144,11 +145,17 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Update an existing account's payroll configuration (pay type, rate,
-  // regular shift times). Super Admin only — this is the only way those
-  // fields are ever changed after an account is created.
+  // Update an existing account. Two things can be changed here:
+  //  - Password reset: an Admin can reset a Staff account's password;
+  //    the Super Admin can reset a Staff or Admin account's password.
+  //    This exists so a forgotten password never needs the password
+  //    itself to be recovered — a new one is simply assigned, and nothing
+  //    else about the account (attendance, payroll history, saved job
+  //    orders, etc.) is touched.
+  //  - Payroll configuration (pay type, rate, regular shift times) —
+  //    Super Admin only, as before.
   if (req.method === 'PATCH') {
-    const auth = requireRole(req, res, ['super_admin']);
+    const auth = requireRole(req, res, ['admin', 'super_admin']);
     if (!auth) return;
 
     let body = req.body;
@@ -174,13 +181,57 @@ module.exports = async (req, res) => {
       return;
     }
     const target = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    let changed = false;
 
-    const { fields, error } = parsePayrollFields(body);
-    if (error) {
-      res.status(400).json({ error });
+    if (body.newPassword !== undefined) {
+      if (uname === auth.username) {
+        res.status(400).json({ error: 'Use your account settings to change your own password' });
+        return;
+      }
+      if (target.role === 'super_admin') {
+        res.status(403).json({ error: 'The Super Admin password cannot be reset here' });
+        return;
+      }
+      if (auth.role === 'admin' && target.role !== 'staff') {
+        res.status(403).json({ error: 'Admin accounts can only reset Staff passwords' });
+        return;
+      }
+      if (String(body.newPassword).length < 6) {
+        res.status(400).json({ error: 'New password must be at least 6 characters' });
+        return;
+      }
+      target.passwordHash = hashPassword(body.newPassword);
+      changed = true;
+      await logAccountChange({
+        type: 'password-reset',
+        username: target.username,
+        changedBy: auth.username,
+        changedByRole: auth.role
+      });
+    }
+
+    if (auth.role === 'super_admin') {
+      const { fields, error } = parsePayrollFields(body);
+      if (error) {
+        res.status(400).json({ error });
+        return;
+      }
+      if (Object.keys(fields).length) {
+        Object.assign(target, fields);
+        changed = true;
+      }
+    } else {
+      const { fields } = parsePayrollFields(body);
+      if (Object.keys(fields).length) {
+        res.status(403).json({ error: 'Only the Super Admin can edit payroll settings' });
+        return;
+      }
+    }
+
+    if (!changed) {
+      res.status(400).json({ error: 'No changes provided' });
       return;
     }
-    Object.assign(target, fields);
 
     await kv.hset(USERS_KEY, { [uname]: JSON.stringify(target) });
     res.status(200).json({
