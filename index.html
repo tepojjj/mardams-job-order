@@ -1347,6 +1347,7 @@
     <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
+    <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
     <button class="tab-btn" id="tabBtnAccountLog" onclick="showTab('accountlog')" style="display:none;">Account Log</button>
@@ -1519,6 +1520,47 @@
     <div class="monitor-summary-hint" id="monitorRevenueHint"></div>
   </div>
 
+  <div class="monitor-wrap" id="viewAttendance" style="display:none;">
+    <div class="clock-card">
+      <div class="clock-time" id="clockNowTime">--:--:--</div>
+      <div class="clock-date" id="clockNowDate">—</div>
+      <div class="clock-status-row">
+        <div><span class="lbl">Morning In</span><span class="val" id="clockMorningInVal">—</span></div>
+        <div><span class="lbl">Lunch Out</span><span class="val" id="clockNoonOutVal">—</span></div>
+      </div>
+      <div class="clock-status-row">
+        <div><span class="lbl">Afternoon In</span><span class="val" id="clockAfternoonInVal">—</span></div>
+        <div><span class="lbl">Time Out</span><span class="val" id="clockAfternoonOutVal">—</span></div>
+      </div>
+      <button class="clock-btn" id="clockActionBtn" onclick="punchClock()" disabled>Loading…</button>
+      <div class="clock-msg" id="clockMsg"></div>
+
+      <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--line);">
+        <div class="clock-status-row" style="margin-bottom:12px;">
+          <div><span class="lbl">OT In</span><span class="val" id="clockOtInVal">—</span></div>
+          <div><span class="lbl">OT Out</span><span class="val" id="clockOtOutVal">—</span></div>
+        </div>
+        <button class="clock-btn out" id="clockOtBtn" onclick="punchOt()" disabled>Overtime</button>
+      </div>
+    </div>
+
+    <div id="attendanceReportSection" style="display:none;">
+      <div class="section-label" style="margin-top:0;">Attendance Report</div>
+      <div class="attendance-filters">
+        <div><label>From</label><input type="date" id="attFrom"></div>
+        <div><label>To</label><input type="date" id="attTo"></div>
+        <div><button class="ghost" onclick="loadAttendanceReport()">Filter</button></div>
+      </div>
+      <table class="browse-table drilldown-table">
+        <thead>
+          <tr><th>Date</th><th>Employee</th><th>AM In</th><th>Lunch Out</th><th>PM In</th><th>PM Out</th><th>OT In</th><th>OT Out</th><th>Status</th></tr>
+        </thead>
+        <tbody id="attendanceReportTbody"></tbody>
+      </table>
+      <div class="browse-empty" id="attendanceReportEmpty" style="display:none;"></div>
+    </div>
+  </div>
+
   <div class="analytics-wrap" id="viewAnalytics" style="display:none;">
     <div class="analytics-toolbar">
       <label class="date-filter-label">Group by
@@ -1621,15 +1663,10 @@
       <input type="time" id="newUserTimeIn" title="Regular time in">
       <input type="time" id="newUserTimeOut" title="Regular time out">
     </div>
-    <div class="user-form payroll-col" style="margin-top:8px;">
-      <input type="number" id="newUserOtRate" placeholder="OT Rate (₱/hr)" min="0" step="0.01">
-      <input type="number" id="newUserAllowance" placeholder="Allowance (₱)" min="0" step="0.01">
-      <input type="number" id="newUserSss" placeholder="SSS Deduction (₱)" min="0" step="0.01">
-      <input type="number" id="newUserPhilhealth" placeholder="PhilHealth Deduction (₱)" min="0" step="0.01">
-      <input type="number" id="newUserPagibig" placeholder="Pag-IBIG Deduction (₱)" min="0" step="0.01">
-      <input type="number" id="newUserCashAdvance" placeholder="Cash Advance Deduction (₱)" min="0" step="0.01">
-    </div>
     <div class="login-error" id="userFormError"></div>
+    <div class="drilldown-sub" style="margin:4px 0 0;">
+      OT Rate, Allowance, and SSS/PhilHealth/Pag-IBIG/Cash Advance deductions are set from the Attendance &amp; Payroll app's Payroll tab (Accounting or Super Admin).
+    </div>
 
     <div class="section-label">Accounts</div>
     <table class="browse-table">
@@ -1692,15 +1729,9 @@
           <input type="time" id="payEditTimeIn">
           <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Regular Time Out</label>
           <input type="time" id="payEditTimeOut">
-          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Overtime Rate (₱ per hour)</label>
-          <input type="number" id="payEditOtRate" placeholder="e.g. 125.00" min="0" step="0.01">
-          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Allowance (₱ per payroll run)</label>
-          <input type="number" id="payEditAllowance" placeholder="e.g. 500.00" min="0" step="0.01">
-          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Deductions (₱ per payroll run)</label>
-          <input type="number" id="payEditSss" placeholder="SSS" min="0" step="0.01">
-          <input type="number" id="payEditPhilhealth" placeholder="PhilHealth" min="0" step="0.01">
-          <input type="number" id="payEditPagibig" placeholder="Pag-IBIG" min="0" step="0.01">
-          <input type="number" id="payEditCashAdvance" placeholder="Cash Advance" min="0" step="0.01">
+          <div class="drilldown-sub" style="margin-top:10px;">
+            OT Rate, Allowance, and deductions are set from the Attendance &amp; Payroll app's Payroll tab.
+          </div>
           <div class="login-error" id="payEditError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayEdit()">Save</button>
         </div>
@@ -3506,19 +3537,6 @@
       if(rate !== '') body.rate = Number(rate);
       if(timeIn) body.regularTimeIn = timeIn;
       if(timeOut) body.regularTimeOut = timeOut;
-
-      const otRate = document.getElementById('newUserOtRate').value;
-      const allowance = document.getElementById('newUserAllowance').value;
-      const sss = document.getElementById('newUserSss').value;
-      const philhealth = document.getElementById('newUserPhilhealth').value;
-      const pagibig = document.getElementById('newUserPagibig').value;
-      const cashAdvance = document.getElementById('newUserCashAdvance').value;
-      if(otRate !== '') body.otRate = Number(otRate);
-      if(allowance !== '') body.allowance = Number(allowance);
-      if(sss !== '') body.sssDeduction = Number(sss);
-      if(philhealth !== '') body.philhealthDeduction = Number(philhealth);
-      if(pagibig !== '') body.pagibigDeduction = Number(pagibig);
-      if(cashAdvance !== '') body.cashAdvanceDeduction = Number(cashAdvance);
     }
 
     try{
@@ -3539,12 +3557,6 @@
       document.getElementById('newUserRate').value = '';
       document.getElementById('newUserTimeIn').value = '';
       document.getElementById('newUserTimeOut').value = '';
-      document.getElementById('newUserOtRate').value = '';
-      document.getElementById('newUserAllowance').value = '';
-      document.getElementById('newUserSss').value = '';
-      document.getElementById('newUserPhilhealth').value = '';
-      document.getElementById('newUserPagibig').value = '';
-      document.getElementById('newUserCashAdvance').value = '';
       loadUsersList();
     }catch(e){
       errEl.textContent = 'Could not reach the server. Please try again.';
@@ -3587,12 +3599,6 @@
     document.getElementById('payEditRate').value = typeof u.rate === 'number' ? u.rate : '';
     document.getElementById('payEditTimeIn').value = u.regularTimeIn || '';
     document.getElementById('payEditTimeOut').value = u.regularTimeOut || '';
-    document.getElementById('payEditOtRate').value = typeof u.otRate === 'number' ? u.otRate : '';
-    document.getElementById('payEditAllowance').value = typeof u.allowance === 'number' ? u.allowance : '';
-    document.getElementById('payEditSss').value = typeof u.sssDeduction === 'number' ? u.sssDeduction : '';
-    document.getElementById('payEditPhilhealth').value = typeof u.philhealthDeduction === 'number' ? u.philhealthDeduction : '';
-    document.getElementById('payEditPagibig').value = typeof u.pagibigDeduction === 'number' ? u.pagibigDeduction : '';
-    document.getElementById('payEditCashAdvance').value = typeof u.cashAdvanceDeduction === 'number' ? u.cashAdvanceDeduction : '';
     document.getElementById('payEditError').textContent = '';
     document.getElementById('payEditOverlay').dataset.username = username;
     document.getElementById('payEditOverlay').classList.add('open');
@@ -3610,12 +3616,6 @@
     const rate = document.getElementById('payEditRate').value;
     const timeIn = document.getElementById('payEditTimeIn').value;
     const timeOut = document.getElementById('payEditTimeOut').value;
-    const otRate = document.getElementById('payEditOtRate').value;
-    const allowance = document.getElementById('payEditAllowance').value;
-    const sss = document.getElementById('payEditSss').value;
-    const philhealth = document.getElementById('payEditPhilhealth').value;
-    const pagibig = document.getElementById('payEditPagibig').value;
-    const cashAdvance = document.getElementById('payEditCashAdvance').value;
 
     try{
       const res = await fetch('/api/users', {
@@ -3626,13 +3626,7 @@
           payType: payType || null,
           rate: rate === '' ? null : Number(rate),
           regularTimeIn: timeIn || null,
-          regularTimeOut: timeOut || null,
-          otRate: otRate === '' ? null : Number(otRate),
-          allowance: allowance === '' ? null : Number(allowance),
-          sssDeduction: sss === '' ? null : Number(sss),
-          philhealthDeduction: philhealth === '' ? null : Number(philhealth),
-          pagibigDeduction: pagibig === '' ? null : Number(pagibig),
-          cashAdvanceDeduction: cashAdvance === '' ? null : Number(cashAdvance)
+          regularTimeOut: timeOut || null
         })
       });
       if(handleAuthFailure(res.status)) return;
@@ -3776,6 +3770,7 @@
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
+    const isAttendance = tab === 'attendance';
     const isAnalytics = tab === 'analytics';
     const isUsers = tab === 'users';
     const isAccountLog = tab === 'accountlog';
@@ -3783,22 +3778,255 @@
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
+    document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('viewAccountLog').style.display = isAccountLog ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
+    document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAttendance ? 'viewAttendance' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
+    if(isAttendance) loadAttendance();
     if(isAnalytics) loadAnalytics();
     if(isUsers) loadUsersList();
     if(isAccountLog) loadAccountLog();
+  }
+
+  // ---- Attendance ----
+  // Everyone who can log into Job Orders (Apparel Staff/Admin, and Super
+  // Admin) can clock themselves in/out right here — the server stamps the
+  // real timestamp (see api/attendance.js), the client never sends its
+  // own clock. This is the same attendance log the separate Attendance &
+  // Payroll app reads/writes, so nothing needs to be kept in sync — it's
+  // one shared record. The full attendance report/log below the clock
+  // widget is Super Admin only, matching that endpoint's own restriction.
+  let clockTickHandle = null;
+  let todaysPunch = null;
+
+  function startClockTick(){
+    if(clockTickHandle) return;
+    const tick = () => {
+      const now = new Date();
+      document.getElementById('clockNowTime').textContent = now.toLocaleTimeString('en-PH', { hour12: true });
+      document.getElementById('clockNowDate').textContent = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    };
+    tick();
+    clockTickHandle = setInterval(tick, 1000);
+  }
+
+  function formatTimeStamp(iso){
+    if(!iso) return '—';
+    const d = new Date(iso);
+    if(isNaN(d)) return '—';
+    return d.toLocaleTimeString('en-PH', { hour12: true, timeZone: 'Asia/Manila' });
+  }
+
+  // The regular shift is four sequential punches; overtime is a separate,
+  // optional pair that only unlocks once the regular shift is finished.
+  function nextMainAction(p){
+    if(!p || !p.morningIn) return { action: 'morning_in', label: 'Clock In (Morning)' };
+    if(!p.noonOut) return { action: 'noon_out', label: 'Clock Out (Lunch)' };
+    if(!p.afternoonIn) return { action: 'afternoon_in', label: 'Clock In (Afternoon)' };
+    if(!p.afternoonOut) return { action: 'afternoon_out', label: 'Clock Out (End of Shift)' };
+    return null;
+  }
+  function nextOtAction(p){
+    if(!p || !p.afternoonOut) return null;
+    if(!p.otIn) return { action: 'ot_in', label: 'Start Overtime' };
+    if(!p.otOut) return { action: 'ot_out', label: 'End Overtime' };
+    return null;
+  }
+
+  function renderClockWidget(){
+    const p = todaysPunch;
+    document.getElementById('clockMorningInVal').textContent = p ? formatTimeStamp(p.morningIn) : '—';
+    document.getElementById('clockNoonOutVal').textContent = p ? formatTimeStamp(p.noonOut) : '—';
+    document.getElementById('clockAfternoonInVal').textContent = p ? formatTimeStamp(p.afternoonIn) : '—';
+    document.getElementById('clockAfternoonOutVal').textContent = p ? formatTimeStamp(p.afternoonOut) : '—';
+    document.getElementById('clockOtInVal').textContent = p ? formatTimeStamp(p.otIn) : '—';
+    document.getElementById('clockOtOutVal').textContent = p ? formatTimeStamp(p.otOut) : '—';
+
+    const btn = document.getElementById('clockActionBtn');
+    const next = nextMainAction(p);
+    if(next){
+      btn.textContent = next.label;
+      btn.className = (next.action === 'noon_out' || next.action === 'afternoon_out') ? 'clock-btn out' : 'clock-btn';
+      btn.disabled = false;
+      btn.dataset.action = next.action;
+    }else{
+      btn.textContent = 'Shift Complete';
+      btn.className = 'clock-btn';
+      btn.disabled = true;
+      btn.dataset.action = '';
+    }
+
+    const otBtn = document.getElementById('clockOtBtn');
+    const nextOt = nextOtAction(p);
+    if(nextOt){
+      otBtn.textContent = nextOt.label;
+      otBtn.className = nextOt.action === 'ot_in' ? 'clock-btn out' : 'clock-btn';
+      otBtn.disabled = false;
+      otBtn.dataset.action = nextOt.action;
+    }else{
+      otBtn.disabled = true;
+      otBtn.dataset.action = '';
+      otBtn.textContent = (p && p.otOut) ? 'Overtime Done' : 'Overtime (finish shift first)';
+    }
+  }
+
+  async function loadAttendance(){
+    startClockTick();
+    document.getElementById('attendanceReportSection').style.display = isSuperAdmin() ? 'block' : 'none';
+
+    try{
+      const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      todaysPunch = data.today || null;
+    }catch(e){
+      console.warn('Could not load today\'s attendance.', e);
+    }
+    renderClockWidget();
+
+    if(isSuperAdmin()){
+      // Late/Undertime badges need each employee's regular shift times —
+      // make sure that's loaded even if Users hasn't been visited yet.
+      if(cachedUsers.length === 0){
+        try{
+          const uRes = await fetch('/api/users', { headers: { ...authHeaders() } });
+          if(!handleAuthFailure(uRes.status)){
+            const uData = await uRes.json();
+            cachedUsers = uData.users || [];
+          }
+        }catch(e){
+          console.warn('Could not load accounts for the attendance report.', e);
+        }
+      }
+      const today = new Date();
+      const toStr = today.toISOString().slice(0, 10);
+      const fromDate = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);
+      if(!document.getElementById('attFrom').value) document.getElementById('attFrom').value = fromDate.toISOString().slice(0, 10);
+      if(!document.getElementById('attTo').value) document.getElementById('attTo').value = toStr;
+      loadAttendanceReport();
+    }
+  }
+
+  async function doPunch(action){
+    const msgEl = document.getElementById('clockMsg');
+    msgEl.textContent = '';
+    msgEl.className = 'clock-msg';
+    document.getElementById('clockActionBtn').disabled = true;
+    document.getElementById('clockOtBtn').disabled = true;
+    try{
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        msgEl.textContent = data.error || 'Could not record that.';
+        msgEl.className = 'clock-msg error';
+        todaysPunch = data.record || todaysPunch;
+        renderClockWidget();
+        return;
+      }
+      todaysPunch = data.record;
+      msgEl.textContent = 'Recorded successfully.';
+      msgEl.className = 'clock-msg ok';
+      renderClockWidget();
+      if(isSuperAdmin()) loadAttendanceReport();
+    }catch(e){
+      msgEl.textContent = 'Could not reach the server. Please try again.';
+      msgEl.className = 'clock-msg error';
+      renderClockWidget();
+    }
+  }
+
+  function punchClock(){
+    const action = document.getElementById('clockActionBtn').dataset.action;
+    if(!action) return;
+    doPunch(action);
+  }
+
+  function punchOt(){
+    const action = document.getElementById('clockOtBtn').dataset.action;
+    if(!action) return;
+    doPunch(action);
+  }
+
+  let cachedAttendanceReport = [];
+
+  async function loadAttendanceReport(){
+    if(!isSuperAdmin()) return;
+    const from = document.getElementById('attFrom').value;
+    const to = document.getElementById('attTo').value;
+    const tbody = document.getElementById('attendanceReportTbody');
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('attendanceReportEmpty').style.display = 'none';
+    try{
+      const params = new URLSearchParams({ report: '1' });
+      if(from) params.set('from', from);
+      if(to) params.set('to', to);
+      const res = await fetch(`/api/attendance?${params}`, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedAttendanceReport = data.rows || [];
+    }catch(e){
+      cachedAttendanceReport = [];
+      console.warn('Could not load attendance report.', e);
+    }
+    renderAttendanceReport();
+  }
+
+  function renderAttendanceReport(){
+    const tbody = document.getElementById('attendanceReportTbody');
+    const empty = document.getElementById('attendanceReportEmpty');
+    if(cachedAttendanceReport.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No attendance punches in this range.';
+      return;
+    }
+    empty.style.display = 'none';
+    const userByName = {};
+    (cachedUsers || []).forEach(u => userByName[u.username] = u);
+
+    tbody.innerHTML = cachedAttendanceReport.map(r => {
+      const u = userByName[r.username];
+      let statusHtml = '';
+      if(!r.afternoonOut){
+        statusHtml += '<span class="badge-open">Open shift</span>';
+      }
+      if(u && u.regularTimeIn && r.morningIn){
+        const inLocal = new Date(r.morningIn).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(inLocal > u.regularTimeIn) statusHtml += '<span class="badge-late">Late</span>';
+      }
+      if(u && u.regularTimeOut && r.afternoonOut){
+        const outLocal = new Date(r.afternoonOut).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
+      }
+      if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
+      return `<tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.username)}</td>
+        <td>${formatTimeStamp(r.morningIn)}</td>
+        <td>${formatTimeStamp(r.noonOut)}</td>
+        <td>${formatTimeStamp(r.afternoonIn)}</td>
+        <td>${formatTimeStamp(r.afternoonOut)}</td>
+        <td>${formatTimeStamp(r.otIn)}</td>
+        <td>${formatTimeStamp(r.otOut)}</td>
+        <td>${statusHtml || '—'}</td>
+      </tr>`;
+    }).join('');
   }
 
   // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
