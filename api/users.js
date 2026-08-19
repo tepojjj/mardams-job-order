@@ -3,13 +3,49 @@ const { hashPassword, requireRole } = require('./_auth');
 
 const USERS_KEY = 'app-users';
 
+// Pull payType/rate/regularTimeIn/regularTimeOut off a request body and
+// validate them. Only ever called for Super Admin requests — payroll
+// configuration is Super-Admin-only. Returns { fields, error }.
+function parsePayrollFields(body) {
+  const fields = {};
+  if (body.payType !== undefined) {
+    if (body.payType !== null && !['daily', 'fixed'].includes(body.payType)) {
+      return { error: 'Pay type must be "daily" or "fixed"' };
+    }
+    fields.payType = body.payType;
+  }
+  if (body.rate !== undefined) {
+    const rate = body.rate === null || body.rate === '' ? null : Number(body.rate);
+    if (rate !== null && (!Number.isFinite(rate) || rate < 0)) {
+      return { error: 'Rate must be a positive number' };
+    }
+    fields.rate = rate;
+  }
+  if (body.regularTimeIn !== undefined) {
+    if (body.regularTimeIn && !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.regularTimeIn)) {
+      return { error: 'Regular time in must be in HH:MM format' };
+    }
+    fields.regularTimeIn = body.regularTimeIn || null;
+  }
+  if (body.regularTimeOut !== undefined) {
+    if (body.regularTimeOut && !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.regularTimeOut)) {
+      return { error: 'Regular time out must be in HH:MM format' };
+    }
+    fields.regularTimeOut = body.regularTimeOut || null;
+  }
+  return { fields };
+}
+
 module.exports = async (req, res) => {
   // List all accounts — Admins and the Super Admin can see the staff list.
+  // Pay type/rate/regular shift times are payroll data, so those fields are
+  // only included in the response when the requester is the Super Admin.
   if (req.method === 'GET') {
     const auth = requireRole(req, res, ['admin', 'super_admin']);
     if (!auth) return;
 
     const users = (await kv.hgetall(USERS_KEY)) || {};
+    const isSuperAdmin = auth.role === 'super_admin';
     const list = Object.values(users)
       .map((v) => {
         try {
@@ -19,7 +55,18 @@ module.exports = async (req, res) => {
         }
       })
       .filter(Boolean)
-      .map((u) => ({ username: u.username, role: u.role, createdBy: u.createdBy, createdAt: u.createdAt }))
+      .map((u) => ({
+        username: u.username,
+        role: u.role,
+        createdBy: u.createdBy,
+        createdAt: u.createdAt,
+        ...(isSuperAdmin ? {
+          payType: u.payType || null,
+          rate: typeof u.rate === 'number' ? u.rate : null,
+          regularTimeIn: u.regularTimeIn || null,
+          regularTimeOut: u.regularTimeOut || null
+        } : {})
+      }))
       .sort((a, b) => a.username.localeCompare(b.username));
 
     res.status(200).json({ users: list });
@@ -80,8 +127,70 @@ module.exports = async (req, res) => {
       createdBy: auth.username,
       createdAt: new Date().toISOString()
     };
+
+    // Pay type / rate / regular shift times are payroll configuration —
+    // only the Super Admin can set them, whether at creation or later.
+    if (auth.role === 'super_admin') {
+      const { fields, error } = parsePayrollFields(body);
+      if (error) {
+        res.status(400).json({ error });
+        return;
+      }
+      Object.assign(record, fields);
+    }
+
     await kv.hset(USERS_KEY, { [uname]: JSON.stringify(record) });
     res.status(200).json({ ok: true, user: { username: uname, role, createdBy: auth.username, createdAt: record.createdAt } });
+    return;
+  }
+
+  // Update an existing account's payroll configuration (pay type, rate,
+  // regular shift times). Super Admin only — this is the only way those
+  // fields are ever changed after an account is created.
+  if (req.method === 'PATCH') {
+    const auth = requireRole(req, res, ['super_admin']);
+    if (!auth) return;
+
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body || '{}');
+      } catch (e) {
+        res.status(400).json({ error: 'Invalid JSON' });
+        return;
+      }
+    }
+    body = body || {};
+
+    const uname = String(body.username || '').trim().toLowerCase();
+    if (!uname) {
+      res.status(400).json({ error: 'Missing username' });
+      return;
+    }
+
+    const raw = await kv.hget(USERS_KEY, uname);
+    if (!raw) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const target = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+    const { fields, error } = parsePayrollFields(body);
+    if (error) {
+      res.status(400).json({ error });
+      return;
+    }
+    Object.assign(target, fields);
+
+    await kv.hset(USERS_KEY, { [uname]: JSON.stringify(target) });
+    res.status(200).json({
+      ok: true,
+      user: {
+        username: target.username, role: target.role, createdBy: target.createdBy, createdAt: target.createdAt,
+        payType: target.payType || null, rate: typeof target.rate === 'number' ? target.rate : null,
+        regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null
+      }
+    });
     return;
   }
 

@@ -824,6 +824,7 @@
 
   body.hide-revenue .monitor-revenue-col,
   body.hide-revenue .monitor-summary{display:none !important;}
+  body.hide-payroll .payroll-col{display:none !important;}
 
   .monitor-summary{
     display:flex;
@@ -911,6 +912,97 @@
   }
   .stat-card.highlight .stat-label{color:#B9C2CB;}
   .stat-card.highlight .stat-value{color:#fff;}
+  .stat-card.clickable{
+    cursor:pointer;
+    transition:box-shadow .15s ease, transform .15s ease, border-color .15s ease;
+  }
+  .stat-card.clickable:hover{
+    border-color:var(--stamp);
+    box-shadow:0 2px 10px rgba(0,0,0,.08);
+    transform:translateY(-1px);
+  }
+  .stat-card.clickable .stat-label::after{
+    content:"↗";
+    float:right;
+    opacity:.45;
+    font-size:11px;
+  }
+  .stat-card.highlight.clickable:hover{border-color:var(--stamp);}
+
+  /* ---- Analytics drill-down modal ---- */
+  .drilldown-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(18,53,36,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:120;
+    padding:16px;
+  }
+  .drilldown-overlay.open{display:flex;}
+  .drilldown-modal{
+    width:100%;
+    max-width:820px;
+    max-height:85vh;
+    background:var(--card);
+    border:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .drilldown-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .drilldown-title{font-size:15px; font-weight:700; color:var(--ink);}
+  .drilldown-sub{font-size:11.5px; color:var(--ink-soft); margin-top:3px;}
+  .drilldown-close{
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink-soft);
+    width:28px; height:28px;
+    line-height:1;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .drilldown-close:hover{border-color:var(--stamp); color:var(--stamp);}
+  .drilldown-body{overflow:auto; padding:0;}
+  .drilldown-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .drilldown-table th{
+    position:sticky; top:0;
+    background:var(--field-bg);
+    text-align:left;
+    font-size:10px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    padding:9px 12px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .drilldown-table td{
+    padding:8px 12px;
+    border-bottom:1px solid var(--line);
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .drilldown-table td.wrap{white-space:normal;}
+  .drilldown-table tbody tr:hover{background:var(--field-bg);}
+  .drilldown-empty{padding:30px 18px; text-align:center; color:var(--ink-soft); font-size:13px;}
+  .drilldown-status-chip{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    font-size:10.5px;
+    font-weight:600;
+    color:#fff;
+  }
+
   .chart-block{
     margin-bottom:26px;
   }
@@ -936,6 +1028,80 @@
   }
   .chart-legend span{display:inline-flex; align-items:center; gap:6px;}
   .chart-legend i{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  /* ---- Attendance ---- */
+  .clock-card{
+    border:1px solid var(--line);
+    padding:26px 22px;
+    text-align:center;
+    max-width:360px;
+    margin:0 auto 26px;
+  }
+  .clock-time{
+    font-size:34px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.01em;
+  }
+  .clock-date{font-size:12px; color:var(--ink-soft); margin-top:2px; margin-bottom:18px;}
+  .clock-status-row{
+    display:flex;
+    justify-content:center;
+    gap:22px;
+    margin-bottom:18px;
+    font-size:12.5px;
+  }
+  .clock-status-row .lbl{color:var(--ink-soft); display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px;}
+  .clock-status-row .val{color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums;}
+  .clock-btn{
+    border:none;
+    background:var(--stamp);
+    color:#fff;
+    padding:13px 30px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    width:100%;
+  }
+  .clock-btn:disabled{background:var(--line); color:var(--ink-soft); cursor:not-allowed;}
+  .clock-btn.out{background:var(--ink);}
+  .clock-msg{font-size:12px; margin-top:10px; min-height:16px;}
+  .clock-msg.error{color:#B23A1B;}
+  .clock-msg.ok{color:var(--stamp);}
+  .attendance-filters{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:flex-end;
+    margin-bottom:16px;
+  }
+  .attendance-filters label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); display:block; margin-bottom:4px;}
+  .attendance-filters input[type="date"]{padding:7px 9px; border:1px solid var(--line); font-size:12.5px;}
+  .badge-late{color:#B23A1B; font-size:10px; font-weight:700; margin-left:5px;}
+  .badge-undertime{color:#B23A1B; font-size:10px; font-weight:700; margin-left:5px;}
+  .badge-open{color:var(--ink-soft); font-style:italic;}
+
+  /* ---- Payroll ---- */
+  .payroll-summary-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  .payroll-summary-row .stat-card{flex:1; min-width:180px;}
+  .payroll-table tr.clickable-row{cursor:pointer;}
+  .payroll-table tr.clickable-row:hover{background:var(--field-bg);}
+  .pay-type-pill{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    font-size:10px;
+    font-weight:600;
+    background:var(--field-bg);
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+  }
 </style>
 </head>
 <body>
@@ -964,6 +1130,8 @@
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
+    <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
+    <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
   </div>
 
@@ -1145,24 +1313,34 @@
         <div class="stat-label">Total Revenue</div>
         <div class="stat-value" id="statRevenue">₱0.00</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('tracked')">
         <div class="stat-label">Tracked Orders</div>
         <div class="stat-value" id="statOrders">0</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('active')">
         <div class="stat-label">Active Job Orders</div>
         <div class="stat-value" id="statActive">0</div>
         <div class="stat-sub" id="statActiveSub"></div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('recent')">
         <div class="stat-label">Recent Job Orders</div>
         <div class="stat-value" id="statRecent">0</div>
         <div class="stat-sub" id="statRecentSub">Last 7 days</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('done')">
         <div class="stat-label">Done Job Orders</div>
         <div class="stat-value" id="statDone">0</div>
         <div class="stat-sub" id="statDoneSub"></div>
+      </div>
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('pending')">
+        <div class="stat-label">Pending Job Orders</div>
+        <div class="stat-value" id="statPending">0</div>
+        <div class="stat-sub" id="statPendingSub"></div>
+      </div>
+      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('cancelled')">
+        <div class="stat-label">Cancelled Job Orders</div>
+        <div class="stat-value" id="statCancelled">0</div>
+        <div class="stat-sub" id="statCancelledSub"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Qty</div>
@@ -1195,6 +1373,71 @@
     </div>
   </div>
 
+  <div class="monitor-wrap" id="viewAttendance" style="display:none;">
+    <div class="clock-card">
+      <div class="clock-time" id="clockNowTime">--:--:--</div>
+      <div class="clock-date" id="clockNowDate">—</div>
+      <div class="clock-status-row">
+        <div><span class="lbl">Time In</span><span class="val" id="clockTimeInVal">—</span></div>
+        <div><span class="lbl">Time Out</span><span class="val" id="clockTimeOutVal">—</span></div>
+      </div>
+      <button class="clock-btn" id="clockActionBtn" onclick="punchClock()" disabled>Loading…</button>
+      <div class="clock-msg" id="clockMsg"></div>
+    </div>
+
+    <div id="attendanceReportSection" style="display:none;">
+      <div class="section-label" style="margin-top:0;">Attendance Report</div>
+      <div class="attendance-filters">
+        <div><label>From</label><input type="date" id="attFrom"></div>
+        <div><label>To</label><input type="date" id="attTo"></div>
+        <div><button class="ghost" onclick="loadAttendanceReport()">Filter</button></div>
+      </div>
+      <table class="browse-table drilldown-table">
+        <thead>
+          <tr><th>Date</th><th>Employee</th><th>Time In</th><th>Time Out</th><th>Status</th></tr>
+        </thead>
+        <tbody id="attendanceReportTbody"></tbody>
+      </table>
+      <div class="browse-empty" id="attendanceReportEmpty" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="analytics-wrap" id="viewPayroll" style="display:none;">
+    <div class="attendance-filters">
+      <div><label>From</label><input type="date" id="payFrom"></div>
+      <div><label>To</label><input type="date" id="payTo"></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_half_1')">1st–15th</button></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_half_2')">16th–End</button></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_month')">This Month</button></div>
+      <div><button class="primary" onclick="generatePayroll()">Generate</button></div>
+    </div>
+
+    <div class="payroll-summary-row">
+      <div class="stat-card highlight">
+        <div class="stat-label">Total Payroll</div>
+        <div class="stat-value" id="payrollTotal">₱0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Employees Included</div>
+        <div class="stat-value" id="payrollEmpCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Not Yet Configured</div>
+        <div class="stat-value" id="payrollUnconfigCount">0</div>
+        <div class="stat-sub">Set Pay Type &amp; Rate in Users</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:0;">Payroll Breakdown</div>
+    <table class="browse-table payroll-table">
+      <thead>
+        <tr><th>Employee</th><th>Pay Type</th><th>Rate</th><th>Days Present</th><th>Total Pay</th></tr>
+      </thead>
+      <tbody id="payrollTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="payrollEmpty" style="display:none;"></div>
+  </div>
+
   <div class="browse-wrap" id="viewUsers" style="display:none;">
     <div class="section-label" style="margin-top:0;">Add Account</div>
     <div class="user-form">
@@ -1206,6 +1449,16 @@
       </select>
       <button class="primary" onclick="createUser()">Add Account</button>
     </div>
+    <div class="user-form payroll-col" style="margin-top:8px;">
+      <select id="newUserPayType">
+        <option value="">Pay Type (optional)</option>
+        <option value="daily">Daily Rate</option>
+        <option value="fixed">Fixed Monthly</option>
+      </select>
+      <input type="number" id="newUserRate" placeholder="Rate (₱)" min="0" step="0.01">
+      <input type="time" id="newUserTimeIn" title="Regular time in">
+      <input type="time" id="newUserTimeOut" title="Regular time out">
+    </div>
     <div class="login-error" id="userFormError"></div>
 
     <div class="section-label">Accounts</div>
@@ -1214,6 +1467,9 @@
         <tr>
           <th>Username</th>
           <th>Role</th>
+          <th class="payroll-col">Pay Type</th>
+          <th class="payroll-col">Rate</th>
+          <th class="payroll-col">Shift</th>
           <th>Created By</th>
           <th>Created</th>
           <th></th>
@@ -1222,6 +1478,34 @@
       <tbody id="usersTbody"></tbody>
     </table>
     <div class="browse-empty" id="usersEmpty" style="display:none;"></div>
+  </div>
+
+  <div class="drilldown-overlay" id="payEditOverlay" onclick="if(event.target===this) closePayEdit();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Edit Pay &amp; Shift</div>
+          <div class="drilldown-sub" id="payEditUsername">—</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closePayEdit();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <select id="payEditType">
+            <option value="">Pay Type (not set)</option>
+            <option value="daily">Daily Rate</option>
+            <option value="fixed">Fixed Monthly</option>
+          </select>
+          <input type="number" id="payEditRate" placeholder="Rate (₱)" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Regular Time In</label>
+          <input type="time" id="payEditTimeIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Regular Time Out</label>
+          <input type="time" id="payEditTimeOut">
+          <div class="login-error" id="payEditError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="savePayEdit()">Save</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -1291,6 +1575,13 @@
     return !!currentUser && currentUser.role === 'super_admin';
   }
 
+  // Attendance results and Payroll are Super Admin-only. Staff and Admin
+  // can still clock themselves in/out (see the Attendance tab), they just
+  // never see the underlying report or any pay figures.
+  function isSuperAdmin(){
+    return !!currentUser && currentUser.role === 'super_admin';
+  }
+
   function showLogin(msg){
     clearAuth();
     const overlay = document.getElementById('loginOverlay');
@@ -1335,7 +1626,9 @@
     document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
     document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
     document.getElementById('tabBtnAnalytics').style.display = canSeeRevenue() ? '' : 'none';
+    document.getElementById('tabBtnPayroll').style.display = isSuperAdmin() ? '' : 'none';
     document.body.classList.toggle('hide-revenue', !canSeeRevenue());
+    document.body.classList.toggle('hide-payroll', !isSuperAdmin());
 
     showTab('new');
     peekNextNumber();
@@ -1850,7 +2143,7 @@
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
-          ${currentUser && currentUser.role === 'super_admin'
+          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
             ? `<button class="ghost edit-btn" onclick="editOrder('${escapeHtml(o.joNumber)}')">Edit</button>`
             : ''}
           ${currentUser && currentUser.role === 'super_admin'
@@ -1869,13 +2162,14 @@
     w.document.write(`<title>Reference photo — JO ${escapeHtml(id)}</title><body style="margin:0;background:#161A1E;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${order.photo}" style="max-width:100%;max-height:100vh;"></body>`);
   }
 
-  // Editing an existing job order is restricted to Super Admin. The Edit
-  // button itself is only rendered for that role (see renderBrowseRows),
-  // and the backend double-checks this on save (see api/orders.js).
+  // Editing an existing job order is restricted to Admin and Super Admin
+  // (Staff is view-only). The Edit button itself is only rendered for
+  // those roles (see renderBrowseRows), and the backend double-checks
+  // this on save (see api/orders.js).
   let editingOrderId = null;
 
   function editOrder(id){
-    if(!currentUser || currentUser.role !== 'super_admin') return;
+    if(!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) return;
     const order = cachedOrders.find(o => o.joNumber === id);
     if(!order) return;
 
@@ -1902,7 +2196,7 @@
   }
 
   async function saveEditedOrder(){
-    if(!currentUser || currentUser.role !== 'super_admin') return;
+    if(!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) return;
     if(!editingOrderId) return;
 
     const data = collectFormData();
@@ -2017,6 +2311,12 @@
   const MONITOR_MACHINE_OPTIONS = ['MIMAKI TS-100','UG MIMAKI TS-55'];
   const MONITOR_ICC_OPTIONS = ['BPX','MARDAM','TS-100 ICC'];
   let cachedMonitorRows = [];
+  let analyticsDrilldownData = {};
+
+  const STATUS_COLORS = {
+    'FOR PRINT': '#1E7A42', 'FOR HEAT': '#B23A1B', 'PRINTED': '#2352A6',
+    'DONE': '#3E4A54', 'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
+  };
 
   function initMonitorHeader(){
     const row = document.getElementById('monitorHeadRow');
@@ -2356,9 +2656,10 @@
     // Active Job Orders — status still "FOR PRINT" or "FOR HEAT" (i.e. not
     // yet PRINTED, DONE, or CANCELLED), straight off the same status
     // dropdown used on the Monitoring Sheet.
+    const activeRows = rows.filter(r => MONITOR_ACTIVE_STATUSES.includes(r.status));
     const forPrintCount = rows.filter(r => r.status === 'FOR PRINT').length;
     const forHeatCount = rows.filter(r => r.status === 'FOR HEAT').length;
-    const activeCount = forPrintCount + forHeatCount;
+    const activeCount = activeRows.length;
     document.getElementById('statActive').textContent = activeCount.toLocaleString('en-PH');
     document.getElementById('statActiveSub').textContent = `${forPrintCount} For Print · ${forHeatCount} For Heat`;
 
@@ -2366,18 +2667,45 @@
     const cutoff = new Date();
     cutoff.setHours(0, 0, 0, 0);
     cutoff.setDate(cutoff.getDate() - (MONITOR_RECENT_DAYS - 1));
-    const recentCount = rows.filter(r => {
+    const recentRows = rows.filter(r => {
       if(!r.date) return false;
       const d = new Date(r.date + 'T00:00:00');
       return !isNaN(d) && d >= cutoff;
-    }).length;
+    });
+    const recentCount = recentRows.length;
     document.getElementById('statRecent').textContent = recentCount.toLocaleString('en-PH');
     document.getElementById('statRecentSub').textContent = `Last ${MONITOR_RECENT_DAYS} days`;
 
     // Done Job Orders — status is exactly "DONE" on the Monitoring Sheet.
-    const doneCount = rows.filter(r => r.status === 'DONE').length;
+    const doneRows = rows.filter(r => r.status === 'DONE');
+    const doneCount = doneRows.length;
     document.getElementById('statDone').textContent = doneCount.toLocaleString('en-PH');
     document.getElementById('statDoneSub').textContent = orderCount ? `${Math.round((doneCount / orderCount) * 100)}% of tracked orders` : '';
+
+    // Pending Job Orders — anything not yet DONE and not CANCELLED
+    // (FOR PRINT, FOR HEAT, PRINTED, or blank status) is automatically
+    // considered pending.
+    const pendingRows = rows.filter(r => r.status !== 'DONE' && r.status !== 'CANCELLED');
+    const pendingCount = pendingRows.length;
+    document.getElementById('statPending').textContent = pendingCount.toLocaleString('en-PH');
+    document.getElementById('statPendingSub').textContent = orderCount ? `${Math.round((pendingCount / orderCount) * 100)}% of tracked orders` : '';
+
+    // Cancelled Job Orders — status is exactly "CANCELLED".
+    const cancelledRows = rows.filter(r => r.status === 'CANCELLED');
+    const cancelledCount = cancelledRows.length;
+    document.getElementById('statCancelled').textContent = cancelledCount.toLocaleString('en-PH');
+    document.getElementById('statCancelledSub').textContent = orderCount ? `${Math.round((cancelledCount / orderCount) * 100)}% of tracked orders` : '';
+
+    // Keep the underlying rows for each KPI card handy so a click can
+    // drill into the exact list behind the number.
+    analyticsDrilldownData = {
+      tracked:   { title: 'Tracked Orders',    rows: rows },
+      active:    { title: 'Active Job Orders', rows: activeRows },
+      recent:    { title: 'Recent Job Orders', rows: recentRows, sub: `Last ${MONITOR_RECENT_DAYS} days` },
+      done:      { title: 'Done Job Orders',   rows: doneRows },
+      pending:   { title: 'Pending Job Orders', rows: pendingRows },
+      cancelled: { title: 'Cancelled Job Orders', rows: cancelledRows }
+    };
 
     // Bucket rows by date (day or month), keeping only dated rows, sorted
     // chronologically.
@@ -2599,6 +2927,58 @@
     container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
   }
 
+  // ---- Analytics KPI drill-down ----
+  // Clicking a KPI stat card opens a modal listing the exact rows behind
+  // that number (same rows computed in renderAnalytics, stashed in
+  // analyticsDrilldownData keyed by card).
+  function openAnalyticsDrilldown(key){
+    const entry = analyticsDrilldownData[key];
+    if(!entry) return;
+    const rows = entry.rows || [];
+
+    document.getElementById('drilldownTitle').textContent = entry.title;
+    document.getElementById('drilldownSub').textContent =
+      `${rows.length.toLocaleString('en-PH')} job order${rows.length === 1 ? '' : 's'}` + (entry.sub ? ` · ${entry.sub}` : '');
+
+    const body = document.getElementById('drilldownBody');
+    if(rows.length === 0){
+      body.innerHTML = '<div class="drilldown-empty">No job orders in this list yet.</div>';
+    }else{
+      const sorted = [...rows].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const tableRows = sorted.map(r => {
+        const status = r.status || 'Unset';
+        const chipColor = STATUS_COLORS[status] || STATUS_COLORS.Unset;
+        return `<tr>
+          <td>${escapeHtml(r.joNumber || '—')}</td>
+          <td>${escapeHtml(r.date || '—')}</td>
+          <td class="wrap">${escapeHtml(r.clientName || '—')}</td>
+          <td class="wrap">${escapeHtml(r.description || '—')}</td>
+          <td>${(parseFloat(r.qty) || 0).toLocaleString('en-PH')}</td>
+          <td>${formatCurrency(parseFloat(r.grandTotal) || 0)}</td>
+          <td><span class="drilldown-status-chip" style="background:${chipColor};">${escapeHtml(status)}</span></td>
+        </tr>`;
+      }).join('');
+      body.innerHTML = `<table class="drilldown-table">
+        <thead><tr>
+          <th>JO #</th><th>Date</th><th>Client</th><th>Description</th><th>Qty</th><th>Grand Total</th><th>Status</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>`;
+    }
+
+    document.getElementById('drilldownOverlay').classList.add('open');
+  }
+
+  function closeAnalyticsDrilldown(){
+    document.getElementById('drilldownOverlay').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && document.getElementById('drilldownOverlay').classList.contains('open')){
+      closeAnalyticsDrilldown();
+    }
+  });
+
   // ---- Google Sheets integration ----
   // Every time a Monitoring Sheet row is created, edited, or deleted, this
   // mirrors that change into a Google Sheet via a small server-side proxy
@@ -2641,20 +3021,29 @@
       const isSelf = currentUser && u.username === currentUser.username;
       const canDelete = !isSelf && u.role !== 'super_admin' &&
         (currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff'));
+      const payTypeLabel = u.payType === 'daily' ? 'Daily Rate' : u.payType === 'fixed' ? 'Fixed Monthly' : '—';
+      const rateLabel = typeof u.rate === 'number' ? formatCurrency(u.rate) : '—';
+      const shiftLabel = (u.regularTimeIn || u.regularTimeOut) ? `${u.regularTimeIn || '—'}–${u.regularTimeOut || '—'}` : '—';
       return `
       <tr>
         <td>${escapeHtml(u.username)}</td>
         <td>${escapeHtml(roleLabel(u.role))}</td>
+        <td class="payroll-col">${escapeHtml(payTypeLabel)}</td>
+        <td class="payroll-col">${escapeHtml(rateLabel)}</td>
+        <td class="payroll-col">${escapeHtml(shiftLabel)}</td>
         <td>${escapeHtml(u.createdBy)}</td>
         <td>${escapeHtml((u.createdAt || '').slice(0, 10))}</td>
-        <td>${canDelete ? `<button class="ghost danger-btn" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Delete</button>` : ''}</td>
+        <td>
+          ${isSuperAdmin() ? `<button class="ghost edit-btn" onclick="openPayEdit('${escapeHtml(u.username)}')">Pay/Shift</button>` : ''}
+          ${canDelete ? `<button class="ghost danger-btn" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Delete</button>` : ''}
+        </td>
       </tr>`;
     }).join('');
   }
 
   async function loadUsersList(){
     const tbody = document.getElementById('usersTbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('usersEmpty').style.display = 'none';
     try{
       const res = await fetch('/api/users', { headers: { ...authHeaders() } });
@@ -2683,11 +3072,26 @@
       errEl.textContent = 'Enter a username and password.';
       return;
     }
+
+    const body = { username, password, role };
+    // Pay type/rate/shift are Super-Admin-only fields — Admins never send
+    // them (the fields are hidden from Admins via the hide-payroll class).
+    if(isSuperAdmin()){
+      const payType = document.getElementById('newUserPayType').value;
+      const rate = document.getElementById('newUserRate').value;
+      const timeIn = document.getElementById('newUserTimeIn').value;
+      const timeOut = document.getElementById('newUserTimeOut').value;
+      if(payType) body.payType = payType;
+      if(rate !== '') body.rate = Number(rate);
+      if(timeIn) body.regularTimeIn = timeIn;
+      if(timeOut) body.regularTimeOut = timeOut;
+    }
+
     try{
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ username, password, role })
+        body: JSON.stringify(body)
       });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
@@ -2697,6 +3101,63 @@
       }
       document.getElementById('newUserUsername').value = '';
       document.getElementById('newUserPassword').value = '';
+      document.getElementById('newUserPayType').value = '';
+      document.getElementById('newUserRate').value = '';
+      document.getElementById('newUserTimeIn').value = '';
+      document.getElementById('newUserTimeOut').value = '';
+      loadUsersList();
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
+  // ---- Pay & Shift editing (Super Admin only) ----
+  function openPayEdit(username){
+    if(!isSuperAdmin()) return;
+    const u = cachedUsers.find(x => x.username === username);
+    if(!u) return;
+    document.getElementById('payEditUsername').textContent = username;
+    document.getElementById('payEditType').value = u.payType || '';
+    document.getElementById('payEditRate').value = typeof u.rate === 'number' ? u.rate : '';
+    document.getElementById('payEditTimeIn').value = u.regularTimeIn || '';
+    document.getElementById('payEditTimeOut').value = u.regularTimeOut || '';
+    document.getElementById('payEditError').textContent = '';
+    document.getElementById('payEditOverlay').dataset.username = username;
+    document.getElementById('payEditOverlay').classList.add('open');
+  }
+
+  function closePayEdit(){
+    document.getElementById('payEditOverlay').classList.remove('open');
+  }
+
+  async function savePayEdit(){
+    const username = document.getElementById('payEditOverlay').dataset.username;
+    const errEl = document.getElementById('payEditError');
+    errEl.textContent = '';
+    const payType = document.getElementById('payEditType').value;
+    const rate = document.getElementById('payEditRate').value;
+    const timeIn = document.getElementById('payEditTimeIn').value;
+    const timeOut = document.getElementById('payEditTimeOut').value;
+
+    try{
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          username,
+          payType: payType || null,
+          rate: rate === '' ? null : Number(rate),
+          regularTimeIn: timeIn || null,
+          regularTimeOut: timeOut || null
+        })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not save.';
+        return;
+      }
+      closePayEdit();
       loadUsersList();
     }catch(e){
       errEl.textContent = 'Could not reach the server. Please try again.';
@@ -2725,27 +3186,36 @@
 
   function showTab(tab){
     if(tab === 'analytics' && !canSeeRevenue()) tab = 'new';
+    if(tab === 'payroll' && !isSuperAdmin()) tab = 'new';
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
     const isAnalytics = tab === 'analytics';
+    const isAttendance = tab === 'attendance';
+    const isPayroll = tab === 'payroll';
     const isUsers = tab === 'users';
     if(!isNew && editingOrderId) exitEditMode();
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
+    document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
+    document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
+    document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
+    document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : 'viewUsers';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : 'viewUsers';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
     if(isAnalytics) loadAnalytics();
+    if(isAttendance) loadAttendance();
+    if(isPayroll) loadPayrollView();
     if(isUsers) loadUsersList();
   }
 
@@ -2834,6 +3304,304 @@
     }
   });
 
+  // ---- Attendance ----
+  // Everyone (Staff, Admin, Super Admin) can clock themselves in/out — the
+  // server stamps the real timestamp (see api/attendance.js), the client
+  // never sends its own clock. The full report/log is Super Admin only.
+  let clockTickHandle = null;
+  let todaysPunch = null;
+
+  function startClockTick(){
+    if(clockTickHandle) return;
+    const tick = () => {
+      const now = new Date();
+      document.getElementById('clockNowTime').textContent = now.toLocaleTimeString('en-PH', { hour12: true });
+      document.getElementById('clockNowDate').textContent = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    };
+    tick();
+    clockTickHandle = setInterval(tick, 1000);
+  }
+
+  function formatTimeStamp(iso){
+    if(!iso) return '—';
+    const d = new Date(iso);
+    if(isNaN(d)) return '—';
+    return d.toLocaleTimeString('en-PH', { hour12: true, timeZone: 'Asia/Manila' });
+  }
+
+  function renderClockWidget(){
+    const btn = document.getElementById('clockActionBtn');
+    document.getElementById('clockTimeInVal').textContent = todaysPunch ? formatTimeStamp(todaysPunch.timeIn) : '—';
+    document.getElementById('clockTimeOutVal').textContent = todaysPunch ? formatTimeStamp(todaysPunch.timeOut) : '—';
+
+    if(!todaysPunch || !todaysPunch.timeIn){
+      btn.textContent = 'Clock In';
+      btn.className = 'clock-btn';
+      btn.disabled = false;
+      btn.dataset.action = 'clock_in';
+    }else if(!todaysPunch.timeOut){
+      btn.textContent = 'Clock Out';
+      btn.className = 'clock-btn out';
+      btn.disabled = false;
+      btn.dataset.action = 'clock_out';
+    }else{
+      btn.textContent = 'Done for Today';
+      btn.className = 'clock-btn';
+      btn.disabled = true;
+      btn.dataset.action = '';
+    }
+  }
+
+  async function loadAttendance(){
+    startClockTick();
+    document.getElementById('attendanceReportSection').style.display = isSuperAdmin() ? 'block' : 'none';
+
+    try{
+      const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      todaysPunch = data.today || null;
+    }catch(e){
+      console.warn('Could not load today\'s attendance.', e);
+    }
+    renderClockWidget();
+
+    if(isSuperAdmin()){
+      const today = new Date();
+      const toStr = today.toISOString().slice(0, 10);
+      const fromDate = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);
+      if(!document.getElementById('attFrom').value) document.getElementById('attFrom').value = fromDate.toISOString().slice(0, 10);
+      if(!document.getElementById('attTo').value) document.getElementById('attTo').value = toStr;
+      loadAttendanceReport();
+    }
+  }
+
+  async function punchClock(){
+    const btn = document.getElementById('clockActionBtn');
+    const action = btn.dataset.action;
+    if(!action) return;
+    const msgEl = document.getElementById('clockMsg');
+    msgEl.textContent = '';
+    msgEl.className = 'clock-msg';
+    btn.disabled = true;
+    try{
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        msgEl.textContent = data.error || 'Could not record that.';
+        msgEl.className = 'clock-msg error';
+        todaysPunch = data.record || todaysPunch;
+        renderClockWidget();
+        return;
+      }
+      todaysPunch = data.record;
+      msgEl.textContent = action === 'clock_in' ? 'Clocked in successfully.' : 'Clocked out successfully.';
+      msgEl.className = 'clock-msg ok';
+      renderClockWidget();
+      if(isSuperAdmin()) loadAttendanceReport();
+    }catch(e){
+      msgEl.textContent = 'Could not reach the server. Please try again.';
+      msgEl.className = 'clock-msg error';
+      renderClockWidget();
+    }
+  }
+
+  let cachedAttendanceReport = [];
+
+  async function loadAttendanceReport(){
+    if(!isSuperAdmin()) return;
+    const from = document.getElementById('attFrom').value;
+    const to = document.getElementById('attTo').value;
+    const tbody = document.getElementById('attendanceReportTbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('attendanceReportEmpty').style.display = 'none';
+    try{
+      const params = new URLSearchParams({ report: '1' });
+      if(from) params.set('from', from);
+      if(to) params.set('to', to);
+      const res = await fetch(`/api/attendance?${params}`, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedAttendanceReport = data.rows || [];
+    }catch(e){
+      cachedAttendanceReport = [];
+      console.warn('Could not load attendance report.', e);
+    }
+    renderAttendanceReport();
+  }
+
+  function renderAttendanceReport(){
+    const tbody = document.getElementById('attendanceReportTbody');
+    const empty = document.getElementById('attendanceReportEmpty');
+    if(cachedAttendanceReport.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No attendance punches in this range.';
+      return;
+    }
+    empty.style.display = 'none';
+    const userByName = {};
+    (cachedUsers || []).forEach(u => userByName[u.username] = u);
+
+    tbody.innerHTML = cachedAttendanceReport.map(r => {
+      const u = userByName[r.username];
+      let statusHtml = '';
+      if(!r.timeOut){
+        statusHtml = '<span class="badge-open">Open shift</span>';
+      }
+      if(u && u.regularTimeIn && r.timeIn){
+        const inLocal = new Date(r.timeIn).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(inLocal > u.regularTimeIn) statusHtml += '<span class="badge-late">Late</span>';
+      }
+      if(u && u.regularTimeOut && r.timeOut){
+        const outLocal = new Date(r.timeOut).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
+      }
+      return `<tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.username)}</td>
+        <td>${formatTimeStamp(r.timeIn)}</td>
+        <td>${formatTimeStamp(r.timeOut)}</td>
+        <td>${statusHtml || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ---- Payroll ----
+  // Super Admin only. Computes each configured employee's pay for a date
+  // range from the attendance log: Daily-rate employees are paid rate ×
+  // days present; Fixed-salary employees are paid the flat rate regardless
+  // of attendance (attendance is tracked for reference only in that case).
+  function setPayrollPreset(preset){
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    let from, to;
+    if(preset === 'this_half_1'){
+      from = fmt(new Date(y, m, 1));
+      to = fmt(new Date(y, m, 15));
+    }else if(preset === 'this_half_2'){
+      from = fmt(new Date(y, m, 16));
+      to = fmt(new Date(y, m + 1, 0));
+    }else{
+      from = fmt(new Date(y, m, 1));
+      to = fmt(new Date(y, m + 1, 0));
+    }
+    document.getElementById('payFrom').value = from;
+    document.getElementById('payTo').value = to;
+    generatePayroll();
+  }
+
+  async function loadPayrollView(){
+    if(!isSuperAdmin()) return;
+    if(!document.getElementById('payFrom').value || !document.getElementById('payTo').value){
+      setPayrollPreset('this_half_1');
+    }else{
+      generatePayroll();
+    }
+  }
+
+  async function generatePayroll(){
+    if(!isSuperAdmin()) return;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    if(!from || !to) return;
+
+    const tbody = document.getElementById('payrollTbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('payrollEmpty').style.display = 'none';
+
+    let users = [], attRows = [];
+    try{
+      const [usersRes, attRes] = await Promise.all([
+        fetch('/api/users', { headers: { ...authHeaders() } }),
+        fetch(`/api/attendance?${new URLSearchParams({ report: '1', from, to })}`, { headers: { ...authHeaders() } })
+      ]);
+      if(handleAuthFailure(usersRes.status) || handleAuthFailure(attRes.status)) return;
+      const usersData = await usersRes.json();
+      const attData = await attRes.json();
+      users = usersData.users || [];
+      attRows = attData.rows || [];
+      cachedUsers = users;
+    }catch(e){
+      tbody.innerHTML = '';
+      document.getElementById('payrollEmpty').style.display = 'block';
+      document.getElementById('payrollEmpty').textContent = 'Could not load payroll data.';
+      return;
+    }
+
+    const daysPresentByUser = {};
+    attRows.forEach(r => {
+      if(!r.timeIn) return;
+      daysPresentByUser[r.username] = (daysPresentByUser[r.username] || 0) + 1;
+    });
+
+    const configured = users.filter(u => u.payType && typeof u.rate === 'number');
+    const unconfigured = users.filter(u => !u.payType || typeof u.rate !== 'number');
+
+    let grandTotal = 0;
+    const rows = configured.map(u => {
+      const daysPresent = daysPresentByUser[u.username] || 0;
+      const total = u.payType === 'daily' ? u.rate * daysPresent : u.rate;
+      grandTotal += total;
+      return { u, daysPresent, total };
+    }).sort((a, b) => b.total - a.total);
+
+    document.getElementById('payrollTotal').textContent = formatCurrency(grandTotal);
+    document.getElementById('payrollEmpCount').textContent = rows.length.toLocaleString('en-PH');
+    document.getElementById('payrollUnconfigCount').textContent = unconfigured.length.toLocaleString('en-PH');
+
+    if(rows.length === 0){
+      tbody.innerHTML = '';
+      document.getElementById('payrollEmpty').style.display = 'block';
+      document.getElementById('payrollEmpty').textContent = 'No employees have Pay Type and Rate configured yet — set these in the Users tab.';
+      return;
+    }
+    document.getElementById('payrollEmpty').style.display = 'none';
+    tbody.innerHTML = rows.map(({ u, daysPresent, total }) => `
+      <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(u.username)}')">
+        <td>${escapeHtml(u.username)}</td>
+        <td><span class="pay-type-pill">${u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</span></td>
+        <td>${formatCurrency(u.rate)}</td>
+        <td>${daysPresent.toLocaleString('en-PH')}</td>
+        <td>${formatCurrency(total)}</td>
+      </tr>`).join('');
+
+    cachedAttendanceReport = attRows; // reuse for the drill-down detail below
+  }
+
+  // Clicking a payroll row reuses the same drill-down modal from Analytics
+  // to show that one employee's day-by-day attendance for the period.
+  function openPayrollEmployeeDetail(username){
+    const rows = cachedAttendanceReport.filter(r => r.username === username);
+    document.getElementById('drilldownTitle').textContent = `${username} — Attendance Detail`;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    document.getElementById('drilldownSub').textContent = `${rows.length.toLocaleString('en-PH')} day(s) present · ${from} to ${to}`;
+
+    const body = document.getElementById('drilldownBody');
+    if(rows.length === 0){
+      body.innerHTML = '<div class="drilldown-empty">No attendance punches in this range.</div>';
+    }else{
+      const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date));
+      body.innerHTML = `<table class="drilldown-table">
+        <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th></tr></thead>
+        <tbody>${sorted.map(r => `<tr>
+          <td>${escapeHtml(r.date)}</td>
+          <td>${formatTimeStamp(r.timeIn)}</td>
+          <td>${formatTimeStamp(r.timeOut)}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    }
+    document.getElementById('drilldownOverlay').classList.add('open');
+  }
+
   // ---- Boot ----
   if(loadAuthFromStorage()){
     initApp();
@@ -2841,6 +3609,19 @@
     showLogin();
   }
 </script>
+
+  <div class="drilldown-overlay" id="drilldownOverlay" onclick="if(event.target===this) closeAnalyticsDrilldown();">
+    <div class="drilldown-modal">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title" id="drilldownTitle">—</div>
+          <div class="drilldown-sub" id="drilldownSub"></div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closeAnalyticsDrilldown();">✕</button>
+      </div>
+      <div class="drilldown-body" id="drilldownBody"></div>
+    </div>
+  </div>
 
 </body>
 </html>

@@ -31,9 +31,9 @@ module.exports = async (req, res) => {
   // Save/update a job order. Any logged-in account can create a NEW job
   // order (this is what the normal Print/Save-as-PDF flow uses for staff).
   // Editing an EXISTING job order's details from the Browse tab is
-  // restricted to the Super Admin account — the client sends isEdit:true
-  // for that flow, so it's enforced here server-side, not just by hiding
-  // the Edit button in the UI.
+  // restricted to Admin and Super Admin accounts (Staff has view-only
+  // access) — the client sends isEdit:true for that flow, so it's enforced
+  // here server-side, not just by hiding the Edit button in the UI.
   if (req.method === 'POST') {
     let body = req.body;
     if (typeof body === 'string') {
@@ -48,7 +48,7 @@ module.exports = async (req, res) => {
 
     const { id, data, isEdit } = body;
 
-    const auth = isEdit ? requireRole(req, res, ['super_admin']) : requireAuth(req, res);
+    const auth = isEdit ? requireRole(req, res, ['admin', 'super_admin']) : requireAuth(req, res);
     if (!auth) return;
 
     if (!id || !data) {

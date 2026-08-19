@@ -63,14 +63,22 @@ original Courier New / Georgia mix.
 The whole tool is now behind a login screen, with three account types:
 
 - **Super Admin** — the one built-in top account. Can do everything,
-  including **deleting** job orders on the Browse tab, and can create or
-  remove both Admin and Staff accounts.
-- **Admin** — can use the form and Browse tab like normal, and has a
-  **Users** tab where they can create and remove **Staff** accounts
-  (limited access). Admins cannot delete job orders, cannot create other
-  Admins, and cannot see/remove other Admin or Super Admin accounts.
-- **Staff** — can create and browse job orders, but has no Users tab and
-  no delete button anywhere.
+  including **deleting** and **editing** job orders on the Browse tab,
+  create or remove both Admin and Staff accounts, and is the only role
+  that can see the **Analytics**, **Payroll** tabs and the full
+  **Attendance** report/log (set each employee's Pay Type, Rate, and
+  regular shift times from the Users tab).
+- **Admin** — can use the form and Browse tab, and can now **view and
+  edit** existing job orders (but not delete them). Has a **Users** tab
+  where they can create and remove **Staff** accounts (limited access).
+  Admins cannot delete job orders, cannot create other Admins, cannot
+  see/remove other Admin or Super Admin accounts, and cannot see the
+  Analytics, Payroll tabs, or the Attendance report.
+- **Staff** — view-only on job orders (no edit, no delete), has no Users
+  tab, and cannot see Analytics, Payroll, or the Attendance report.
+- **Everyone** (Staff, Admin, Super Admin) can clock themselves **in and
+  out** from the **Attendance** tab — the timestamp is always taken from
+  the server clock, never the browser's.
 
 ### Required: set up the Super Admin
 
