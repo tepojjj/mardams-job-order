@@ -1621,6 +1621,14 @@
       <input type="time" id="newUserTimeIn" title="Regular time in">
       <input type="time" id="newUserTimeOut" title="Regular time out">
     </div>
+    <div class="user-form payroll-col" style="margin-top:8px;">
+      <input type="number" id="newUserOtRate" placeholder="OT Rate (₱/hr)" min="0" step="0.01">
+      <input type="number" id="newUserAllowance" placeholder="Allowance (₱)" min="0" step="0.01">
+      <input type="number" id="newUserSss" placeholder="SSS Deduction (₱)" min="0" step="0.01">
+      <input type="number" id="newUserPhilhealth" placeholder="PhilHealth Deduction (₱)" min="0" step="0.01">
+      <input type="number" id="newUserPagibig" placeholder="Pag-IBIG Deduction (₱)" min="0" step="0.01">
+      <input type="number" id="newUserCashAdvance" placeholder="Cash Advance Deduction (₱)" min="0" step="0.01">
+    </div>
     <div class="login-error" id="userFormError"></div>
 
     <div class="section-label">Accounts</div>
@@ -1629,6 +1637,7 @@
         <tr>
           <th>Username</th>
           <th>Role</th>
+          <th>Department</th>
           <th class="payroll-col">Pay Type</th>
           <th class="payroll-col">Rate</th>
           <th class="payroll-col">Shift</th>
@@ -1671,7 +1680,7 @@
         </div>
         <button type="button" class="drilldown-close" onclick="closePayEdit();">✕</button>
       </div>
-      <div class="drilldown-body" style="padding:18px;">
+      <div class="drilldown-body" style="padding:18px; max-height:70vh; overflow:auto;">
         <div class="user-form" style="flex-direction:column; align-items:stretch;">
           <select id="payEditType">
             <option value="">Pay Type (not set)</option>
@@ -1683,6 +1692,15 @@
           <input type="time" id="payEditTimeIn">
           <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Regular Time Out</label>
           <input type="time" id="payEditTimeOut">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Overtime Rate (₱ per hour)</label>
+          <input type="number" id="payEditOtRate" placeholder="e.g. 125.00" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Allowance (₱ per payroll run)</label>
+          <input type="number" id="payEditAllowance" placeholder="e.g. 500.00" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Deductions (₱ per payroll run)</label>
+          <input type="number" id="payEditSss" placeholder="SSS" min="0" step="0.01">
+          <input type="number" id="payEditPhilhealth" placeholder="PhilHealth" min="0" step="0.01">
+          <input type="number" id="payEditPagibig" placeholder="Pag-IBIG" min="0" step="0.01">
+          <input type="number" id="payEditCashAdvance" placeholder="Cash Advance" min="0" step="0.01">
           <div class="login-error" id="payEditError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayEdit()">Save</button>
         </div>
@@ -3396,10 +3414,31 @@
       const payTypeLabel = u.payType === 'daily' ? 'Daily Rate' : u.payType === 'fixed' ? 'Fixed Monthly' : '—';
       const rateLabel = typeof u.rate === 'number' ? formatCurrency(u.rate) : '—';
       const shiftLabel = (u.regularTimeIn || u.regularTimeOut) ? `${u.regularTimeIn || '—'}–${u.regularTimeOut || '—'}` : '—';
+
+      // Department (Apparel / Sign Ads) decides whether an account can use
+      // Job Orders at all — see canUseJobOrders() in api/_auth.js. It
+      // doesn't apply to Accounting or Super Admin accounts. Whoever is
+      // allowed to manage this row (Super Admin for anyone; Admin only for
+      // Staff rows) gets a live dropdown; everyone else sees plain text.
+      const canManageRow = currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff');
+      let deptCell;
+      if(u.role === 'accounting' || u.role === 'super_admin'){
+        deptCell = '—';
+      }else if(canManageRow){
+        const dept = u.department || 'apparel';
+        deptCell = `<select onchange="updateUserDepartment('${escapeHtml(u.username)}', this.value)">
+          <option value="apparel" ${dept === 'apparel' ? 'selected' : ''}>Apparel</option>
+          <option value="sign_ads" ${dept === 'sign_ads' ? 'selected' : ''}>Sign Ads</option>
+        </select>`;
+      }else{
+        deptCell = escapeHtml(u.department === 'sign_ads' ? 'Sign Ads' : 'Apparel');
+      }
+
       return `
       <tr>
         <td>${escapeHtml(u.username)}</td>
         <td>${escapeHtml(roleLabel(u.role))}</td>
+        <td>${deptCell}</td>
         <td class="payroll-col">${escapeHtml(payTypeLabel)}</td>
         <td class="payroll-col">${escapeHtml(rateLabel)}</td>
         <td class="payroll-col">${escapeHtml(shiftLabel)}</td>
@@ -3416,7 +3455,7 @@
 
   async function loadUsersList(){
     const tbody = document.getElementById('usersTbody');
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('usersEmpty').style.display = 'none';
     try{
       const res = await fetch('/api/users', { headers: { ...authHeaders() } });
@@ -3467,6 +3506,19 @@
       if(rate !== '') body.rate = Number(rate);
       if(timeIn) body.regularTimeIn = timeIn;
       if(timeOut) body.regularTimeOut = timeOut;
+
+      const otRate = document.getElementById('newUserOtRate').value;
+      const allowance = document.getElementById('newUserAllowance').value;
+      const sss = document.getElementById('newUserSss').value;
+      const philhealth = document.getElementById('newUserPhilhealth').value;
+      const pagibig = document.getElementById('newUserPagibig').value;
+      const cashAdvance = document.getElementById('newUserCashAdvance').value;
+      if(otRate !== '') body.otRate = Number(otRate);
+      if(allowance !== '') body.allowance = Number(allowance);
+      if(sss !== '') body.sssDeduction = Number(sss);
+      if(philhealth !== '') body.philhealthDeduction = Number(philhealth);
+      if(pagibig !== '') body.pagibigDeduction = Number(pagibig);
+      if(cashAdvance !== '') body.cashAdvanceDeduction = Number(cashAdvance);
     }
 
     try{
@@ -3487,9 +3539,41 @@
       document.getElementById('newUserRate').value = '';
       document.getElementById('newUserTimeIn').value = '';
       document.getElementById('newUserTimeOut').value = '';
+      document.getElementById('newUserOtRate').value = '';
+      document.getElementById('newUserAllowance').value = '';
+      document.getElementById('newUserSss').value = '';
+      document.getElementById('newUserPhilhealth').value = '';
+      document.getElementById('newUserPagibig').value = '';
+      document.getElementById('newUserCashAdvance').value = '';
       loadUsersList();
     }catch(e){
       errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
+  // ---- Department editing (Admin for their Staff, Super Admin for anyone) ----
+  // Changing an account's department takes effect immediately — a Sign Ads
+  // account is blocked from Job Orders (and an Apparel one regains access)
+  // the moment their session is next checked, per canUseJobOrders() in
+  // api/_auth.js.
+  async function updateUserDepartment(username, department){
+    try{
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ username, department })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        alert(data.error || 'Could not update that account\'s department.');
+        loadUsersList(); // reset the dropdown to the last-saved value
+        return;
+      }
+      loadUsersList();
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+      loadUsersList();
     }
   }
 
@@ -3503,6 +3587,12 @@
     document.getElementById('payEditRate').value = typeof u.rate === 'number' ? u.rate : '';
     document.getElementById('payEditTimeIn').value = u.regularTimeIn || '';
     document.getElementById('payEditTimeOut').value = u.regularTimeOut || '';
+    document.getElementById('payEditOtRate').value = typeof u.otRate === 'number' ? u.otRate : '';
+    document.getElementById('payEditAllowance').value = typeof u.allowance === 'number' ? u.allowance : '';
+    document.getElementById('payEditSss').value = typeof u.sssDeduction === 'number' ? u.sssDeduction : '';
+    document.getElementById('payEditPhilhealth').value = typeof u.philhealthDeduction === 'number' ? u.philhealthDeduction : '';
+    document.getElementById('payEditPagibig').value = typeof u.pagibigDeduction === 'number' ? u.pagibigDeduction : '';
+    document.getElementById('payEditCashAdvance').value = typeof u.cashAdvanceDeduction === 'number' ? u.cashAdvanceDeduction : '';
     document.getElementById('payEditError').textContent = '';
     document.getElementById('payEditOverlay').dataset.username = username;
     document.getElementById('payEditOverlay').classList.add('open');
@@ -3520,6 +3610,12 @@
     const rate = document.getElementById('payEditRate').value;
     const timeIn = document.getElementById('payEditTimeIn').value;
     const timeOut = document.getElementById('payEditTimeOut').value;
+    const otRate = document.getElementById('payEditOtRate').value;
+    const allowance = document.getElementById('payEditAllowance').value;
+    const sss = document.getElementById('payEditSss').value;
+    const philhealth = document.getElementById('payEditPhilhealth').value;
+    const pagibig = document.getElementById('payEditPagibig').value;
+    const cashAdvance = document.getElementById('payEditCashAdvance').value;
 
     try{
       const res = await fetch('/api/users', {
@@ -3530,7 +3626,13 @@
           payType: payType || null,
           rate: rate === '' ? null : Number(rate),
           regularTimeIn: timeIn || null,
-          regularTimeOut: timeOut || null
+          regularTimeOut: timeOut || null,
+          otRate: otRate === '' ? null : Number(otRate),
+          allowance: allowance === '' ? null : Number(allowance),
+          sssDeduction: sss === '' ? null : Number(sss),
+          philhealthDeduction: philhealth === '' ? null : Number(philhealth),
+          pagibigDeduction: pagibig === '' ? null : Number(pagibig),
+          cashAdvanceDeduction: cashAdvance === '' ? null : Number(cashAdvance)
         })
       });
       if(handleAuthFailure(res.status)) return;

@@ -4,9 +4,18 @@ const { logAccountChange } = require('./_account-log');
 
 const USERS_KEY = 'app-users';
 
-// Pull payType/rate/regularTimeIn/regularTimeOut off a request body and
-// validate them. Only ever called for Super Admin requests — payroll
-// configuration is Super-Admin-only. Returns { fields, error }.
+// Pull payType/rate/regularTimeIn/regularTimeOut/otRate/allowance/deductions
+// off a request body and validate them. Only ever called for Super Admin
+// requests — payroll configuration is Super-Admin-only. Returns { fields, error }.
+const MONEY_FIELDS = [
+  ['otRate', 'Overtime rate'],
+  ['allowance', 'Allowance'],
+  ['sssDeduction', 'SSS deduction'],
+  ['philhealthDeduction', 'PhilHealth deduction'],
+  ['pagibigDeduction', 'Pag-IBIG deduction'],
+  ['cashAdvanceDeduction', 'Cash advance deduction']
+];
+
 function parsePayrollFields(body) {
   const fields = {};
   if (body.payType !== undefined) {
@@ -33,6 +42,18 @@ function parsePayrollFields(body) {
       return { error: 'Regular time out must be in HH:MM format' };
     }
     fields.regularTimeOut = body.regularTimeOut || null;
+  }
+  // Overtime rate (₱/hour), Allowance, and the recurring statutory/loan
+  // deductions (SSS, PhilHealth, Pag-IBIG, Cash Advance) are all optional
+  // per-employee ₱ amounts applied on every payroll run in the Payroll tab.
+  for (const [key, label] of MONEY_FIELDS) {
+    if (body[key] !== undefined) {
+      const val = body[key] === null || body[key] === '' ? null : Number(body[key]);
+      if (val !== null && (!Number.isFinite(val) || val < 0)) {
+        return { error: `${label} must be a positive number` };
+      }
+      fields[key] = val;
+    }
   }
   return { fields };
 }
@@ -78,7 +99,13 @@ module.exports = async (req, res) => {
           payType: u.payType || null,
           rate: typeof u.rate === 'number' ? u.rate : null,
           regularTimeIn: u.regularTimeIn || null,
-          regularTimeOut: u.regularTimeOut || null
+          regularTimeOut: u.regularTimeOut || null,
+          otRate: typeof u.otRate === 'number' ? u.otRate : null,
+          allowance: typeof u.allowance === 'number' ? u.allowance : null,
+          sssDeduction: typeof u.sssDeduction === 'number' ? u.sssDeduction : null,
+          philhealthDeduction: typeof u.philhealthDeduction === 'number' ? u.philhealthDeduction : null,
+          pagibigDeduction: typeof u.pagibigDeduction === 'number' ? u.pagibigDeduction : null,
+          cashAdvanceDeduction: typeof u.cashAdvanceDeduction === 'number' ? u.cashAdvanceDeduction : null
         } : {})
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
@@ -272,7 +299,13 @@ module.exports = async (req, res) => {
         username: target.username, role: target.role, department: target.department || null,
         createdBy: target.createdBy, createdAt: target.createdAt,
         payType: target.payType || null, rate: typeof target.rate === 'number' ? target.rate : null,
-        regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null
+        regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null,
+        otRate: typeof target.otRate === 'number' ? target.otRate : null,
+        allowance: typeof target.allowance === 'number' ? target.allowance : null,
+        sssDeduction: typeof target.sssDeduction === 'number' ? target.sssDeduction : null,
+        philhealthDeduction: typeof target.philhealthDeduction === 'number' ? target.philhealthDeduction : null,
+        pagibigDeduction: typeof target.pagibigDeduction === 'number' ? target.pagibigDeduction : null,
+        cashAdvanceDeduction: typeof target.cashAdvanceDeduction === 'number' ? target.cashAdvanceDeduction : null
       }
     });
     return;
