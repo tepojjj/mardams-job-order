@@ -37,6 +37,18 @@ function parsePayrollFields(body) {
   return { fields };
 }
 
+// Department (Apparel / Sign Ads) decides which side of Job Orders an
+// account can see. It doesn't mean anything for Accounting accounts, so
+// it's left optional there. Anyone who can create/edit accounts can set it.
+function parseDepartmentField(body) {
+  if (body.department === undefined) return { fields: {} };
+  const dept = body.department === null || body.department === '' ? null : String(body.department);
+  if (dept !== null && !['apparel', 'sign_ads'].includes(dept)) {
+    return { error: 'Department must be "apparel" or "sign_ads"' };
+  }
+  return { fields: { department: dept } };
+}
+
 module.exports = async (req, res) => {
   // List all accounts — Admins and the Super Admin can see the staff list.
   // Pay type/rate/regular shift times are payroll data, so those fields are
@@ -59,6 +71,7 @@ module.exports = async (req, res) => {
       .map((u) => ({
         username: u.username,
         role: u.role,
+        department: u.department || null,
         createdBy: u.createdBy,
         createdAt: u.createdAt,
         ...(isSuperAdmin ? {
@@ -95,12 +108,12 @@ module.exports = async (req, res) => {
       res.status(400).json({ error: 'Username, password, and role are required' });
       return;
     }
-    if (!['staff', 'admin'].includes(role)) {
-      res.status(400).json({ error: 'Role must be staff or admin' });
+    if (!['staff', 'admin', 'accounting'].includes(role)) {
+      res.status(400).json({ error: 'Role must be staff, admin, or accounting' });
       return;
     }
     // Admins may only create Staff accounts with limited access.
-    // Only the Super Admin can create additional Admin accounts.
+    // Only the Super Admin can create Admin or Accounting accounts.
     if (auth.role === 'admin' && role !== 'staff') {
       res.status(403).json({ error: 'Admin accounts can only create Staff accounts' });
       return;
@@ -140,8 +153,17 @@ module.exports = async (req, res) => {
       Object.assign(record, fields);
     }
 
+    // Department (Apparel / Sign Ads) — either the Admin or Super Admin
+    // creating the account can set it. Not applicable to Accounting.
+    const { fields: deptFields, error: deptError } = parseDepartmentField(body);
+    if (deptError) {
+      res.status(400).json({ error: deptError });
+      return;
+    }
+    Object.assign(record, deptFields);
+
     await kv.hset(USERS_KEY, { [uname]: JSON.stringify(record) });
-    res.status(200).json({ ok: true, user: { username: uname, role, createdBy: auth.username, createdAt: record.createdAt } });
+    res.status(200).json({ ok: true, user: { username: uname, role, department: record.department || null, createdBy: auth.username, createdAt: record.createdAt } });
     return;
   }
 
@@ -228,6 +250,16 @@ module.exports = async (req, res) => {
       }
     }
 
+    const { fields: deptFields, error: deptError } = parseDepartmentField(body);
+    if (deptError) {
+      res.status(400).json({ error: deptError });
+      return;
+    }
+    if (Object.keys(deptFields).length) {
+      Object.assign(target, deptFields);
+      changed = true;
+    }
+
     if (!changed) {
       res.status(400).json({ error: 'No changes provided' });
       return;
@@ -237,7 +269,8 @@ module.exports = async (req, res) => {
     res.status(200).json({
       ok: true,
       user: {
-        username: target.username, role: target.role, createdBy: target.createdBy, createdAt: target.createdAt,
+        username: target.username, role: target.role, department: target.department || null,
+        createdBy: target.createdBy, createdAt: target.createdAt,
         payType: target.payType || null, rate: typeof target.rate === 'number' ? target.rate : null,
         regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null
       }

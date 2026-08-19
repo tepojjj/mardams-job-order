@@ -1348,8 +1348,6 @@
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
-    <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
-    <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
     <button class="tab-btn" id="tabBtnAccountLog" onclick="showTab('accountlog')" style="display:none;">Account Log</button>
   </div>
@@ -1597,79 +1595,19 @@
     </div>
   </div>
 
-  <div class="monitor-wrap" id="viewAttendance" style="display:none;">
-    <div class="clock-card">
-      <div class="clock-time" id="clockNowTime">--:--:--</div>
-      <div class="clock-date" id="clockNowDate">—</div>
-      <div class="clock-status-row">
-        <div><span class="lbl">Time In</span><span class="val" id="clockTimeInVal">—</span></div>
-        <div><span class="lbl">Time Out</span><span class="val" id="clockTimeOutVal">—</span></div>
-      </div>
-      <button class="clock-btn" id="clockActionBtn" onclick="punchClock()" disabled>Loading…</button>
-      <div class="clock-msg" id="clockMsg"></div>
-    </div>
-
-    <div id="attendanceReportSection" style="display:none;">
-      <div class="section-label" style="margin-top:0;">Attendance Report</div>
-      <div class="attendance-filters">
-        <div><label>From</label><input type="date" id="attFrom"></div>
-        <div><label>To</label><input type="date" id="attTo"></div>
-        <div><button class="ghost" onclick="loadAttendanceReport()">Filter</button></div>
-      </div>
-      <table class="browse-table drilldown-table">
-        <thead>
-          <tr><th>Date</th><th>Employee</th><th>Time In</th><th>Time Out</th><th>Status</th></tr>
-        </thead>
-        <tbody id="attendanceReportTbody"></tbody>
-      </table>
-      <div class="browse-empty" id="attendanceReportEmpty" style="display:none;"></div>
-    </div>
-  </div>
-
-  <div class="analytics-wrap" id="viewPayroll" style="display:none;">
-    <div class="attendance-filters">
-      <div><label>From</label><input type="date" id="payFrom"></div>
-      <div><label>To</label><input type="date" id="payTo"></div>
-      <div><button class="ghost" onclick="setPayrollPreset('this_half_1')">1st–15th</button></div>
-      <div><button class="ghost" onclick="setPayrollPreset('this_half_2')">16th–End</button></div>
-      <div><button class="ghost" onclick="setPayrollPreset('this_month')">This Month</button></div>
-      <div><button class="primary" onclick="generatePayroll()">Generate</button></div>
-    </div>
-
-    <div class="payroll-summary-row">
-      <div class="stat-card highlight">
-        <div class="stat-label">Total Payroll</div>
-        <div class="stat-value" id="payrollTotal">₱0.00</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Employees Included</div>
-        <div class="stat-value" id="payrollEmpCount">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Not Yet Configured</div>
-        <div class="stat-value" id="payrollUnconfigCount">0</div>
-        <div class="stat-sub">Set Pay Type &amp; Rate in Users</div>
-      </div>
-    </div>
-
-    <div class="section-label" style="margin-top:0;">Payroll Breakdown</div>
-    <table class="browse-table payroll-table">
-      <thead>
-        <tr><th>Employee</th><th>Pay Type</th><th>Rate</th><th>Days Present</th><th>Total Pay</th></tr>
-      </thead>
-      <tbody id="payrollTbody"></tbody>
-    </table>
-    <div class="browse-empty" id="payrollEmpty" style="display:none;"></div>
-  </div>
-
   <div class="browse-wrap" id="viewUsers" style="display:none;">
     <div class="section-label" style="margin-top:0;">Add Account</div>
     <div class="user-form">
       <input type="text" id="newUserUsername" placeholder="Username">
       <input type="password" id="newUserPassword" placeholder="Password (min 6 characters)">
-      <select id="newUserRole">
+      <select id="newUserRole" onchange="document.getElementById('newUserDepartment').style.display = (this.value === 'accounting' || currentUser.role !== 'super_admin') ? 'none' : '';">
         <option value="staff">Staff</option>
         <option value="admin">Admin</option>
+        <option value="accounting">Accounting</option>
+      </select>
+      <select id="newUserDepartment" title="Department (not used for Accounting accounts)">
+        <option value="apparel">Apparel</option>
+        <option value="sign_ads">Sign Ads</option>
       </select>
       <button class="primary" onclick="createUser()">Add Account</button>
     </div>
@@ -1829,6 +1767,7 @@
   function roleLabel(role){
     if(role === 'super_admin') return 'Super Admin';
     if(role === 'admin') return 'Admin';
+    if(role === 'accounting') return 'Accounting';
     return 'Staff';
   }
 
@@ -1891,8 +1830,8 @@
     document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
     document.getElementById('tabBtnAccountLog').style.display = canManageUsers ? '' : 'none';
     document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
+    document.getElementById('newUserDepartment').style.display = currentUser.role === 'super_admin' ? '' : 'none';
     document.getElementById('tabBtnAnalytics').style.display = canSeeRevenue() ? '' : 'none';
-    document.getElementById('tabBtnPayroll').style.display = isSuperAdmin() ? '' : 'none';
     document.body.classList.toggle('hide-revenue', !canSeeRevenue());
     document.body.classList.toggle('hide-payroll', !isSuperAdmin());
 
@@ -2094,6 +2033,15 @@
       const data = await res.json();
       if(!res.ok){
         errEl.textContent = data.error || 'Login failed.';
+        replayAnimation(document.querySelector('.login-card'), 'shake');
+        return;
+      }
+      // Accounting accounts, and Sign Ads department accounts, don't belong
+      // in Job Orders at all — send them to the Attendance & Payroll app
+      // instead of logging them into a tool they can't use.
+      const dept = data.user.department || 'apparel';
+      if(data.user.role !== 'super_admin' && (data.user.role === 'accounting' || dept === 'sign_ads')){
+        errEl.textContent = 'This account is for the Attendance & Payroll app, not Job Orders. Please log in there instead.';
         replayAnimation(document.querySelector('.login-card'), 'shake');
         return;
       }
@@ -3499,6 +3447,15 @@
     }
 
     const body = { username, password, role };
+    // Department doesn't apply to Accounting accounts — leave it unset for those.
+    // Admins only ever create Apparel Staff (Sign Ads accounts can't reach
+    // this app's Users tab at all), so the picker is hidden for them and
+    // 'apparel' is forced regardless of DOM state.
+    if(role !== 'accounting'){
+      body.department = currentUser.role === 'super_admin'
+        ? document.getElementById('newUserDepartment').value
+        : 'apparel';
+    }
     // Pay type/rate/shift are Super-Admin-only fields — Admins never send
     // them (the fields are hidden from Admins via the hide-payroll class).
     if(isSuperAdmin()){
@@ -3713,14 +3670,11 @@
 
   function showTab(tab){
     if(tab === 'analytics' && !canSeeRevenue()) tab = 'new';
-    if(tab === 'payroll' && !isSuperAdmin()) tab = 'new';
     if(tab === 'accountlog' && !(currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin'))) tab = 'new';
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
     const isAnalytics = tab === 'analytics';
-    const isAttendance = tab === 'attendance';
-    const isPayroll = tab === 'payroll';
     const isUsers = tab === 'users';
     const isAccountLog = tab === 'accountlog';
     if(!isNew && editingOrderId) exitEditMode();
@@ -3728,25 +3682,19 @@
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
-    document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
-    document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('viewAccountLog').style.display = isAccountLog ? 'block' : 'none';
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
-    document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
-    document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isUsers ? 'viewUsers' : 'viewAccountLog';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
     if(isAnalytics) loadAnalytics();
-    if(isAttendance) loadAttendance();
-    if(isPayroll) loadPayrollView();
     if(isUsers) loadUsersList();
     if(isAccountLog) loadAccountLog();
   }
@@ -3860,304 +3808,6 @@
   document.getElementById('settingsOverlay').addEventListener('click', (e) => {
     if(e.target.id === 'settingsOverlay') closeSettings();
   });
-
-  // ---- Attendance ----
-  // Everyone (Staff, Admin, Super Admin) can clock themselves in/out — the
-  // server stamps the real timestamp (see api/attendance.js), the client
-  // never sends its own clock. The full report/log is Super Admin only.
-  let clockTickHandle = null;
-  let todaysPunch = null;
-
-  function startClockTick(){
-    if(clockTickHandle) return;
-    const tick = () => {
-      const now = new Date();
-      document.getElementById('clockNowTime').textContent = now.toLocaleTimeString('en-PH', { hour12: true });
-      document.getElementById('clockNowDate').textContent = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    };
-    tick();
-    clockTickHandle = setInterval(tick, 1000);
-  }
-
-  function formatTimeStamp(iso){
-    if(!iso) return '—';
-    const d = new Date(iso);
-    if(isNaN(d)) return '—';
-    return d.toLocaleTimeString('en-PH', { hour12: true, timeZone: 'Asia/Manila' });
-  }
-
-  function renderClockWidget(){
-    const btn = document.getElementById('clockActionBtn');
-    document.getElementById('clockTimeInVal').textContent = todaysPunch ? formatTimeStamp(todaysPunch.timeIn) : '—';
-    document.getElementById('clockTimeOutVal').textContent = todaysPunch ? formatTimeStamp(todaysPunch.timeOut) : '—';
-
-    if(!todaysPunch || !todaysPunch.timeIn){
-      btn.textContent = 'Clock In';
-      btn.className = 'clock-btn';
-      btn.disabled = false;
-      btn.dataset.action = 'clock_in';
-    }else if(!todaysPunch.timeOut){
-      btn.textContent = 'Clock Out';
-      btn.className = 'clock-btn out';
-      btn.disabled = false;
-      btn.dataset.action = 'clock_out';
-    }else{
-      btn.textContent = 'Done for Today';
-      btn.className = 'clock-btn';
-      btn.disabled = true;
-      btn.dataset.action = '';
-    }
-  }
-
-  async function loadAttendance(){
-    startClockTick();
-    document.getElementById('attendanceReportSection').style.display = isSuperAdmin() ? 'block' : 'none';
-
-    try{
-      const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json();
-      todaysPunch = data.today || null;
-    }catch(e){
-      console.warn('Could not load today\'s attendance.', e);
-    }
-    renderClockWidget();
-
-    if(isSuperAdmin()){
-      const today = new Date();
-      const toStr = today.toISOString().slice(0, 10);
-      const fromDate = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);
-      if(!document.getElementById('attFrom').value) document.getElementById('attFrom').value = fromDate.toISOString().slice(0, 10);
-      if(!document.getElementById('attTo').value) document.getElementById('attTo').value = toStr;
-      loadAttendanceReport();
-    }
-  }
-
-  async function punchClock(){
-    const btn = document.getElementById('clockActionBtn');
-    const action = btn.dataset.action;
-    if(!action) return;
-    const msgEl = document.getElementById('clockMsg');
-    msgEl.textContent = '';
-    msgEl.className = 'clock-msg';
-    btn.disabled = true;
-    try{
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action })
-      });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json();
-      if(!res.ok){
-        msgEl.textContent = data.error || 'Could not record that.';
-        msgEl.className = 'clock-msg error';
-        todaysPunch = data.record || todaysPunch;
-        renderClockWidget();
-        return;
-      }
-      todaysPunch = data.record;
-      msgEl.textContent = action === 'clock_in' ? 'Clocked in successfully.' : 'Clocked out successfully.';
-      msgEl.className = 'clock-msg ok';
-      renderClockWidget();
-      if(isSuperAdmin()) loadAttendanceReport();
-    }catch(e){
-      msgEl.textContent = 'Could not reach the server. Please try again.';
-      msgEl.className = 'clock-msg error';
-      renderClockWidget();
-    }
-  }
-
-  let cachedAttendanceReport = [];
-
-  async function loadAttendanceReport(){
-    if(!isSuperAdmin()) return;
-    const from = document.getElementById('attFrom').value;
-    const to = document.getElementById('attTo').value;
-    const tbody = document.getElementById('attendanceReportTbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
-    document.getElementById('attendanceReportEmpty').style.display = 'none';
-    try{
-      const params = new URLSearchParams({ report: '1' });
-      if(from) params.set('from', from);
-      if(to) params.set('to', to);
-      const res = await fetch(`/api/attendance?${params}`, { headers: { ...authHeaders() } });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json();
-      cachedAttendanceReport = data.rows || [];
-    }catch(e){
-      cachedAttendanceReport = [];
-      console.warn('Could not load attendance report.', e);
-    }
-    renderAttendanceReport();
-  }
-
-  function renderAttendanceReport(){
-    const tbody = document.getElementById('attendanceReportTbody');
-    const empty = document.getElementById('attendanceReportEmpty');
-    if(cachedAttendanceReport.length === 0){
-      tbody.innerHTML = '';
-      empty.style.display = 'block';
-      empty.textContent = 'No attendance punches in this range.';
-      return;
-    }
-    empty.style.display = 'none';
-    const userByName = {};
-    (cachedUsers || []).forEach(u => userByName[u.username] = u);
-
-    tbody.innerHTML = cachedAttendanceReport.map(r => {
-      const u = userByName[r.username];
-      let statusHtml = '';
-      if(!r.timeOut){
-        statusHtml = '<span class="badge-open">Open shift</span>';
-      }
-      if(u && u.regularTimeIn && r.timeIn){
-        const inLocal = new Date(r.timeIn).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
-        if(inLocal > u.regularTimeIn) statusHtml += '<span class="badge-late">Late</span>';
-      }
-      if(u && u.regularTimeOut && r.timeOut){
-        const outLocal = new Date(r.timeOut).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
-        if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
-      }
-      return `<tr>
-        <td>${escapeHtml(r.date)}</td>
-        <td>${escapeHtml(r.username)}</td>
-        <td>${formatTimeStamp(r.timeIn)}</td>
-        <td>${formatTimeStamp(r.timeOut)}</td>
-        <td>${statusHtml || '—'}</td>
-      </tr>`;
-    }).join('');
-  }
-
-  // ---- Payroll ----
-  // Super Admin only. Computes each configured employee's pay for a date
-  // range from the attendance log: Daily-rate employees are paid rate ×
-  // days present; Fixed-salary employees are paid the flat rate regardless
-  // of attendance (attendance is tracked for reference only in that case).
-  function setPayrollPreset(preset){
-    const now = new Date();
-    const y = now.getFullYear(), m = now.getMonth();
-    const pad = n => String(n).padStart(2, '0');
-    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    let from, to;
-    if(preset === 'this_half_1'){
-      from = fmt(new Date(y, m, 1));
-      to = fmt(new Date(y, m, 15));
-    }else if(preset === 'this_half_2'){
-      from = fmt(new Date(y, m, 16));
-      to = fmt(new Date(y, m + 1, 0));
-    }else{
-      from = fmt(new Date(y, m, 1));
-      to = fmt(new Date(y, m + 1, 0));
-    }
-    document.getElementById('payFrom').value = from;
-    document.getElementById('payTo').value = to;
-    generatePayroll();
-  }
-
-  async function loadPayrollView(){
-    if(!isSuperAdmin()) return;
-    if(!document.getElementById('payFrom').value || !document.getElementById('payTo').value){
-      setPayrollPreset('this_half_1');
-    }else{
-      generatePayroll();
-    }
-  }
-
-  async function generatePayroll(){
-    if(!isSuperAdmin()) return;
-    const from = document.getElementById('payFrom').value;
-    const to = document.getElementById('payTo').value;
-    if(!from || !to) return;
-
-    const tbody = document.getElementById('payrollTbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
-    document.getElementById('payrollEmpty').style.display = 'none';
-
-    let users = [], attRows = [];
-    try{
-      const [usersRes, attRes] = await Promise.all([
-        fetch('/api/users', { headers: { ...authHeaders() } }),
-        fetch(`/api/attendance?${new URLSearchParams({ report: '1', from, to })}`, { headers: { ...authHeaders() } })
-      ]);
-      if(handleAuthFailure(usersRes.status) || handleAuthFailure(attRes.status)) return;
-      const usersData = await usersRes.json();
-      const attData = await attRes.json();
-      users = usersData.users || [];
-      attRows = attData.rows || [];
-      cachedUsers = users;
-    }catch(e){
-      tbody.innerHTML = '';
-      document.getElementById('payrollEmpty').style.display = 'block';
-      document.getElementById('payrollEmpty').textContent = 'Could not load payroll data.';
-      return;
-    }
-
-    const daysPresentByUser = {};
-    attRows.forEach(r => {
-      if(!r.timeIn) return;
-      daysPresentByUser[r.username] = (daysPresentByUser[r.username] || 0) + 1;
-    });
-
-    const configured = users.filter(u => u.payType && typeof u.rate === 'number');
-    const unconfigured = users.filter(u => !u.payType || typeof u.rate !== 'number');
-
-    let grandTotal = 0;
-    const rows = configured.map(u => {
-      const daysPresent = daysPresentByUser[u.username] || 0;
-      const total = u.payType === 'daily' ? u.rate * daysPresent : u.rate;
-      grandTotal += total;
-      return { u, daysPresent, total };
-    }).sort((a, b) => b.total - a.total);
-
-    document.getElementById('payrollTotal').textContent = formatCurrency(grandTotal);
-    document.getElementById('payrollEmpCount').textContent = rows.length.toLocaleString('en-PH');
-    document.getElementById('payrollUnconfigCount').textContent = unconfigured.length.toLocaleString('en-PH');
-
-    if(rows.length === 0){
-      tbody.innerHTML = '';
-      document.getElementById('payrollEmpty').style.display = 'block';
-      document.getElementById('payrollEmpty').textContent = 'No employees have Pay Type and Rate configured yet — set these in the Users tab.';
-      return;
-    }
-    document.getElementById('payrollEmpty').style.display = 'none';
-    tbody.innerHTML = rows.map(({ u, daysPresent, total }) => `
-      <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(u.username)}')">
-        <td>${escapeHtml(u.username)}</td>
-        <td><span class="pay-type-pill">${u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</span></td>
-        <td>${formatCurrency(u.rate)}</td>
-        <td>${daysPresent.toLocaleString('en-PH')}</td>
-        <td>${formatCurrency(total)}</td>
-      </tr>`).join('');
-
-    cachedAttendanceReport = attRows; // reuse for the drill-down detail below
-  }
-
-  // Clicking a payroll row reuses the same drill-down modal from Analytics
-  // to show that one employee's day-by-day attendance for the period.
-  function openPayrollEmployeeDetail(username){
-    const rows = cachedAttendanceReport.filter(r => r.username === username);
-    document.getElementById('drilldownTitle').textContent = `${username} — Attendance Detail`;
-    const from = document.getElementById('payFrom').value;
-    const to = document.getElementById('payTo').value;
-    document.getElementById('drilldownSub').textContent = `${rows.length.toLocaleString('en-PH')} day(s) present · ${from} to ${to}`;
-
-    const body = document.getElementById('drilldownBody');
-    if(rows.length === 0){
-      body.innerHTML = '<div class="drilldown-empty">No attendance punches in this range.</div>';
-    }else{
-      const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date));
-      body.innerHTML = `<table class="drilldown-table">
-        <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th></tr></thead>
-        <tbody>${sorted.map(r => `<tr>
-          <td>${escapeHtml(r.date)}</td>
-          <td>${formatTimeStamp(r.timeIn)}</td>
-          <td>${formatTimeStamp(r.timeOut)}</td>
-        </tr>`).join('')}</tbody>
-      </table>`;
-    }
-    document.getElementById('drilldownOverlay').classList.add('open');
-  }
 
   // ---- Boot ----
   if(loadAuthFromStorage()){

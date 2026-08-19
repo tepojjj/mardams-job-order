@@ -1,4 +1,4 @@
-const { requireAuth } = require('./_auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 // Mirrors Monitoring Sheet changes into a Google Sheet, automatically,
 // every time a row is created, edited, or deleted here.
@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const auth = requireAuth(req, res);
+  const auth = requireJobOrdersAccess(req, res);
   if (!auth) return;
 
   const webhookUrl = process.env.GOOGLE_SHEETS_WEBHOOK_URL;

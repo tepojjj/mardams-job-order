@@ -93,6 +93,42 @@ function requireRole(req, res, roles) {
   return auth;
 }
 
+// Job Orders (this app) is a production/sales tool for Apparel staff.
+// Sign Ads department accounts and Accounting-role accounts don't belong
+// here at all — they live in the separate Attendance & Payroll app instead.
+// Legacy accounts created before the `department` field existed are
+// treated as Apparel so they keep working.
+function canUseJobOrders(auth) {
+  if (!auth) return false;
+  if (auth.role === 'super_admin') return true;
+  if (auth.role === 'accounting') return false;
+  const department = auth.department || 'apparel';
+  return department === 'apparel';
+}
+
+// Like requireAuth, but also 403s Accounting/Sign Ads accounts out of
+// Job-Orders-only endpoints (orders, monitor, counter, sheets-sync).
+function requireJobOrdersAccess(req, res) {
+  const auth = requireAuth(req, res);
+  if (!auth) return null;
+  if (!canUseJobOrders(auth)) {
+    res.status(403).json({ error: 'This account does not have access to Job Orders. Please use the Attendance & Payroll app instead.' });
+    return null;
+  }
+  return auth;
+}
+
+// Like requireRole, but also enforces canUseJobOrders on top of the role check.
+function requireJobOrdersRole(req, res, roles) {
+  const auth = requireRole(req, res, roles);
+  if (!auth) return null;
+  if (!canUseJobOrders(auth)) {
+    res.status(403).json({ error: 'This account does not have access to Job Orders. Please use the Attendance & Payroll app instead.' });
+    return null;
+  }
+  return auth;
+}
+
 module.exports = {
   TOKEN_TTL_MS,
   hashPassword,
@@ -101,5 +137,8 @@ module.exports = {
   verifyToken,
   getAuth,
   requireAuth,
-  requireRole
+  requireRole,
+  canUseJobOrders,
+  requireJobOrdersAccess,
+  requireJobOrdersRole
 };

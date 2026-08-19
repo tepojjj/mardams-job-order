@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireAuth } = require('./_auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 // The Monitoring Sheet is a standalone manual tracker — separate from the
 // job-order records in api/orders.js. Rows are typed in by hand (Date, JO
@@ -10,7 +10,7 @@ const KEY = 'monitoring-sheet';
 module.exports = async (req, res) => {
   // List every row. Any logged-in account can view the sheet.
   if (req.method === 'GET') {
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     const all = (await kv.hgetall(KEY)) || {};
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     }
     body = body || {};
 
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     const { id, data } = body;
@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
   // joNumber — used when that job order itself gets deleted, so the
   // monitoring sheet doesn't keep orphaned rows pointing at it).
   if (req.method === 'DELETE') {
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     const { id, joNumber } = req.query;

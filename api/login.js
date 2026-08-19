@@ -69,6 +69,6 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const token = signToken({ username: uname, role: record.role });
-  res.status(200).json({ token, user: { username: uname, role: record.role } });
+  const token = signToken({ username: uname, role: record.role, department: record.department || null });
+  res.status(200).json({ token, user: { username: uname, role: record.role, department: record.department || null } });
 };

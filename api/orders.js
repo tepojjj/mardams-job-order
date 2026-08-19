@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireAuth, requireRole } = require('./_auth');
+const { requireJobOrdersAccess, requireJobOrdersRole } = require('./_auth');
 
 // All saved job orders live in one Redis hash: { [joNumber]: JSON string }.
 // This is separate from api/counter.js (which only tracks the running number).
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   // List every saved job order, most recently saved first. Any logged-in
   // account (Staff, Admin, or Super Admin) can browse job orders.
   if (req.method === 'GET') {
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     const all = (await kv.hgetall(KEY)) || {};
@@ -48,7 +48,7 @@ module.exports = async (req, res) => {
 
     const { id, data, isEdit } = body;
 
-    const auth = isEdit ? requireRole(req, res, ['admin', 'super_admin']) : requireAuth(req, res);
+    const auth = isEdit ? requireJobOrdersRole(req, res, ['admin', 'super_admin']) : requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     if (!id || !data) {
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
 
   // Delete a job order. Restricted to Admin and Super Admin accounts.
   if (req.method === 'DELETE') {
-    const auth = requireRole(req, res, ['admin', 'super_admin']);
+    const auth = requireJobOrdersRole(req, res, ['admin', 'super_admin']);
     if (!auth) return;
 
     const id = req.query.id;

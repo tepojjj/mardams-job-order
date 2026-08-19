@@ -60,26 +60,49 @@ original Courier New / Georgia mix.
 
 ## Login & accounts
 
-The whole tool is now behind a login screen, with three account types:
+The whole tool is now behind a login screen, with four account types:
 
 - **Super Admin** — the one built-in top account. Can do everything,
   including **deleting** and **editing** job orders on the Browse tab,
-  create or remove both Admin and Staff accounts, and is the only role
-  that can see the **Analytics**, **Payroll** tabs and the full
-  **Attendance** report/log (set each employee's Pay Type, Rate, and
-  regular shift times from the Users tab).
-- **Admin** — can use the form and Browse tab, and can now **view and
-  edit** existing job orders (but not delete them). Has a **Users** tab
-  where they can create and remove **Staff** accounts (limited access).
-  Admins cannot delete job orders, cannot create other Admins, cannot
-  see/remove other Admin or Super Admin accounts, and cannot see the
-  Analytics, Payroll tabs, or the Attendance report.
-- **Staff** — view-only on job orders (no edit, no delete), has no Users
-  tab, and cannot see Analytics, Payroll, or the Attendance report.
-- **Everyone** (Staff, Admin, Super Admin) can clock themselves **in and
-  out** from the **Attendance** tab — the timestamp is always taken from
-  the server clock, never the browser's.
+  create or remove Admin, Accounting, and Staff accounts, and is the
+  only role that can see the **Analytics** tab and the full **Users /
+  Account Log**.
+- **Admin** — can use the form and Browse tab, and can **view and
+  edit** existing job orders (but not delete them). Has a **Users**
+  tab where they can create and remove **Staff** accounts (limited
+  access). Admins cannot delete job orders, cannot create other
+  Admins or Accounting accounts, cannot see/remove other Admin or
+  Super Admin accounts, and cannot see the Analytics tab.
+- **Staff** — view-only on job orders (no edit, no delete), has no
+  Users tab, and cannot see Analytics.
+- **Accounting** — doesn't use this app at all. Trying to log in here
+  shows a message pointing to the **Attendance & Payroll** app
+  instead (a separate deployment — see below). Only the Super Admin
+  can create Accounting accounts, from this app's Users tab.
 
+Every account also has a **Department** — **Apparel** or **Sign
+Ads** — set when the account is created (not applicable to
+Accounting accounts). **Sign Ads department accounts are blocked from
+this app entirely**, the same as Accounting: logging in here shows
+the "use the other app" message. This app is Apparel-only; Sign Ads
+staff/admins log into a Sign Ads-specific tool instead (not included
+here).
+
+- **Everyone who *can* use this app** (Apparel Staff, Apparel Admin,
+  Super Admin) can also clock themselves **in and out**, and Super
+  Admin can generate payroll — but the Attendance and Payroll tabs
+  have moved to their own app. See **"Attendance & Payroll is now a
+  separate app"** below.
+
+### Attendance & Payroll is now a separate app
+
+Clock in/out, the Attendance Report, and Payroll used to live on tabs
+in this app. They've moved out into their own deployment —
+**Mardams Attendance & Payroll** (a sibling folder/project) — so that
+Accounting and Sign Ads accounts, who don't touch Job Orders at all,
+have a place to log in and use them. Both apps share the same
+accounts, KV database, and `AUTH_SECRET` — see that app's README for
+setup. Job Orders itself no longer has an Attendance or Payroll tab.
 ### Required: set up the Super Admin
 
 There's no sign-up page — the first Super Admin is created automatically

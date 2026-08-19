@@ -1,12 +1,12 @@
 const { kv } = require('@vercel/kv');
-const { requireAuth } = require('./_auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 const KEY = 'last-job-order-number';
 
 module.exports = async (req, res) => {
   // Preview the next number — does NOT save anything.
   if (req.method === 'GET') {
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     const existing = await kv.get(KEY);
@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    const auth = requireAuth(req, res);
+    const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
     let body = req.body;
