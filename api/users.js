@@ -9,10 +9,8 @@ const USERS_KEY = 'app-users';
 // configuration is Super-Admin-only. Returns { fields, error }.
 //
 // OT Rate, Allowance, and the SSS/PhilHealth/Pag-IBIG/Cash Advance
-// deductions are intentionally NOT handled here — they're set from the
-// Attendance & Payroll app's Payroll tab (by Accounting or Super Admin)
-// instead, since that's where payroll is actually run. See that app's
-// api/users.js for those fields.
+// deductions are handled separately by parseMoneyFields, below — they're
+// set from this app's own Payroll tab (Super Admin only).
 function parsePayrollFields(body) {
   const fields = {};
   if (body.payType !== undefined) {
@@ -39,6 +37,33 @@ function parsePayrollFields(body) {
       return { error: 'Regular time out must be in HH:MM format' };
     }
     fields.regularTimeOut = body.regularTimeOut || null;
+  }
+  return { fields };
+}
+
+// Pull otRate/allowance/sssDeduction/philhealthDeduction/pagibigDeduction/
+// cashAdvanceDeduction off a request body and validate them. These are the
+// figures Payroll is actually run with, set from this app's Payroll tab —
+// Super Admin only (this app has no Accounting role). Returns { fields, error }.
+const MONEY_FIELDS = [
+  ['otRate', 'Overtime rate'],
+  ['allowance', 'Allowance'],
+  ['sssDeduction', 'SSS deduction'],
+  ['philhealthDeduction', 'PhilHealth deduction'],
+  ['pagibigDeduction', 'Pag-IBIG deduction'],
+  ['cashAdvanceDeduction', 'Cash advance deduction']
+];
+
+function parseMoneyFields(body) {
+  const fields = {};
+  for (const [key, label] of MONEY_FIELDS) {
+    if (body[key] !== undefined) {
+      const val = body[key] === null || body[key] === '' ? null : Number(body[key]);
+      if (val !== null && (!Number.isFinite(val) || val < 0)) {
+        return { error: `${label} must be a positive number` };
+      }
+      fields[key] = val;
+    }
   }
   return { fields };
 }
@@ -84,7 +109,13 @@ module.exports = async (req, res) => {
           payType: u.payType || null,
           rate: typeof u.rate === 'number' ? u.rate : null,
           regularTimeIn: u.regularTimeIn || null,
-          regularTimeOut: u.regularTimeOut || null
+          regularTimeOut: u.regularTimeOut || null,
+          otRate: typeof u.otRate === 'number' ? u.otRate : null,
+          allowance: typeof u.allowance === 'number' ? u.allowance : null,
+          sssDeduction: typeof u.sssDeduction === 'number' ? u.sssDeduction : null,
+          philhealthDeduction: typeof u.philhealthDeduction === 'number' ? u.philhealthDeduction : null,
+          pagibigDeduction: typeof u.pagibigDeduction === 'number' ? u.pagibigDeduction : null,
+          cashAdvanceDeduction: typeof u.cashAdvanceDeduction === 'number' ? u.cashAdvanceDeduction : null
         } : {})
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
@@ -180,8 +211,9 @@ module.exports = async (req, res) => {
   //    itself to be recovered — a new one is simply assigned, and nothing
   //    else about the account (attendance, payroll history, saved job
   //    orders, etc.) is touched.
-  //  - Payroll configuration (pay type, rate, regular shift times) —
-  //    Super Admin only, as before.
+  //  - Payroll configuration (pay type, rate, regular shift times, OT
+  //    rate, allowance, and SSS/PhilHealth/Pag-IBIG/Cash Advance
+  //    deductions) — Super Admin only.
   if (req.method === 'PATCH') {
     const auth = requireRole(req, res, ['admin', 'super_admin']);
     if (!auth) return;
@@ -256,6 +288,26 @@ module.exports = async (req, res) => {
       }
     }
 
+    // OT rate / allowance / deductions — Super Admin only, from this
+    // app's Payroll tab.
+    if (auth.role === 'super_admin') {
+      const { fields, error } = parseMoneyFields(body);
+      if (error) {
+        res.status(400).json({ error });
+        return;
+      }
+      if (Object.keys(fields).length) {
+        Object.assign(target, fields);
+        changed = true;
+      }
+    } else {
+      const { fields } = parseMoneyFields(body);
+      if (Object.keys(fields).length) {
+        res.status(403).json({ error: 'Only the Super Admin can edit payroll deductions' });
+        return;
+      }
+    }
+
     const { fields: deptFields, error: deptError } = parseDepartmentField(body);
     if (deptError) {
       res.status(400).json({ error: deptError });
@@ -278,7 +330,13 @@ module.exports = async (req, res) => {
         username: target.username, role: target.role, department: target.department || null,
         createdBy: target.createdBy, createdAt: target.createdAt,
         payType: target.payType || null, rate: typeof target.rate === 'number' ? target.rate : null,
-        regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null
+        regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null,
+        otRate: typeof target.otRate === 'number' ? target.otRate : null,
+        allowance: typeof target.allowance === 'number' ? target.allowance : null,
+        sssDeduction: typeof target.sssDeduction === 'number' ? target.sssDeduction : null,
+        philhealthDeduction: typeof target.philhealthDeduction === 'number' ? target.philhealthDeduction : null,
+        pagibigDeduction: typeof target.pagibigDeduction === 'number' ? target.pagibigDeduction : null,
+        cashAdvanceDeduction: typeof target.cashAdvanceDeduction === 'number' ? target.cashAdvanceDeduction : null
       }
     });
     return;

@@ -65,8 +65,8 @@ The whole tool is now behind a login screen, with four account types:
 - **Super Admin** — the one built-in top account. Can do everything,
   including **deleting** and **editing** job orders on the Browse tab,
   create or remove Admin, Accounting, and Staff accounts, and is the
-  only role that can see the **Analytics** tab and the full **Users /
-  Account Log**.
+  only role that can see the **Analytics** tab, the **Payroll** tab,
+  and the full **Users / Account Log**.
 - **Admin** — can use the form and Browse tab, and can **view and
   edit** existing job orders (but not delete them). Has a **Users**
   tab where they can create and remove **Staff** accounts (limited
@@ -89,20 +89,21 @@ staff/admins log into a Sign Ads-specific tool instead (not included
 here).
 
 - **Everyone who *can* use this app** (Apparel Staff, Apparel Admin,
-  Super Admin) can also clock themselves **in and out**, and Super
-  Admin can generate payroll — but the Attendance and Payroll tabs
-  have moved to their own app. See **"Attendance & Payroll is now a
-  separate app"** below.
+  Super Admin) can also clock themselves **in and out** from the
+  **Attendance** tab. The **Payroll** tab (holiday calendar, pay
+  generation, per-employee breakdown, and OT rate/allowance/deduction
+  editing) is visible to the **Super Admin only**.
 
-### Attendance & Payroll is now a separate app
+### Attendance & Payroll is also its own app
 
-Clock in/out, the Attendance Report, and Payroll used to live on tabs
-in this app. They've moved out into their own deployment —
-**Mardams Attendance & Payroll** (a sibling folder/project) — so that
-Accounting and Sign Ads accounts, who don't touch Job Orders at all,
-have a place to log in and use them. Both apps share the same
-accounts, KV database, and `AUTH_SECRET` — see that app's README for
-setup. Job Orders itself no longer has an Attendance or Payroll tab.
+Accounting and Sign Ads accounts don't use Job Orders at all, so a
+second deployment — **Mardams Attendance & Payroll** (a sibling
+folder/project) — gives them somewhere to clock in/out and (for
+Accounting) run payroll. Both apps share the same accounts, KV
+database, and `AUTH_SECRET`, and both read/write the same underlying
+attendance and payroll records — running payroll from either app
+updates the same shared data, so nothing needs to be kept in sync.
+See that app's README for its own setup.
 ### Required: set up the Super Admin
 
 There's no sign-up page — the first Super Admin is created automatically

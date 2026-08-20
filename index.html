@@ -9,33 +9,49 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
-  --paper:#123524;
+  --paper:#0E2B20;
   --card:#FFFFFF;
   --ink:#161A1E;
-  --ink-soft:#667085;
-  --line:#E3E6EA;
-  --stamp:#1E7A42;
-  --stamp-soft:#DCF3E4;
-  --field-bg:#F8F9FA;
-  --row-bg:#FAFAFB;
+  --ink-soft:#5C6773;
+  --line:#E4E7EC;
+  --stamp:#157A48;
+  --stamp-dark:#0E5C36;
+  --stamp-soft:#E1F5EA;
+  --field-bg:#F7F8FA;
+  --row-bg:#FAFBFC;
+  --accent:#2A5FA8;
+  --accent-soft:#E7EFFA;
+  --danger:#C0392B;
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:18px;
+  --shadow-sm:0 1px 2px rgba(22,26,30,.05), 0 1px 1px rgba(22,26,30,.04);
+  --shadow-md:0 8px 24px -12px rgba(22,26,30,.28), 0 2px 6px -2px rgba(22,26,30,.08);
+  --shadow-lg:0 24px 60px -24px rgba(14,43,32,.45), 0 8px 20px -10px rgba(14,43,32,.18);
 }
   *{box-sizing:border-box;}
+  ::selection{background:var(--stamp-soft); color:var(--stamp-dark);}
   body{
     margin:0;
-    background:linear-gradient(135deg, #8FAAD4 0%, #93C4A9 45%, #A8E0BF 75%, #E3A79E 100%);
+    min-height:100vh;
+    background:
+      radial-gradient(1100px 620px at 12% -8%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
+      radial-gradient(900px 560px at 100% 0%, rgba(232,167,158,.35), rgba(232,167,158,0) 55%),
+      linear-gradient(160deg, #7FA0D6 0%, #7EBBA0 42%, #9EDBB9 72%, #E3A79E 100%);
     background-attachment:fixed;
     font-family:'Roboto', ui-sans-serif, sans-serif;
     color:var(--ink);
-    padding:20px 16px 32px;
+    padding:24px 16px 40px;
+    -webkit-font-smoothing:antialiased;
   }
   .sheet{
     max-width:900px;
     margin:0 auto;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:8px;
-    box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 12px 28px -18px rgba(22,26,30,0.18);
-    padding:30px 36px 26px;
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);
+    padding:32px 38px 28px;
     position:relative;
   }
   .toolbar{
@@ -61,19 +77,24 @@
     letter-spacing:.06em;
     text-transform:uppercase;
     padding:9px 16px;
-    border-radius:6px;
+    border-radius:var(--radius-sm);
     cursor:pointer;
     border:1px solid var(--ink);
     background:var(--card);
     color:var(--ink);
+    transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease, background-color .15s ease, border-color .15s ease;
   }
   button.primary{
-    background:var(--stamp);
-    border-color:var(--stamp);
+    background:linear-gradient(180deg, var(--stamp), var(--stamp-dark));
+    border-color:var(--stamp-dark);
     color:#fff;
+    box-shadow:0 6px 16px -8px rgba(21,122,72,.65);
   }
-  button:hover{opacity:.85;}
-  button.ghost{border-color:var(--line); color:var(--ink-soft);}
+  button:hover{opacity:.85; transform:translateY(-1px);}
+  button.primary:hover{opacity:1; box-shadow:0 10px 22px -8px rgba(21,122,72,.55);}
+  button:active{transform:translateY(0); box-shadow:none;}
+  button.ghost{border-color:var(--line); color:var(--ink-soft); background:var(--field-bg);}
+  button.danger-btn, button.ghost.danger-btn{color:var(--danger); border-color:#F3D2CC;}
 
   .head{
     display:flex;
@@ -416,31 +437,37 @@
 
   .tabs{
     max-width:900px;
-    margin:0 auto 14px;
+    margin:0 auto 16px;
     display:flex;
-    gap:6px;
-    border-bottom:1px solid rgba(255,255,255,.3);
+    flex-wrap:wrap;
+    gap:4px;
+    background:rgba(255,255,255,.55);
+    backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.6);
+    border-radius:var(--radius-md);
+    padding:5px;
+    box-shadow:var(--shadow-sm);
   }
   .tab-btn{
     font-family:inherit;
-    font-size:12px;
+    font-size:11.5px;
     letter-spacing:.05em;
     text-transform:uppercase;
-    padding:10px 18px;
+    padding:9px 16px;
     border:none;
-    border-bottom:2px solid transparent;
     background:none;
     color:var(--ink-soft);
     cursor:pointer;
-    border-radius:0;
-    transition:color .2s ease, border-color .2s ease;
+    border-radius:var(--radius-sm);
+    transition:color .2s ease, background-color .2s ease, box-shadow .2s ease;
   }
   .tab-btn.active{
-    color:var(--stamp);
-    border-bottom-color:var(--stamp);
+    color:#fff;
+    background:linear-gradient(180deg, var(--stamp), var(--stamp-dark));
     font-weight:700;
+    box-shadow:0 6px 14px -6px rgba(21,122,72,.55);
   }
-  .tab-btn:hover{opacity:.85;}
+  .tab-btn:hover:not(.active){opacity:1; background:rgba(255,255,255,.7); color:var(--ink);}
 
   /* ---- View transitions ---- */
   @keyframes viewFadeIn{
@@ -463,7 +490,8 @@
     margin:0 auto;
     background:var(--card);
     border:1px solid var(--line);
-    box-shadow:0 2px 0 var(--line), 0 18px 40px -24px rgba(30,42,53,0.35);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);
     padding:28px 30px 32px;
   }
   .browse-toolbar{
@@ -475,12 +503,15 @@
     flex:1;
     font-family:inherit;
     font-size:13px;
-    padding:9px 12px;
+    padding:10px 13px;
     border:1px solid var(--line);
+    border-radius:var(--radius-sm);
     background:var(--field-bg);
     color:var(--ink);
+    transition:border-color .15s ease, background-color .15s ease;
   }
-  table.browse-table{width:100%; border-collapse:collapse;}
+  .browse-toolbar input:focus{outline:none; border-color:var(--stamp); background:#fff; box-shadow:0 0 0 3px var(--stamp-soft);}
+  table.browse-table{width:100%; border-collapse:collapse; border-radius:var(--radius-sm); overflow:hidden;}
   table.browse-table thead th{
     background:var(--ink);
     color:#fff;
@@ -488,7 +519,7 @@
     letter-spacing:.08em;
     text-transform:uppercase;
     text-align:left;
-    padding:9px 10px;
+    padding:10px 10px;
   }
   table.browse-table tbody td{
     border:1px solid var(--line);
@@ -496,6 +527,7 @@
     font-size:12.5px;
   }
   table.browse-table tbody tr:nth-child(even){background:var(--row-bg);}
+  table.browse-table tbody tr:hover{background:var(--stamp-soft);}
   .browse-thumb{
     width:36px;
     height:36px;
@@ -601,8 +633,8 @@
     max-width:340px;
     background:#fff;
     border:1px solid var(--line);
-    border-radius:8px;
-    box-shadow:0 1px 2px rgba(22,26,30,0.04), 0 12px 28px -18px rgba(22,26,30,0.18);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);
     padding:32px 30px;
   }
   .login-card.card-in{
@@ -1049,7 +1081,9 @@
   .stat-card{
     border:1px solid var(--line);
     background:var(--field-bg);
+    border-radius:var(--radius-md);
     padding:14px 16px;
+    transition:box-shadow .15s ease, transform .15s ease;
   }
   .stat-card .stat-label{
     font-size:10px;
@@ -1111,6 +1145,8 @@
     max-height:85vh;
     background:var(--card);
     border:1px solid var(--line);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);
     display:flex;
     flex-direction:column;
     overflow:hidden;
@@ -1266,6 +1302,36 @@
     color:var(--ink-soft);
     border:1px solid var(--line);
   }
+
+  /* ---- Global polish pass ---- */
+  ::-webkit-scrollbar{width:11px; height:11px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(22,26,30,.18); border-radius:20px; border:3px solid transparent; background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(22,26,30,.32); background-clip:padding-box;}
+
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="time"],
+  select, textarea{
+    border-radius:6px;
+  }
+  input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus,
+  input[type="date"]:focus, input[type="time"]:focus, select:focus, textarea:focus{
+    outline:none;
+    border-color:var(--stamp) !important;
+    background:#fff !important;
+    box-shadow:0 0 0 3px var(--stamp-soft);
+  }
+  .meta-cell{transition:background-color .15s ease;}
+  .meta-cell:focus-within{background:var(--stamp-soft);}
+  .meta-grid, .totals-box{border-radius:var(--radius-sm); overflow:hidden;}
+  .stamp-box{box-shadow:inset 0 0 0 1px rgba(21,122,72,.08);}
+  .role-pill{background:var(--stamp-soft);}
+  ::placeholder{color:#9AA4AF;}
+
+  @media (max-width:640px){
+    .sheet, .browse-wrap{padding:22px 18px 24px; border-radius:var(--radius-md);}
+    .meta-grid{grid-template-columns:1fr;}
+    .meta-cell{border-right:none; border-bottom:1px solid var(--line);}
+  }
 </style>
 </head>
 <body>
@@ -1348,6 +1414,7 @@
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
     <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
+    <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
     <button class="tab-btn" id="tabBtnAccountLog" onclick="showTab('accountlog')" style="display:none;">Account Log</button>
@@ -1561,6 +1628,66 @@
     </div>
   </div>
 
+  <div class="analytics-wrap" id="viewPayroll" style="display:none;">
+    <div class="attendance-filters">
+      <div><label>From</label><input type="date" id="payFrom"></div>
+      <div><label>To</label><input type="date" id="payTo"></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_half_1')">1st–15th</button></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_half_2')">16th–End</button></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_month')">This Month</button></div>
+      <div><button class="primary" onclick="generatePayroll()">Generate</button></div>
+    </div>
+
+    <div class="payroll-summary-row">
+      <div class="stat-card highlight">
+        <div class="stat-label">Total Net Payroll</div>
+        <div class="stat-value" id="payrollTotal">₱0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Employees Included</div>
+        <div class="stat-value" id="payrollEmpCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Not Yet Configured</div>
+        <div class="stat-value" id="payrollUnconfigCount">0</div>
+        <div class="stat-sub">Set Pay Type &amp; Rate in the Users tab</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:0;">Holidays</div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">
+      Add the holidays that fall within a payroll period so pay for those dates follows Philippine holiday-pay rules instead of an ordinary working day.
+    </div>
+    <div class="user-form" style="margin-bottom:10px;">
+      <input type="date" id="newHolidayDate">
+      <input type="text" id="newHolidayName" placeholder="Holiday name (e.g. Independence Day)">
+      <select id="newHolidayType">
+        <option value="regular">Regular Holiday</option>
+        <option value="special_non_working">Special Non-Working Day</option>
+        <option value="special_working">Special Working Holiday</option>
+      </select>
+      <button class="primary" onclick="addHoliday()">Add Holiday</button>
+    </div>
+    <div class="login-error" id="holidayFormError"></div>
+    <table class="browse-table" style="margin-bottom:22px;">
+      <thead>
+        <tr><th>Date</th><th>Name</th><th>Type</th><th></th></tr>
+      </thead>
+      <tbody id="holidaysTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="holidaysEmpty" style="display:none;"></div>
+
+    <div class="section-label">Payroll Breakdown</div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employee's OT rate, allowance, or deductions.</div>
+    <table class="browse-table payroll-table">
+      <thead>
+        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th></th></tr>
+      </thead>
+      <tbody id="payrollTbody"></tbody>
+    </table>
+    <div class="browse-empty" id="payrollEmpty" style="display:none;"></div>
+  </div>
+
   <div class="analytics-wrap" id="viewAnalytics" style="display:none;">
     <div class="analytics-toolbar">
       <label class="date-filter-label">Group by
@@ -1665,7 +1792,7 @@
     </div>
     <div class="login-error" id="userFormError"></div>
     <div class="drilldown-sub" style="margin:4px 0 0;">
-      OT Rate, Allowance, and SSS/PhilHealth/Pag-IBIG/Cash Advance deductions are set from the Attendance &amp; Payroll app's Payroll tab (Accounting or Super Admin).
+      OT Rate, Allowance, and SSS/PhilHealth/Pag-IBIG/Cash Advance deductions are set from this app's Payroll tab (Super Admin only).
     </div>
 
     <div class="section-label">Accounts</div>
@@ -1730,10 +1857,37 @@
           <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Regular Time Out</label>
           <input type="time" id="payEditTimeOut">
           <div class="drilldown-sub" style="margin-top:10px;">
-            OT Rate, Allowance, and deductions are set from the Attendance &amp; Payroll app's Payroll tab.
+            OT Rate, Allowance, and deductions are set from this app's Payroll tab.
           </div>
           <div class="login-error" id="payEditError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drilldown-overlay" id="payrollSettingsOverlay" onclick="if(event.target===this) closePayrollSettingsEdit();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Edit Payroll Settings</div>
+          <div class="drilldown-sub" id="payrollSettingsUsername">—</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closePayrollSettingsEdit();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px; max-height:70vh; overflow:auto;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);">Overtime Rate (₱ per hour)</label>
+          <input type="number" id="payrollSettingsOtRate" placeholder="e.g. 125.00" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Allowance (₱ per payroll run)</label>
+          <input type="number" id="payrollSettingsAllowance" placeholder="e.g. 500.00" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Deductions (₱ per payroll run)</label>
+          <input type="number" id="payrollSettingsSss" placeholder="SSS" min="0" step="0.01">
+          <input type="number" id="payrollSettingsPhilhealth" placeholder="PhilHealth" min="0" step="0.01">
+          <input type="number" id="payrollSettingsPagibig" placeholder="Pag-IBIG" min="0" step="0.01">
+          <input type="number" id="payrollSettingsCashAdvance" placeholder="Cash Advance" min="0" step="0.01">
+          <div class="login-error" id="payrollSettingsError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="savePayrollSettingsEdit()">Save</button>
         </div>
       </div>
     </div>
@@ -1881,6 +2035,7 @@
     document.getElementById('newUserRole').style.display = currentUser.role === 'super_admin' ? '' : 'none';
     document.getElementById('newUserDepartment').style.display = currentUser.role === 'super_admin' ? '' : 'none';
     document.getElementById('tabBtnAnalytics').style.display = canSeeRevenue() ? '' : 'none';
+    document.getElementById('tabBtnPayroll').style.display = isSuperAdmin() ? '' : 'none';
     document.body.classList.toggle('hide-revenue', !canSeeRevenue());
     document.body.classList.toggle('hide-payroll', !isSuperAdmin());
 
@@ -3766,11 +3921,13 @@
 
   function showTab(tab){
     if(tab === 'analytics' && !canSeeRevenue()) tab = 'new';
+    if(tab === 'payroll' && !isSuperAdmin()) tab = 'new';
     if(tab === 'accountlog' && !(currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin'))) tab = 'new';
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
     const isAttendance = tab === 'attendance';
+    const isPayroll = tab === 'payroll';
     const isAnalytics = tab === 'analytics';
     const isUsers = tab === 'users';
     const isAccountLog = tab === 'accountlog';
@@ -3779,6 +3936,7 @@
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
     document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
+    document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
     document.getElementById('viewUsers').style.display = isUsers ? 'block' : 'none';
     document.getElementById('viewAccountLog').style.display = isAccountLog ? 'block' : 'none';
@@ -3786,14 +3944,16 @@
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
     document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
+    document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAttendance ? 'viewAttendance' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
     if(isAttendance) loadAttendance();
+    if(isPayroll) loadPayrollView();
     if(isAnalytics) loadAnalytics();
     if(isUsers) loadUsersList();
     if(isAccountLog) loadAccountLog();
@@ -4138,6 +4298,577 @@
   document.getElementById('settingsOverlay').addEventListener('click', (e) => {
     if(e.target.id === 'settingsOverlay') closeSettings();
   });
+
+  // ---- Payroll (Super Admin only) ----
+  // Ported from the Attendance & Payroll app's Payroll tab, restricted here
+  // to the Super Admin only (this app has no Accounting role). Computes
+  // Philippine holiday-pay rules, OT pay, and deductions from the same
+  // shared attendance records and user payroll fields.
+  function workingDaysInRange(fromStr, toStr){
+    const dates = [];
+    const from = new Date(fromStr + 'T00:00:00');
+    const to = new Date(toStr + 'T00:00:00');
+    for(let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)){
+      if(d.getDay() !== 0) dates.push(d.toISOString().slice(0, 10)); // 0 = Sunday
+    }
+    return dates;
+  }
+
+  function addDaysToDateStr(dateStr, n){
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    const pad = x => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function dayOfWeek(dateStr){
+    return new Date(dateStr + 'T00:00:00').getDay(); // 0 = Sunday
+  }
+
+  // A timestamp's clock time in Asia/Manila, as minutes since midnight.
+  function minutesOfDayManila(iso){
+    if(!iso) return null;
+    const [h, m] = new Date(iso).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).split(':').map(Number);
+    return h * 60 + m;
+  }
+  function minutesFromHHMM(hhmm){
+    if(!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+  // Falls back to a standard 8-hour shift when an employee doesn't have
+  // Regular Time In/Out configured, so late/undertime/half-day can still
+  // be computed for them.
+  function scheduledShiftMinutes(user){
+    const inM = minutesFromHHMM(user.regularTimeIn);
+    const outM = minutesFromHHMM(user.regularTimeOut);
+    if(inM === null || outM === null) return 480;
+    const diff = outM - inM;
+    return diff > 0 ? diff : 480;
+  }
+
+  // Minutes actually on the clock for the day, from the punch pairs —
+  // the lunch gap (noonOut → afternoonIn) is naturally excluded since we
+  // only sum the two "on the clock" segments.
+  function workedMinutesForDay(row){
+    if(!row || !row.morningIn) return 0;
+    const inM = minutesOfDayManila(row.morningIn);
+    if(row.noonOut && row.afternoonIn && row.afternoonOut){
+      return Math.max(0, minutesOfDayManila(row.noonOut) - inM) + Math.max(0, minutesOfDayManila(row.afternoonOut) - minutesOfDayManila(row.afternoonIn));
+    }
+    if(row.afternoonOut){
+      return Math.max(0, minutesOfDayManila(row.afternoonOut) - inM); // no recorded lunch break — one continuous stretch
+    }
+    if(row.noonOut){
+      return Math.max(0, minutesOfDayManila(row.noonOut) - inM); // only clocked for the morning
+    }
+    return 0; // clocked in but never clocked out again — can't tell how long they stayed
+  }
+
+  // Classifies one non-holiday scheduled working day for one employee.
+  function classifyNormalDay(row, user){
+    const shiftMinutes = scheduledShiftMinutes(user);
+    if(!row || !row.morningIn){
+      return { status: 'absent', workedMinutes: 0, lateMinutes: 0, undertimeMinutes: 0 };
+    }
+    const worked = workedMinutesForDay(row);
+    if(worked < shiftMinutes / 2){
+      return { status: 'half_day', workedMinutes: worked, lateMinutes: 0, undertimeMinutes: 0 };
+    }
+    const scheduledInM = minutesFromHHMM(user.regularTimeIn);
+    const actualInM = minutesOfDayManila(row.morningIn);
+    const lateMinutes = (scheduledInM !== null && actualInM > scheduledInM) ? (actualInM - scheduledInM) : 0;
+
+    const scheduledOutM = minutesFromHHMM(user.regularTimeOut);
+    let undertimeMinutes = 0;
+    if(scheduledOutM !== null){
+      if(row.afternoonOut){
+        const actualOutM = minutesOfDayManila(row.afternoonOut);
+        if(actualOutM < scheduledOutM) undertimeMinutes = scheduledOutM - actualOutM;
+      }else{
+        const lastPunchM = minutesOfDayManila(row.afternoonIn || row.noonOut || row.morningIn);
+        if(lastPunchM < scheduledOutM) undertimeMinutes = scheduledOutM - lastPunchM;
+      }
+    }
+    let status = 'present';
+    if(lateMinutes > 0 && undertimeMinutes > 0) status = 'late_undertime';
+    else if(lateMinutes > 0) status = 'late';
+    else if(undertimeMinutes > 0) status = 'undertime';
+    return { status, workedMinutes: worked, lateMinutes, undertimeMinutes };
+  }
+
+  const HOLIDAY_TYPE_LABEL = {
+    regular: 'Regular Holiday',
+    special_non_working: 'Special Non-Working Day',
+    special_working: 'Special Working Holiday'
+  };
+
+  // Philippine statutory holiday pay rules.
+  //  dailyRate      — the employee's daily-equivalent rate.
+  //  worked         — did they have any attendance that date.
+  //  isRestDay      — the holiday fell on their rest day (Sunday, the
+  //                   only rest day this app currently tracks).
+  //  workedPriorDay — were they present on the scheduled working day
+  //                   immediately before the holiday (required for
+  //                   Regular Holiday pay when unworked — this app
+  //                   doesn't yet track paid leave, so only actual
+  //                   attendance counts toward this).
+  function holidayPay(dailyRate, type, worked, isRestDay, workedPriorDay){
+    if(type === 'regular'){
+      if(!worked){
+        return workedPriorDay
+          ? { amount: dailyRate, label: '100% — unworked, qualified' }
+          : { amount: 0, label: '0% — unworked, absent the day before' };
+      }
+      return isRestDay
+        ? { amount: dailyRate * 2.6, label: '260% — worked on rest day' }
+        : { amount: dailyRate * 2, label: '200% — worked' };
+    }
+    if(type === 'special_non_working'){
+      if(!worked) return { amount: 0, label: '0% — unworked (no work, no pay)' };
+      return isRestDay
+        ? { amount: dailyRate * 1.5, label: '150% — worked on rest day' }
+        : { amount: dailyRate * 1.3, label: '130% — worked' };
+    }
+    // special_working
+    if(!worked) return { amount: 0, label: '0% — unworked (no work, no pay)' };
+    return { amount: dailyRate, label: '100% — worked, ordinary rate' };
+  }
+
+  function setPayrollPreset(preset){
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    let from, to;
+    if(preset === 'this_half_1'){
+      from = fmt(new Date(y, m, 1));
+      to = fmt(new Date(y, m, 15));
+    }else if(preset === 'this_half_2'){
+      from = fmt(new Date(y, m, 16));
+      to = fmt(new Date(y, m + 1, 0));
+    }else{
+      from = fmt(new Date(y, m, 1));
+      to = fmt(new Date(y, m + 1, 0));
+    }
+    document.getElementById('payFrom').value = from;
+    document.getElementById('payTo').value = to;
+    generatePayroll();
+  }
+
+  async function loadPayrollView(){
+    if(!isSuperAdmin()) return;
+    loadHolidaysPanel();
+    if(!document.getElementById('payFrom').value || !document.getElementById('payTo').value){
+      setPayrollPreset('this_half_1');
+    }else{
+      generatePayroll();
+    }
+  }
+
+  // ---- Holidays panel ----
+  let cachedHolidays = [];
+
+  async function loadHolidaysPanel(){
+    const tbody = document.getElementById('holidaysTbody');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('holidaysEmpty').style.display = 'none';
+    try{
+      const res = await fetch('/api/holidays', { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedHolidays = data.holidays || [];
+    }catch(e){
+      cachedHolidays = [];
+    }
+    renderHolidaysPanel();
+  }
+
+  function renderHolidaysPanel(){
+    const tbody = document.getElementById('holidaysTbody');
+    const empty = document.getElementById('holidaysEmpty');
+    if(cachedHolidays.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No holidays added yet.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = cachedHolidays.map(h => `
+      <tr>
+        <td>${escapeHtml(h.date)}</td>
+        <td>${escapeHtml(h.name)}</td>
+        <td>${escapeHtml(HOLIDAY_TYPE_LABEL[h.type] || h.type)}</td>
+        <td><button type="button" class="ghost danger-btn" onclick="deleteHoliday('${escapeHtml(h.date)}')">Delete</button></td>
+      </tr>`).join('');
+  }
+
+  async function addHoliday(){
+    const errEl = document.getElementById('holidayFormError');
+    errEl.textContent = '';
+    const date = document.getElementById('newHolidayDate').value;
+    const name = document.getElementById('newHolidayName').value.trim();
+    const type = document.getElementById('newHolidayType').value;
+    if(!date || !name){
+      errEl.textContent = 'Enter a date and a name for the holiday.';
+      return;
+    }
+    try{
+      const res = await fetch('/api/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ date, name, type })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not add that holiday.';
+        return;
+      }
+      document.getElementById('newHolidayDate').value = '';
+      document.getElementById('newHolidayName').value = '';
+      loadHolidaysPanel();
+      generatePayroll();
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
+  async function deleteHoliday(date){
+    if(!confirm(`Remove the holiday on ${date}?`)) return;
+    try{
+      const res = await fetch(`/api/holidays?date=${encodeURIComponent(date)}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+    }catch(e){ /* ignore */ }
+    loadHolidaysPanel();
+    generatePayroll();
+  }
+
+  const MONTHLY_RATE_DIVISOR = 26; // standard PH payroll divisor used to derive a daily-equivalent rate for Fixed Monthly employees — used only for holiday pay; their base pay itself doesn't change with attendance.
+
+  let cachedPayrollRows = [];
+
+  async function generatePayroll(){
+    if(!isSuperAdmin()) return;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    if(!from || !to) return;
+
+    const tbody = document.getElementById('payrollTbody');
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('payrollEmpty').style.display = 'none';
+
+    // Fetch attendance a few days earlier than "from" too, so we can check
+    // whether an employee was present on the working day right before a
+    // holiday that falls right at the start of the range.
+    const extendedFrom = addDaysToDateStr(from, -5);
+
+    let users = [], attRows = [], holidays = [];
+    try{
+      const [usersRes, attRes, holidaysRes] = await Promise.all([
+        fetch('/api/users', { headers: { ...authHeaders() } }),
+        fetch(`/api/attendance?${new URLSearchParams({ report: '1', from: extendedFrom, to })}`, { headers: { ...authHeaders() } }),
+        fetch(`/api/holidays?${new URLSearchParams({ from, to })}`, { headers: { ...authHeaders() } })
+      ]);
+      if(handleAuthFailure(usersRes.status) || handleAuthFailure(attRes.status) || handleAuthFailure(holidaysRes.status)) return;
+      const usersData = await usersRes.json();
+      const attData = await attRes.json();
+      const holidaysData = await holidaysRes.json();
+      users = usersData.users || [];
+      attRows = attData.rows || [];
+      holidays = holidaysData.holidays || [];
+      cachedUsers = users;
+    }catch(e){
+      tbody.innerHTML = '';
+      document.getElementById('payrollEmpty').style.display = 'block';
+      document.getElementById('payrollEmpty').textContent = 'Could not load payroll data.';
+      return;
+    }
+
+    const allWorkingDates = workingDaysInRange(from, to);
+    const holidayByDate = Object.fromEntries(holidays.map(h => [h.date, h]));
+    // Normal scheduled working days, excluding any date that's a
+    // configured holiday — those are computed separately, below.
+    const normalDates = allWorkingDates.filter(d => !holidayByDate[d]);
+
+    // Every attendance row for the (extended) range, grouped by
+    // username → date, so we can check each employee against every
+    // scheduled working day — not just the days they have a punch record
+    // for. A day with no record at all is what makes it Absent.
+    const attByUserDate = {};
+    const otMsByUser = {};
+    attRows.forEach(r => {
+      if(!attByUserDate[r.username]) attByUserDate[r.username] = {};
+      attByUserDate[r.username][r.date] = r;
+      if(r.date >= from && r.date <= to && r.otIn && r.otOut){
+        const ms = new Date(r.otOut) - new Date(r.otIn);
+        if(ms > 0) otMsByUser[r.username] = (otMsByUser[r.username] || 0) + ms;
+      }
+    });
+
+    const configured = users.filter(u => u.payType && typeof u.rate === 'number');
+    const unconfigured = users.filter(u => !u.payType || typeof u.rate !== 'number');
+
+    let grandTotal = 0;
+    const rows = configured.map(u => {
+      const userAtt = attByUserDate[u.username] || {};
+      const dailyRate = u.payType === 'daily' ? u.rate : (u.rate / MONTHLY_RATE_DIVISOR);
+      const shiftMinutes = scheduledShiftMinutes(u);
+      const perMinuteRate = dailyRate / shiftMinutes;
+
+      let presentDays = 0, absentDays = 0, halfDays = 0, lateDays = 0, undertimeDays = 0;
+      let totalLateMinutes = 0, totalUndertimeMinutes = 0;
+      let normalPay = 0;
+      const dayDetails = [];
+
+      normalDates.forEach(date => {
+        const c = classifyNormalDay(userAtt[date], u);
+        dayDetails.push({ date, ...c });
+        if(c.status === 'absent'){
+          absentDays += 1;
+        }else if(c.status === 'half_day'){
+          halfDays += 1;
+          normalPay += dailyRate * 0.5;
+        }else{
+          presentDays += 1;
+          if(c.lateMinutes > 0){ lateDays += 1; totalLateMinutes += c.lateMinutes; }
+          if(c.undertimeMinutes > 0){ undertimeDays += 1; totalUndertimeMinutes += c.undertimeMinutes; }
+          const deduction = (c.lateMinutes + c.undertimeMinutes) * perMinuteRate;
+          normalPay += Math.max(0, dailyRate - deduction);
+        }
+      });
+
+      // Holiday pay — computed per configured holiday date in range.
+      let holidayTotal = 0;
+      const holidayDetails = [];
+      Object.values(holidayByDate).forEach(h => {
+        const row = userAtt[h.date];
+        const worked = !!(row && row.morningIn);
+        const isRestDay = dayOfWeek(h.date) === 0;
+        let priorDate = addDaysToDateStr(h.date, -1);
+        if(dayOfWeek(priorDate) === 0) priorDate = addDaysToDateStr(priorDate, -1);
+        const priorRow = userAtt[priorDate];
+        const workedPriorDay = !!(priorRow && priorRow.morningIn);
+        const result = holidayPay(dailyRate, h.type, worked, isRestDay, workedPriorDay);
+        holidayTotal += result.amount;
+        holidayDetails.push({ date: h.date, name: h.name, type: h.type, worked, amount: result.amount, label: result.label });
+      });
+
+      const basePay = u.payType === 'daily' ? normalPay : u.rate;
+      const otHours = (otMsByUser[u.username] || 0) / (60 * 60 * 1000);
+      const otPay = otHours * (u.otRate || 0);
+      const grossPay = basePay + holidayTotal + otPay;
+      const allowance = u.allowance || 0;
+      const sss = u.sssDeduction || 0;
+      const philhealth = u.philhealthDeduction || 0;
+      const pagibig = u.pagibigDeduction || 0;
+      const cashAdvance = u.cashAdvanceDeduction || 0;
+      const totalDeductions = sss + philhealth + pagibig + cashAdvance;
+      const netPay = grossPay + allowance - totalDeductions;
+      grandTotal += netPay;
+
+      const daysWorkedDisplay = presentDays + (halfDays * 0.5);
+
+      return {
+        u, workingDays: normalDates.length, presentDays, absentDays, halfDays, lateDays, undertimeDays,
+        totalLateMinutes, totalUndertimeMinutes, daysWorkedDisplay, dayDetails,
+        otHours, basePay, holidayTotal, holidayDetails, otPay, grossPay,
+        allowance, sss, philhealth, pagibig, cashAdvance, totalDeductions, netPay
+      };
+    }).sort((a, b) => b.netPay - a.netPay);
+
+    cachedPayrollRows = rows;
+    cachedAttendanceReport = attRows.filter(r => r.date >= from && r.date <= to); // reused for the drill-down detail below
+
+    document.getElementById('payrollTotal').textContent = formatCurrency(grandTotal);
+    document.getElementById('payrollEmpCount').textContent = rows.length.toLocaleString('en-PH');
+    document.getElementById('payrollUnconfigCount').textContent = unconfigured.length.toLocaleString('en-PH');
+
+    if(rows.length === 0){
+      tbody.innerHTML = '';
+      document.getElementById('payrollEmpty').style.display = 'block';
+      document.getElementById('payrollEmpty').textContent = 'No employees have Pay Type and Rate configured yet — set these in the Users tab.';
+      return;
+    }
+    document.getElementById('payrollEmpty').style.display = 'none';
+    tbody.innerHTML = rows.map(r => {
+      const tooltip = `${r.workingDays} working days − ${r.absentDays} absent − ${r.halfDays} half day(s) `
+        + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
+      return `
+      <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(r.u.username)}')">
+        <td>${escapeHtml(r.u.username)}</td>
+        <td><span class="pay-type-pill">${r.u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</span></td>
+        <td title="${escapeHtml(tooltip)}">${r.daysWorkedDisplay.toLocaleString('en-PH')}</td>
+        <td>${r.otHours.toFixed(1)}</td>
+        <td>${formatCurrency(r.holidayTotal)}</td>
+        <td>${formatCurrency(r.grossPay)}</td>
+        <td>${formatCurrency(r.allowance)}</td>
+        <td>${formatCurrency(r.totalDeductions)}</td>
+        <td>${formatCurrency(r.netPay)}</td>
+        <td><button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); openPayrollSettingsEdit('${escapeHtml(r.u.username)}')">Edit</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Clicking a payroll row opens the drill-down modal (shared with the
+  // Analytics tab) with the full pay breakdown and that employee's
+  // day-by-day attendance for the period.
+  const DAY_STATUS_LABEL = {
+    absent: 'Absent',
+    half_day: 'Half Day',
+    present: 'Present',
+    late: 'Late',
+    undertime: 'Undertime',
+    late_undertime: 'Late + Undertime'
+  };
+
+  function openPayrollEmployeeDetail(username){
+    const entry = cachedPayrollRows.find(r => r.u.username === username);
+    if(!entry) return;
+    const attRows = cachedAttendanceReport.filter(r => r.username === username);
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+
+    document.getElementById('drilldownTitle').textContent = `${username} — Payroll Detail`;
+    document.getElementById('drilldownSub').textContent = `${from} to ${to}`;
+
+    const breakdownRows = [
+      ['Working Days (Mon–Sat, excl. holidays)', String(entry.workingDays)],
+      ['Absent Days', `− ${entry.absentDays}`],
+      ['Half Days', `− ${entry.halfDays} (½ day pay each)`],
+      ['Late Days', `${entry.lateDays} (${entry.totalLateMinutes} min total — pay adjusted, not a full-day deduction)`],
+      ['Undertime Days', `${entry.undertimeDays} (${entry.totalUndertimeMinutes} min total — pay adjusted, not a full-day deduction)`],
+      ['Days Worked (pay basis)', String(entry.daysWorkedDisplay)],
+      ['Base Pay', formatCurrency(entry.basePay)],
+      ['Holiday Pay', formatCurrency(entry.holidayTotal)],
+      ['Overtime Pay', `${formatCurrency(entry.otPay)} (${entry.otHours.toFixed(1)} hr${entry.u.otRate ? ` × ${formatCurrency(entry.u.otRate)}/hr` : ''})`],
+      ['Gross Pay', formatCurrency(entry.grossPay)],
+      ['Allowance', `+ ${formatCurrency(entry.allowance)}`],
+      ['SSS Deduction', `- ${formatCurrency(entry.sss)}`],
+      ['PhilHealth Deduction', `- ${formatCurrency(entry.philhealth)}`],
+      ['Pag-IBIG Deduction', `- ${formatCurrency(entry.pagibig)}`],
+      ['Cash Advance Deduction', `- ${formatCurrency(entry.cashAdvance)}`],
+      ['Net Pay', formatCurrency(entry.netPay)]
+    ];
+    const breakdownHtml = `<table class="drilldown-table" style="margin-bottom:18px;">
+      <tbody>${breakdownRows.map(([label, val], i) => `<tr${i === breakdownRows.length - 1 ? ' style="font-weight:700;"' : ''}>
+        <td>${escapeHtml(label)}</td><td style="text-align:right;">${val}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+
+    let holidayHtml = '';
+    if(entry.holidayDetails.length > 0){
+      holidayHtml = `<div class="section-label" style="margin-top:0;">Holiday Pay</div>
+        <table class="drilldown-table" style="margin-bottom:18px;">
+          <thead><tr><th>Date</th><th>Holiday</th><th>Type</th><th>Worked?</th><th style="text-align:right;">Amount</th></tr></thead>
+          <tbody>${entry.holidayDetails.map(h => `<tr>
+            <td>${escapeHtml(h.date)}</td>
+            <td>${escapeHtml(h.name)}</td>
+            <td>${escapeHtml(HOLIDAY_TYPE_LABEL[h.type] || h.type)}</td>
+            <td title="${escapeHtml(h.label)}">${h.worked ? 'Worked' : 'Unworked'}</td>
+            <td style="text-align:right;">${formatCurrency(h.amount)}</td>
+          </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    let attHtml;
+    if(attRows.length === 0){
+      attHtml = '<div class="drilldown-empty">No attendance punches in this range.</div>';
+    }else{
+      const detailByDate = Object.fromEntries((entry.dayDetails || []).map(d => [d.date, d]));
+      const sorted = [...attRows].sort((a, b) => b.date.localeCompare(a.date));
+      attHtml = `<table class="drilldown-table">
+        <thead><tr><th>Date</th><th>Status</th><th>AM In</th><th>Lunch Out</th><th>PM In</th><th>PM Out</th><th>OT In</th><th>OT Out</th></tr></thead>
+        <tbody>${sorted.map(r => {
+          const d = detailByDate[r.date];
+          const statusLabel = holidayByDateForDisplay(entry, r.date) || (d ? DAY_STATUS_LABEL[d.status] : '—');
+          return `<tr>
+          <td>${escapeHtml(r.date)}</td>
+          <td>${escapeHtml(statusLabel)}</td>
+          <td>${formatTimeStamp(r.morningIn)}</td>
+          <td>${formatTimeStamp(r.noonOut)}</td>
+          <td>${formatTimeStamp(r.afternoonIn)}</td>
+          <td>${formatTimeStamp(r.afternoonOut)}</td>
+          <td>${formatTimeStamp(r.otIn)}</td>
+          <td>${formatTimeStamp(r.otOut)}</td>
+        </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    }
+
+    document.getElementById('drilldownBody').innerHTML = breakdownHtml + holidayHtml +
+      '<div class="section-label" style="margin-top:0;">Day-by-Day Attendance</div>' + attHtml;
+    document.getElementById('drilldownOverlay').classList.add('open');
+  }
+
+  function holidayByDateForDisplay(entry, date){
+    const h = (entry.holidayDetails || []).find(x => x.date === date);
+    if(!h) return null;
+    return `${HOLIDAY_TYPE_LABEL[h.type] || h.type} (${h.worked ? 'Worked' : 'Unworked'})`;
+  }
+
+  // ---- Payroll settings editing (OT rate, allowance, deductions) ----
+  // Super Admin only, matching the api/users.js PATCH restriction below.
+  function openPayrollSettingsEdit(username){
+    const entry = cachedPayrollRows.find(r => r.u.username === username) ||
+      { u: (cachedUsers || []).find(u => u.username === username) };
+    const u = entry.u;
+    if(!u) return;
+    document.getElementById('payrollSettingsUsername').textContent = username;
+    document.getElementById('payrollSettingsOtRate').value = typeof u.otRate === 'number' ? u.otRate : '';
+    document.getElementById('payrollSettingsAllowance').value = typeof u.allowance === 'number' ? u.allowance : '';
+    document.getElementById('payrollSettingsSss').value = typeof u.sssDeduction === 'number' ? u.sssDeduction : '';
+    document.getElementById('payrollSettingsPhilhealth').value = typeof u.philhealthDeduction === 'number' ? u.philhealthDeduction : '';
+    document.getElementById('payrollSettingsPagibig').value = typeof u.pagibigDeduction === 'number' ? u.pagibigDeduction : '';
+    document.getElementById('payrollSettingsCashAdvance').value = typeof u.cashAdvanceDeduction === 'number' ? u.cashAdvanceDeduction : '';
+    document.getElementById('payrollSettingsError').textContent = '';
+    document.getElementById('payrollSettingsOverlay').dataset.username = username;
+    document.getElementById('payrollSettingsOverlay').classList.add('open');
+  }
+
+  function closePayrollSettingsEdit(){
+    document.getElementById('payrollSettingsOverlay').classList.remove('open');
+  }
+
+  async function savePayrollSettingsEdit(){
+    const username = document.getElementById('payrollSettingsOverlay').dataset.username;
+    const errEl = document.getElementById('payrollSettingsError');
+    errEl.textContent = '';
+    const otRate = document.getElementById('payrollSettingsOtRate').value;
+    const allowance = document.getElementById('payrollSettingsAllowance').value;
+    const sss = document.getElementById('payrollSettingsSss').value;
+    const philhealth = document.getElementById('payrollSettingsPhilhealth').value;
+    const pagibig = document.getElementById('payrollSettingsPagibig').value;
+    const cashAdvance = document.getElementById('payrollSettingsCashAdvance').value;
+
+    try{
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          username,
+          otRate: otRate === '' ? null : Number(otRate),
+          allowance: allowance === '' ? null : Number(allowance),
+          sssDeduction: sss === '' ? null : Number(sss),
+          philhealthDeduction: philhealth === '' ? null : Number(philhealth),
+          pagibigDeduction: pagibig === '' ? null : Number(pagibig),
+          cashAdvanceDeduction: cashAdvance === '' ? null : Number(cashAdvance)
+        })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not save.';
+        return;
+      }
+      closePayrollSettingsEdit();
+      generatePayroll(); // re-run payroll for the current date range with the new figures
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
 
   // ---- Boot ----
   if(loadAuthFromStorage()){
