@@ -641,6 +641,38 @@
   .tab-btn.active .tab-ico{color:var(--stamp); opacity:1;}
   .tab-btn:hover:not(.active){color:#fff; background:rgba(255,255,255,.06);}
 
+  /* ---- Mobile nav dropdown trigger (hidden on desktop) ---- */
+  .mobile-tab-trigger{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    flex:1;
+    min-width:0;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:8px;
+    color:#fff;
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:700;
+    padding:9px 12px;
+    cursor:pointer;
+    margin:0 10px;
+  }
+  .mobile-tab-trigger:hover{background:rgba(255,255,255,.12);}
+  .mobile-tab-trigger .mtt-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .mobile-tab-trigger .mtt-chevron{flex:none; font-size:10px; opacity:.75; transition:transform .15s ease;}
+  .mobile-tab-trigger.open .mtt-chevron{transform:rotate(180deg);}
+  .mobile-menu-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    z-index:38;
+  }
+  .mobile-menu-backdrop.show{display:block;}
+
   /* ---- View transitions ---- */
   @keyframes viewFadeIn{
     from{opacity:0; transform:translateY(8px);}
@@ -1663,19 +1695,29 @@
     .sidebar-brand{border-bottom:none; padding:12px 14px; border-right:1px solid rgba(255,255,255,.08);}
     .sidebar-brand img{height:26px;}
     .sidebar-app-name{display:none;}
+    body.app-live .mobile-tab-trigger{display:flex;}
     .tabs{
-      flex-direction:row;
-      overflow-x:auto;
-      padding:8px 10px;
-      gap:4px;
+      position:absolute;
+      top:100%;
+      left:0;
+      right:0;
+      width:100%;
+      flex-direction:column;
+      gap:2px;
+      padding:0 10px;
+      max-height:0;
+      overflow-y:auto;
+      background:var(--paper);
+      border-bottom:1px solid rgba(255,255,255,.08);
+      box-shadow:var(--shadow-lg);
+      transition:max-height .22s ease, padding .22s ease;
+      z-index:39;
     }
-    .tab-btn{
-      white-space:nowrap;
-      border-left:none;
-      border-bottom:2.5px solid transparent;
-      border-radius:6px 6px 0 0;
+    .tabs.mobile-open{
+      max-height:min(70vh, 480px);
+      padding:10px;
     }
-    .tab-btn.active{border-left:none; border-bottom-color:var(--stamp);}
+    .tab-btn{white-space:normal;}
     .account-bar{
       margin-top:0;
       border-top:none;
@@ -1741,6 +1783,11 @@
       </button>
     </div>
 
+    <button type="button" class="mobile-tab-trigger" id="mobileTabTrigger" onclick="toggleMobileTabsMenu()">
+      <span class="mtt-label" id="mobileTabTriggerLabel">Menu</span>
+      <span class="mtt-chevron">▾</span>
+    </button>
+
     <div class="tabs" id="appTabs" style="display:none;">
       <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()"><span class="tab-ico">✎</span>New Job Order</button>
       <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')"><span class="tab-ico">▤</span>Browse Job Orders</button>
@@ -1762,6 +1809,8 @@
       <button class="ghost" onclick="doLogout()">Log Out</button>
     </div>
   </nav>
+
+  <div class="mobile-menu-backdrop" id="mobileMenuBackdrop" onclick="closeMobileTabsMenu()"></div>
 
   <main class="app-main">
   <datalist id="materialsDatalist"></datalist>
@@ -2421,6 +2470,43 @@
   // Sync the icon with whatever theme the blocking <head> script already applied.
   applyThemeIcon(getTheme());
 
+  // ---- Mobile nav dropdown (used when the sidebar collapses to a top bar) ----
+  function openMobileTabsMenu(){
+    document.getElementById('appTabs').classList.add('mobile-open');
+    document.getElementById('mobileTabTrigger').classList.add('open');
+    document.getElementById('mobileMenuBackdrop').classList.add('show');
+  }
+
+  function closeMobileTabsMenu(){
+    document.getElementById('appTabs').classList.remove('mobile-open');
+    document.getElementById('mobileTabTrigger').classList.remove('open');
+    document.getElementById('mobileMenuBackdrop').classList.remove('show');
+  }
+
+  function toggleMobileTabsMenu(){
+    if(document.getElementById('appTabs').classList.contains('mobile-open')) closeMobileTabsMenu();
+    else openMobileTabsMenu();
+  }
+
+  function syncMobileTabLabel(){
+    const active = document.querySelector('#appTabs .tab-btn.active');
+    const label = document.getElementById('mobileTabTriggerLabel');
+    if(active && label) label.textContent = active.textContent.trim();
+  }
+
+  // Close the dropdown (and refresh the trigger label) after any tab is picked.
+  // This listener fires after the tab button's own onclick (e.g. showTab(...))
+  // has already run, since it's registered on the bubbling ancestor.
+  document.getElementById('appTabs').addEventListener('click', function(e){
+    if(!e.target.closest('.tab-btn')) return;
+    closeMobileTabsMenu();
+    syncMobileTabLabel();
+  });
+
+  window.addEventListener('resize', function(){
+    if(window.innerWidth > 860) closeMobileTabsMenu();
+  });
+
   // ---- Auth ----
   const AUTH_STORAGE_KEY = 'mardams_auth';
   let authToken = null;
@@ -2559,9 +2645,11 @@
     document.getElementById('tabBtnPayroll').style.display = isSuperAdmin() ? '' : 'none';
     document.body.classList.toggle('hide-revenue', !canSeeRevenue());
     document.body.classList.toggle('hide-payroll', !isSuperAdmin());
+    document.body.classList.add('app-live');
 
     showTab('new');
     peekNextNumber();
+    syncMobileTabLabel();
   }
 
   // ---- Account bar (avatar + name) ----
