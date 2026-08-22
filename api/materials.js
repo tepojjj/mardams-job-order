@@ -1,15 +1,36 @@
 const { kv } = require('@vercel/kv');
 const { requireJobOrdersAccess } = require('./_auth');
 
-// The master Material List — one row per material, with its Supplier,
-// Brand, and Unit. Inventory and Purchase History both reference rows
-// here (by id) instead of storing their own copies of Material/Supplier/
-// Unit, so editing a material here keeps everything else in sync.
-// All rows live in one Redis hash: { [rowId]: JSON }.
-const KEY = 'material-list';
+// One serverless function handling two related resources, so this
+// stays a single function on Vercel's Hobby plan (12-function cap)
+// instead of two. Pick the resource with ?resource=materials|stock
+// (materials is the default when omitted).
+//
+// resource=materials — the master Material List: one row per material,
+// with its Supplier, Brand, and Unit. Inventory and Purchase History
+// reference rows here by id instead of storing their own copies.
+//
+// resource=stock — every Stock In/Out movement for every material.
+// Inventory's Current Stock is computed by summing this ledger per
+// material, never stored directly. Purchase History keeps exactly one
+// auto "in" row here per purchase row (id `purchase-<purchaseRowId>`);
+// everything else is a manual row from the Stock In/Out tab.
+//
+// Each resource is its own Redis hash: { [rowId]: JSON }.
+const KEYS = {
+  materials: 'material-list',
+  stock: 'stock-ledger',
+};
+
+function resolveKey(req){
+  const resource = req.query && req.query.resource;
+  return KEYS[resource] || KEYS.materials;
+}
 
 module.exports = async (req, res) => {
-  // List every material. Any logged-in Apparel account can view.
+  const KEY = resolveKey(req);
+
+  // List every row for the resource. Any logged-in Apparel account can view.
   if (req.method === 'GET') {
     const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
@@ -29,7 +50,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Create or update a material row. Any logged-in Apparel account
+  // Create or update a row (upsert by id). Any logged-in Apparel account
   // (Staff, Admin, or Super Admin) can add or edit — same as the
   // Monitoring Sheet, not tied to the stricter job-order edit permissions.
   if (req.method === 'POST') {
@@ -58,7 +79,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Delete a material row by id.
+  // Delete a row by id.
   if (req.method === 'DELETE') {
     const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;

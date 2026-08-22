@@ -210,15 +210,13 @@ same access rule as the Monitoring Sheet.
   orders (Super Admin only)
 - `api/monitor.js` — saves/lists/deletes Monitoring Sheet rows (login
   required)
-- `api/materials.js` — saves/lists/deletes Material List rows (login
-  required)
-- `api/inventory.js` — unused now that Inventory is computed from
-  Material List + the Stock In/Out ledger; kept only for backward
-  compatibility, safe to ignore
+- `api/materials.js` — saves/lists/deletes both Material List rows
+  (`?resource=materials`, the default) and Stock In/Out ledger rows
+  (`?resource=stock`); login required. Combined into one file so this
+  stays a single serverless function — Vercel's Hobby plan caps a
+  deployment at 12, and this project is already at that limit
 - `api/purchases.js` — saves/lists/deletes Purchase History rows (login
   required)
-- `api/stock-ledger.js` — saves/lists/deletes Stock In/Out ledger rows
-  (login required)
 - `api/sheets-sync.js` — forwards Monitoring Sheet changes to the Google
   Sheets webhook, if configured (see "Google Sheets integration" above)
 - `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)

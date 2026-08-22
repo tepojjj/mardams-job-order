@@ -3314,7 +3314,10 @@
   // Unit. Inventory and Purchase History reference these rows by id
   // instead of storing their own copies, so editing a material here
   // (e.g. its Supplier) is reflected everywhere automatically.
-  const MATERIALS_API = '/api/materials';
+  // Material List and the Stock In/Out ledger share one serverless
+  // function (api/materials.js) to stay under Vercel's function cap —
+  // ?resource= picks which Redis-backed resource to hit.
+  const MATERIALS_API = '/api/materials?resource=materials';
   let cachedMaterialRows = [];
 
   function materialRowId(){
@@ -3431,7 +3434,7 @@
     renderMaterialRows();
     refreshMaterialsDatalist();
     try{
-      const res = await fetch(`${MATERIALS_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      const res = await fetch(`${MATERIALS_API}&id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
       handleAuthFailure(res.status);
     }catch(e){
       console.warn('Could not delete the material from the server.', e);
@@ -3444,7 +3447,7 @@
   // per material. Purchase History rows keep exactly one auto "in" row
   // each here (id `purchase-<purchaseRowId>`); everything else is a
   // manual row typed in on the Stock In/Out tab, mainly Stock Out.
-  const STOCK_API = '/api/stock-ledger';
+  const STOCK_API = '/api/materials?resource=stock';
   let cachedStockRows = [];
 
   function stockRowId(){
@@ -3597,7 +3600,7 @@
     cachedStockRows = cachedStockRows.filter(r => r.id !== id);
     renderStockRows();
     try{
-      const res = await fetch(`${STOCK_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      const res = await fetch(`${STOCK_API}&id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
       handleAuthFailure(res.status);
     }catch(e){
       console.warn('Could not delete the stock movement from the server.', e);
@@ -3769,7 +3772,7 @@
     if(!material){
       cachedStockRows = cachedStockRows.filter(r => r.id !== ledgerId);
       try{
-        await fetch(`${STOCK_API}?id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+        await fetch(`${STOCK_API}&id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
       }catch(e){ /* best effort */ }
       return;
     }
@@ -3841,7 +3844,7 @@
     const ledgerId = `purchase-${id}`;
     cachedStockRows = cachedStockRows.filter(r => r.id !== ledgerId);
     try{
-      await fetch(`${STOCK_API}?id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      await fetch(`${STOCK_API}&id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
     }catch(e){
       console.warn('Could not remove the linked stock row from the server.', e);
     }
