@@ -168,13 +168,37 @@ If you ever edit `google-apps-script.gs` later, use **Deploy → New
 deployment** again (not just save) — otherwise the live URL keeps running
 the old code.
 
+## Inventory & Purchase History
+
+Two more tabs, alongside the Monitoring Sheet, for tracking materials:
+
+- **Inventory** — a stock list: Material, Unit, Current Stock, Reorder
+  Level, Notes. Add/edit/delete rows inline, same as the Monitoring
+  Sheet. A row's stock number turns red once it's at or below its
+  Reorder Level. This is a manually-maintained count — it is **not**
+  automatically adjusted by Purchase History or by job orders.
+- **Purchase History** — a purchase log: Date, PO No., DR No.,
+  Supplier, Material, Qty, Price, Amount (computed as Qty × Price),
+  Prepared By, Memo — matching the columns of an existing paper/Excel
+  purchase log. Supports search, CSV export, and a running total.
+
+Both tabs are visible to every logged-in Apparel account (Staff,
+Admin, Super Admin), and any of them can add, edit, or delete rows —
+same access rule as the Monitoring Sheet. Since the two aren't wired
+together, update Inventory's Current Stock by hand when you log a new
+Purchase History row, if you want the two to match.
+
 ## Files
 
-- `index.html` — the form, login screen, Monitoring Sheet, and Users tab
+- `index.html` — the form, login screen, Monitoring Sheet, Inventory,
+  Purchase History, and Users tab
 - `api/counter.js` — tracks the running job-order number (login required)
 - `api/orders.js` — saves/lists job orders (login required), deletes job
   orders (Super Admin only)
 - `api/monitor.js` — saves/lists/deletes Monitoring Sheet rows (login
+  required)
+- `api/inventory.js` — saves/lists/deletes Inventory rows (login required)
+- `api/purchases.js` — saves/lists/deletes Purchase History rows (login
   required)
 - `api/sheets-sync.js` — forwards Monitoring Sheet changes to the Google
   Sheets webhook, if configured (see "Google Sheets integration" above)

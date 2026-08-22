@@ -1413,6 +1413,8 @@
     <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
+    <button class="tab-btn" id="tabBtnInventory" onclick="showTab('inventory')">Inventory</button>
+    <button class="tab-btn" id="tabBtnPurchases" onclick="showTab('purchases')">Purchase History</button>
     <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
     <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
@@ -1585,6 +1587,65 @@
       </div>
     </div>
     <div class="monitor-summary-hint" id="monitorRevenueHint"></div>
+  </div>
+
+  <div class="monitor-wrap" id="viewInventory" style="display:none;">
+    <div class="monitor-toolbar">
+      <input type="text" id="inventorySearch" placeholder="Search by material..." oninput="renderInventoryRows()">
+      <button class="ghost" onclick="loadInventoryList()">↻ Refresh</button>
+      <button class="primary" onclick="addInventoryRow()">+ Add Material</button>
+    </div>
+    <div class="monitor-scroll">
+      <table class="monitor-table">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Unit</th>
+            <th class="num">Current Stock</th>
+            <th class="num">Reorder Level</th>
+            <th>Notes</th>
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody id="inventoryTbody"></tbody>
+      </table>
+    </div>
+    <div class="browse-empty" id="inventoryEmpty" style="display:none;">No materials yet — click "+ Add Material" to start tracking stock.</div>
+  </div>
+
+  <div class="monitor-wrap" id="viewPurchases" style="display:none;">
+    <div class="monitor-toolbar">
+      <input type="text" id="purchaseSearch" placeholder="Search by PO #, DR #, or supplier..." oninput="renderPurchaseRows()">
+      <button class="ghost" onclick="loadPurchaseList()">↻ Refresh</button>
+      <button class="ghost" onclick="exportPurchaseCsv()">⇩ Export CSV</button>
+      <button class="primary" onclick="addPurchaseRow()">+ Add Row</button>
+    </div>
+    <div class="monitor-scroll">
+      <table class="monitor-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>PO No.</th>
+            <th>DR No.</th>
+            <th>Supplier</th>
+            <th>Material</th>
+            <th class="num">Qty</th>
+            <th class="num">Price</th>
+            <th class="num">Amount</th>
+            <th>Prepared By</th>
+            <th>Memo</th>
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody id="purchaseTbody"></tbody>
+      </table>
+    </div>
+    <div class="browse-empty" id="purchaseEmpty" style="display:none;">No purchases yet — click "+ Add Row" to start tracking.</div>
+    <div class="monitor-summary">
+      <div class="monitor-summary-box">
+        <div class="monitor-summary-row"><span>Total Purchases</span><span id="purchaseTotal">₱0.00</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="monitor-wrap" id="viewAttendance" style="display:none;">
@@ -3193,6 +3254,265 @@
     syncRowToGoogleSheets(row);
   }
 
+  // ---- Inventory ----
+  // A simple materials stock list — independent of Purchase History and
+  // job orders. Current Stock and Reorder Level are entered/edited by
+  // hand here; add a Purchase History row separately when new stock
+  // comes in, and update the stock number here to match if you want them
+  // to stay in sync.
+  const INVENTORY_API = '/api/inventory';
+  let cachedInventoryRows = [];
+
+  function inventoryRowId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  async function loadInventoryList(){
+    const tbody = document.getElementById('inventoryTbody');
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Loading…</td></tr>`;
+    document.getElementById('inventoryEmpty').style.display = 'none';
+    try{
+      const res = await fetch(INVENTORY_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedInventoryRows = data.rows || [];
+    }catch(e){
+      cachedInventoryRows = cachedInventoryRows || [];
+      console.warn('Could not load the inventory list.', e);
+    }
+    renderInventoryRows();
+  }
+
+  function getFilteredInventoryRows(){
+    const q = (document.getElementById('inventorySearch').value || '').toLowerCase();
+    return cachedInventoryRows.filter(r => !q || (r.material || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.material || '').localeCompare(b.material || ''));
+  }
+
+  function renderInventoryRows(){
+    const tbody = document.getElementById('inventoryTbody');
+    const empty = document.getElementById('inventoryEmpty');
+    const filtered = getFilteredInventoryRows();
+    if(filtered.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = cachedInventoryRows.length === 0
+        ? 'No materials yet — click "+ Add Material" to start tracking stock.'
+        : 'No materials match this search.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map(r => {
+      const id = escapeHtml(r.id);
+      const stock = parseFloat(r.stock);
+      const reorder = parseFloat(r.reorderLevel);
+      const low = !isNaN(stock) && !isNaN(reorder) && reorder > 0 && stock <= reorder;
+      return `
+      <tr>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="Material name" onchange="saveInventoryField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="unit" value="${escapeHtml(r.unit)}" placeholder="e.g. rolls, kg" onchange="saveInventoryField(this)"></td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="stock" value="${r.stock || ''}" placeholder="0" style="${low ? 'color:#B23A1B;font-weight:700;' : ''}" onchange="saveInventoryField(this)"></td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="reorderLevel" value="${r.reorderLevel || ''}" placeholder="0" onchange="saveInventoryField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="notes" value="${escapeHtml(r.notes)}" placeholder="—" onchange="saveInventoryField(this)"></td>
+        <td><button class="monitor-row-delete" title="Delete material" onclick="deleteInventoryRow('${id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function addInventoryRow(){
+    const row = { id: inventoryRowId(), material: '', unit: '', stock: '', reorderLevel: '', notes: '', createdAt: new Date().toISOString() };
+    cachedInventoryRows.push(row);
+    renderInventoryRows();
+    persistInventoryRow(row);
+  }
+
+  async function saveInventoryField(el){
+    const id = el.dataset.id;
+    const field = el.dataset.field;
+    const value = el.value;
+    const row = cachedInventoryRows.find(r => r.id === id);
+    if(!row) return;
+    row[field] = value;
+    persistInventoryRow(row);
+    if(field === 'stock' || field === 'reorderLevel') renderInventoryRows();
+  }
+
+  async function persistInventoryRow(row){
+    try{
+      const res = await fetch(INVENTORY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: row.id, data: row })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok) console.warn('Could not save the material.');
+    }catch(e){
+      console.warn('Could not reach the server to save the material.', e);
+    }
+  }
+
+  async function deleteInventoryRow(id){
+    if(!confirm('Delete this material from inventory?')) return;
+    cachedInventoryRows = cachedInventoryRows.filter(r => r.id !== id);
+    renderInventoryRows();
+    try{
+      const res = await fetch(`${INVENTORY_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      handleAuthFailure(res.status);
+    }catch(e){
+      console.warn('Could not delete the material from the server.', e);
+    }
+  }
+
+  // ---- Purchase History ----
+  // A manual log of materials purchases (PO/DR-backed), separate from
+  // Inventory — add a row here when stock comes in.
+  const PURCHASE_API = '/api/purchases';
+  let cachedPurchaseRows = [];
+
+  function purchaseRowId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'pur_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  async function loadPurchaseList(){
+    const tbody = document.getElementById('purchaseTbody');
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;">Loading…</td></tr>`;
+    document.getElementById('purchaseEmpty').style.display = 'none';
+    try{
+      const res = await fetch(PURCHASE_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      cachedPurchaseRows = data.rows || [];
+    }catch(e){
+      cachedPurchaseRows = cachedPurchaseRows || [];
+      console.warn('Could not load purchase history.', e);
+    }
+    renderPurchaseRows();
+  }
+
+  function getFilteredPurchaseRows(){
+    const q = (document.getElementById('purchaseSearch').value || '').toLowerCase();
+    return cachedPurchaseRows.filter(r => !q || [r.poNumber, r.drNumber, r.supplier].some(v => (v || '').toLowerCase().includes(q)))
+      .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || '').localeCompare(b.createdAt || ''));
+  }
+
+  function purchaseAmount(r){
+    const qty = parseFloat(r.qty) || 0;
+    const price = parseFloat(r.price) || 0;
+    return qty * price;
+  }
+
+  function renderPurchaseRows(){
+    const tbody = document.getElementById('purchaseTbody');
+    const empty = document.getElementById('purchaseEmpty');
+    const filtered = getFilteredPurchaseRows();
+    if(filtered.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = cachedPurchaseRows.length === 0
+        ? 'No purchases yet — click "+ Add Row" to start tracking.'
+        : 'No purchases match this search.';
+      renderPurchaseSummary(filtered);
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map(r => {
+      const id = escapeHtml(r.id);
+      const amount = purchaseAmount(r);
+      return `
+      <tr>
+        <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="poNumber" value="${escapeHtml(r.poNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="drNumber" value="${escapeHtml(r.drNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="supplier" value="${escapeHtml(r.supplier)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="savePurchaseField(this); renderPurchaseRows();"></td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="price" value="${r.price || ''}" placeholder="0.00" onchange="savePurchaseField(this); renderPurchaseRows();"></td>
+        <td class="num">${formatCurrency(amount)}</td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="preparedBy" value="${escapeHtml(r.preparedBy)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="memo" value="${escapeHtml(r.memo)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><button class="monitor-row-delete" title="Delete row" onclick="deletePurchaseRow('${id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+    renderPurchaseSummary(filtered);
+  }
+
+  function renderPurchaseSummary(rows){
+    const total = (rows || []).reduce((sum, r) => sum + purchaseAmount(r), 0);
+    document.getElementById('purchaseTotal').textContent = formatCurrency(total);
+  }
+
+  function addPurchaseRow(){
+    const row = {
+      id: purchaseRowId(), date: '', poNumber: '', drNumber: '', supplier: '', material: '',
+      qty: '', price: '', preparedBy: '', memo: '', createdAt: new Date().toISOString()
+    };
+    cachedPurchaseRows.push(row);
+    renderPurchaseRows();
+    persistPurchaseRow(row);
+  }
+
+  async function savePurchaseField(el){
+    const id = el.dataset.id;
+    const field = el.dataset.field;
+    const value = el.value;
+    const row = cachedPurchaseRows.find(r => r.id === id);
+    if(!row) return;
+    row[field] = value;
+    persistPurchaseRow(row);
+  }
+
+  async function persistPurchaseRow(row){
+    try{
+      const res = await fetch(PURCHASE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: row.id, data: row })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok) console.warn('Could not save the purchase row.');
+    }catch(e){
+      console.warn('Could not reach the server to save the purchase row.', e);
+    }
+  }
+
+  async function deletePurchaseRow(id){
+    if(!confirm('Delete this purchase row?')) return;
+    cachedPurchaseRows = cachedPurchaseRows.filter(r => r.id !== id);
+    renderPurchaseRows();
+    try{
+      const res = await fetch(`${PURCHASE_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      handleAuthFailure(res.status);
+    }catch(e){
+      console.warn('Could not delete the purchase row from the server.', e);
+    }
+  }
+
+  function exportPurchaseCsv(){
+    const rows = getFilteredPurchaseRows();
+    if(rows.length === 0){
+      alert('There are no purchase rows to export' + (document.getElementById('purchaseSearch').value ? ' for the current filter.' : '.'));
+      return;
+    }
+    const headers = ['Date','PO No.','DR No.','Supplier','Material','Qty','Price','Amount','Prepared By','Memo'];
+    const lines = [headers.map(csvCell).join(',')];
+    rows.forEach(r => {
+      lines.push([
+        r.date || '', r.poNumber || '', r.drNumber || '', r.supplier || '', r.material || '',
+        r.qty || '', r.price || '', purchaseAmount(r).toFixed(2), r.preparedBy || '', r.memo || ''
+      ].map(csvCell).join(','));
+    });
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `purchase-history-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // ---- Analytics ----
   // Reuses the same Monitoring Sheet data (each row's Grand Total is the
   // revenue figure) to show trend charts. Grouped by day or month, drawn
@@ -3926,6 +4246,8 @@
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
+    const isInventory = tab === 'inventory';
+    const isPurchases = tab === 'purchases';
     const isAttendance = tab === 'attendance';
     const isPayroll = tab === 'payroll';
     const isAnalytics = tab === 'analytics';
@@ -3935,6 +4257,8 @@
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
+    document.getElementById('viewInventory').style.display = isInventory ? 'block' : 'none';
+    document.getElementById('viewPurchases').style.display = isPurchases ? 'block' : 'none';
     document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
     document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
@@ -3943,15 +4267,19 @@
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
+    document.getElementById('tabBtnInventory').classList.toggle('active', isInventory);
+    document.getElementById('tabBtnPurchases').classList.toggle('active', isPurchases);
     document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
     document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isInventory ? 'viewInventory' : isPurchases ? 'viewPurchases' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
+    if(isInventory) loadInventoryList();
+    if(isPurchases) loadPurchaseList();
     if(isAttendance) loadAttendance();
     if(isPayroll) loadPayrollView();
     if(isAnalytics) loadAnalytics();
