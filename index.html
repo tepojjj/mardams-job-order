@@ -1350,64 +1350,7 @@
     </div>
   </div>
 
-  <div class="account-bar" id="accountBar" style="display:none;">
-    <span id="accountAvatarWrap"></span>
-    <span class="who" id="accountInfo"></span>
-    <button class="ghost" onclick="openSettings()">Settings</button>
-    <button class="ghost" onclick="doLogout()">Log Out</button>
-  </div>
 
-  <div class="settings-overlay" id="settingsOverlay" style="display:none;">
-    <div class="settings-card" id="settingsCard">
-      <div class="settings-header">
-        <h2>Account Settings</h2>
-        <button class="settings-close" onclick="closeSettings()" title="Close">✕</button>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-label">Profile</div>
-        <input type="file" id="avatarInput" accept="image/*" style="display:none;">
-        <div class="avatar-row">
-          <div class="avatar-upload-zone" id="avatarZone">
-            <span class="avatar-placeholder" id="avatarPlaceholder">＋</span>
-            <img id="avatarPreview" src="" alt="Profile photo" style="display:none;">
-          </div>
-          <div class="avatar-actions">
-            <span class="hint">Click the circle to upload a photo.</span>
-            <button type="button" class="avatar-remove-link" id="avatarRemoveBtn" onclick="removeAvatar()" style="display:none;">Remove photo</button>
-          </div>
-        </div>
-        <div class="settings-field">
-          <label for="settingsDisplayName">Display Name</label>
-          <input type="text" id="settingsDisplayName" placeholder="e.g. Juan Dela Cruz" maxlength="60">
-        </div>
-        <div class="settings-actions">
-          <button class="primary" onclick="saveProfile()">Save Profile</button>
-        </div>
-        <div class="settings-msg" id="profileMsg"></div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-label">Change Password</div>
-        <div class="settings-field">
-          <label for="settingsCurrentPassword">Current Password</label>
-          <input type="password" id="settingsCurrentPassword" autocomplete="current-password">
-        </div>
-        <div class="settings-field">
-          <label for="settingsNewPassword">New Password</label>
-          <input type="password" id="settingsNewPassword" autocomplete="new-password">
-        </div>
-        <div class="settings-field">
-          <label for="settingsConfirmPassword">Confirm New Password</label>
-          <input type="password" id="settingsConfirmPassword" autocomplete="new-password">
-        </div>
-        <div class="settings-actions">
-          <button class="primary" onclick="changePassword()">Update Password</button>
-        </div>
-        <div class="settings-msg" id="passwordMsg"></div>
-      </div>
-    </div>
-  </div>
 
   <div class="tabs" id="appTabs" style="display:none;">
     <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
@@ -2109,7 +2052,6 @@
     const overlay = document.getElementById('loginOverlay');
     overlay.style.display = 'flex';
     overlay.classList.remove('fade-out');
-    document.getElementById('settingsOverlay').style.display = 'none';
     document.getElementById('accountBar').style.display = 'none';
     document.getElementById('appTabs').style.display = 'none';
     document.getElementById('viewNew').style.display = 'none';
@@ -2143,7 +2085,6 @@
     replayAnimation(accountBar, 'app-shell-in');
     replayAnimation(appTabs, 'app-shell-in');
     renderAccountBar();
-    loadOwnProfile();
 
     const canManageUsers = currentUser.role === 'admin' || currentUser.role === 'super_admin';
     document.getElementById('tabBtnUsers').style.display = canManageUsers ? '' : 'none';
@@ -2161,175 +2102,12 @@
 
   // ---- Account bar (avatar + name) ----
   function renderAccountBar(){
-    const nameToShow = (currentUser.displayName && currentUser.displayName.trim()) ? currentUser.displayName.trim() : currentUser.username;
+    const nameToShow = currentUser.username;
     document.getElementById('accountInfo').innerHTML =
       'Signed in as <b>' + escapeHtml(nameToShow) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
     const wrap = document.getElementById('accountAvatarWrap');
-    if(currentUser.photo){
-      wrap.innerHTML = `<img class="account-avatar" src="${currentUser.photo}" alt="Profile photo">`;
-    }else{
-      const initial = (nameToShow || '?').trim().charAt(0).toUpperCase() || '?';
-      wrap.innerHTML = `<span class="account-avatar-fallback">${escapeHtml(initial)}</span>`;
-    }
-  }
-
-  // Pulls the caller's own display name / photo (not returned by /api/login)
-  // so the account bar shows whatever was last saved from Settings, even
-  // from a different device/browser.
-  async function loadOwnProfile(){
-    try{
-      const res = await fetch(PROFILE_API, { headers: { ...authHeaders() } });
-      if(handleAuthFailure(res.status)) return;
-      if(!res.ok) return;
-      const data = await res.json();
-      currentUser.displayName = data.displayName || '';
-      currentUser.photo = data.photo || null;
-      saveAuth(authToken, currentUser);
-      renderAccountBar();
-    }catch(e){
-      console.warn('Could not load your profile.', e);
-    }
-  }
-
-  // ---- Settings modal ----
-  // Self-service only — every account (Staff, Admin, Super Admin) can open
-  // this to change their own password and set their own display name /
-  // profile photo. Backed by api/profile.js, which always acts on the
-  // caller's own account (from their verified token), never a username
-  // passed in from the client.
-  const PROFILE_API = '/api/profile';
-  // undefined = avatar untouched this session, null = removal staged,
-  // a data URL = a new photo staged — only sent to the server once Save
-  // Profile is clicked.
-  let pendingAvatarPhoto;
-
-  function openSettings(){
-    if(!currentUser) return;
-    pendingAvatarPhoto = undefined;
-    document.getElementById('settingsDisplayName').value = currentUser.displayName || '';
-    setSettingsMsg('profileMsg', '');
-    setSettingsMsg('passwordMsg', '');
-    document.getElementById('settingsCurrentPassword').value = '';
-    document.getElementById('settingsNewPassword').value = '';
-    document.getElementById('settingsConfirmPassword').value = '';
-    showAvatarPreview(currentUser.photo || null);
-    const overlay = document.getElementById('settingsOverlay');
-    overlay.style.display = 'flex';
-    overlay.classList.remove('fade-out');
-    replayAnimation(document.getElementById('settingsCard'), 'card-in');
-  }
-
-  function closeSettings(){
-    const overlay = document.getElementById('settingsOverlay');
-    overlay.classList.add('fade-out');
-    setTimeout(() => { overlay.style.display = 'none'; }, 250);
-  }
-
-  function setSettingsMsg(id, text, kind){
-    const el = document.getElementById(id);
-    el.textContent = text || '';
-    el.className = 'settings-msg' + (kind ? ' ' + kind : '');
-  }
-
-  function showAvatarPreview(photoUrl){
-    const img = document.getElementById('avatarPreview');
-    const placeholder = document.getElementById('avatarPlaceholder');
-    const removeBtn = document.getElementById('avatarRemoveBtn');
-    if(photoUrl){
-      img.src = photoUrl;
-      img.style.display = 'block';
-      placeholder.style.display = 'none';
-      removeBtn.style.display = '';
-    }else{
-      img.src = '';
-      img.style.display = 'none';
-      placeholder.style.display = '';
-      removeBtn.style.display = 'none';
-    }
-  }
-
-  function removeAvatar(){
-    pendingAvatarPhoto = null;
-    showAvatarPreview(null);
-  }
-
-  function readFileAsAvatar(file){
-    if(!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      // Smaller max dimension than the job-order reference photo — this is
-      // just a small round avatar, no need to keep it large.
-      const compressed = await compressImage(e.target.result, 320, 0.85);
-      pendingAvatarPhoto = compressed;
-      showAvatarPreview(compressed);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async function saveProfile(){
-    setSettingsMsg('profileMsg', '');
-    const displayName = document.getElementById('settingsDisplayName').value.trim();
-    const body = { action: 'update-profile', displayName };
-    if(pendingAvatarPhoto !== undefined) body.photo = pendingAvatarPhoto;
-    try{
-      const res = await fetch(PROFILE_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(body)
-      });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json().catch(() => ({}));
-      if(!res.ok){
-        setSettingsMsg('profileMsg', data.error || 'Could not save your profile.', 'error');
-        return;
-      }
-      currentUser.displayName = data.displayName || '';
-      currentUser.photo = data.photo || null;
-      pendingAvatarPhoto = undefined;
-      saveAuth(authToken, currentUser);
-      renderAccountBar();
-      setSettingsMsg('profileMsg', 'Profile saved.', 'success');
-    }catch(e){
-      setSettingsMsg('profileMsg', 'Could not reach the server. Please try again.', 'error');
-    }
-  }
-
-  async function changePassword(){
-    setSettingsMsg('passwordMsg', '');
-    const currentPassword = document.getElementById('settingsCurrentPassword').value;
-    const newPassword = document.getElementById('settingsNewPassword').value;
-    const confirmPassword = document.getElementById('settingsConfirmPassword').value;
-    if(!currentPassword || !newPassword || !confirmPassword){
-      setSettingsMsg('passwordMsg', 'Fill in all three password fields.', 'error');
-      return;
-    }
-    if(newPassword.length < 6){
-      setSettingsMsg('passwordMsg', 'New password must be at least 6 characters.', 'error');
-      return;
-    }
-    if(newPassword !== confirmPassword){
-      setSettingsMsg('passwordMsg', 'New password and confirmation do not match.', 'error');
-      return;
-    }
-    try{
-      const res = await fetch(PROFILE_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action: 'change-password', currentPassword, newPassword })
-      });
-      if(handleAuthFailure(res.status)) return;
-      const data = await res.json().catch(() => ({}));
-      if(!res.ok){
-        setSettingsMsg('passwordMsg', data.error || 'Could not update your password.', 'error');
-        return;
-      }
-      document.getElementById('settingsCurrentPassword').value = '';
-      document.getElementById('settingsNewPassword').value = '';
-      document.getElementById('settingsConfirmPassword').value = '';
-      setSettingsMsg('passwordMsg', 'Password updated.', 'success');
-    }catch(e){
-      setSettingsMsg('passwordMsg', 'Could not reach the server. Please try again.', 'error');
-    }
+    const initial = (nameToShow || '?').trim().charAt(0).toUpperCase() || '?';
+    wrap.innerHTML = `<span class="account-avatar-fallback">${escapeHtml(initial)}</span>`;
   }
 
   async function doLogin(){
@@ -2982,7 +2760,6 @@
   // (api/monitor.js / KV key "monitoring-sheet"). Any logged-in user can
   // add, edit, or delete rows.
   const MONITOR_API = '/api/monitor';
-  const SHEETS_SYNC_API = '/api/sheets-sync';
   const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
   // "Active" = still in production, using the same status dropdown values
   // as the Monitoring Sheet — everything that hasn't been printed,
@@ -3256,7 +3033,6 @@
     }catch(e){
       console.warn('Could not delete the row from the server.', e);
     }
-    deleteRowFromGoogleSheets(id);
   }
 
   // Called when a job order is deleted from the Browse tab — removes every
@@ -3264,7 +3040,6 @@
   // and drops them from the local cache so the sheet reflects it right
   // away if it's already loaded.
   async function deleteMonitorRowsByJoNumber(joNumber){
-    const removedIds = cachedMonitorRows.filter(r => r.joNumber === joNumber).map(r => r.id);
     cachedMonitorRows = cachedMonitorRows.filter(r => r.joNumber !== joNumber);
     if(document.getElementById('viewMonitor').style.display !== 'none') renderMonitorRows();
     try{
@@ -3276,7 +3051,6 @@
     }catch(e){
       console.warn('Could not remove linked monitoring rows from the server.', e);
     }
-    removedIds.forEach(deleteRowFromGoogleSheets);
   }
 
   async function saveMonitorField(el){
@@ -3306,7 +3080,6 @@
     }catch(e){
       console.warn('Could not reach the server to save the row.', e);
     }
-    syncRowToGoogleSheets(row);
   }
 
   // ---- Material List ----
@@ -4235,31 +4008,6 @@
     }
   });
 
-  // ---- Google Sheets integration ----
-  // Every time a Monitoring Sheet row is created, edited, or deleted, this
-  // mirrors that change into a Google Sheet via a small server-side proxy
-  // (api/sheets-sync.js), which forwards it to a Google Apps Script Web
-  // App tied to the target spreadsheet. This is entirely best-effort and
-  // fire-and-forget — if it's not configured yet, or Google is briefly
-  // unreachable, the actual save to this app's own storage above is
-  // completely unaffected. See README.md "Google Sheets integration" for
-  // setup.
-  function syncRowToGoogleSheets(row){
-    fetch(SHEETS_SYNC_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ row })
-    }).catch(e => console.warn('Google Sheets sync skipped (not configured or unreachable).', e));
-  }
-
-  function deleteRowFromGoogleSheets(id){
-    fetch(SHEETS_SYNC_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ action: 'delete', id })
-    }).catch(e => console.warn('Google Sheets sync skipped (not configured or unreachable).', e));
-  }
-
   // ---- Users (Admin / Super Admin only) ----
   let cachedUsers = [];
   let cachedAccountLog = [];
@@ -4971,31 +4719,6 @@
         break;
       }
     }
-  });
-
-  // ---- Settings avatar: click-to-upload and drag-drop ----
-  const avatarInput = document.getElementById('avatarInput');
-  const avatarZone = document.getElementById('avatarZone');
-
-  avatarZone.addEventListener('click', () => avatarInput.click());
-
-  avatarInput.addEventListener('change', () => {
-    if(avatarInput.files && avatarInput.files[0]) readFileAsAvatar(avatarInput.files[0]);
-  });
-
-  avatarZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    avatarZone.classList.add('drag');
-  });
-  avatarZone.addEventListener('dragleave', () => avatarZone.classList.remove('drag'));
-  avatarZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    avatarZone.classList.remove('drag');
-    if(e.dataTransfer.files && e.dataTransfer.files[0]) readFileAsAvatar(e.dataTransfer.files[0]);
-  });
-
-  document.getElementById('settingsOverlay').addEventListener('click', (e) => {
-    if(e.target.id === 'settingsOverlay') closeSettings();
   });
 
   // ---- Payroll (Super Admin only) ----

@@ -107,7 +107,7 @@ function canUseJobOrders(auth) {
 }
 
 // Like requireAuth, but also 403s Accounting/Sign Ads accounts out of
-// Job-Orders-only endpoints (orders, monitor, counter, sheets-sync).
+// Job-Orders-only endpoints (orders, monitor, counter).
 function requireJobOrdersAccess(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return null;
