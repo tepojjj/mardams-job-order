@@ -1413,14 +1413,18 @@
     <button class="tab-btn active" id="tabBtnNew" onclick="newOrderTabClicked()">New Job Order</button>
     <button class="tab-btn" id="tabBtnBrowse" onclick="showTab('browse')">Browse Job Orders</button>
     <button class="tab-btn" id="tabBtnMonitor" onclick="showTab('monitor')">Monitoring Sheet</button>
+    <button class="tab-btn" id="tabBtnMaterials" onclick="showTab('materials')">Material List</button>
     <button class="tab-btn" id="tabBtnInventory" onclick="showTab('inventory')">Inventory</button>
     <button class="tab-btn" id="tabBtnPurchases" onclick="showTab('purchases')">Purchase History</button>
+    <button class="tab-btn" id="tabBtnStock" onclick="showTab('stock')">Stock In/Out</button>
     <button class="tab-btn" id="tabBtnAttendance" onclick="showTab('attendance')">Attendance</button>
     <button class="tab-btn" id="tabBtnPayroll" onclick="showTab('payroll')" style="display:none;">Payroll</button>
     <button class="tab-btn" id="tabBtnAnalytics" onclick="showTab('analytics')">Analytics</button>
     <button class="tab-btn" id="tabBtnUsers" onclick="showTab('users')" style="display:none;">Users</button>
     <button class="tab-btn" id="tabBtnAccountLog" onclick="showTab('accountlog')" style="display:none;">Account Log</button>
   </div>
+
+  <datalist id="materialsDatalist"></datalist>
 
   <div id="viewNew" style="display:none;">
   <div class="toolbar" id="toolbarNormal">
@@ -1589,28 +1593,50 @@
     <div class="monitor-summary-hint" id="monitorRevenueHint"></div>
   </div>
 
-  <div class="monitor-wrap" id="viewInventory" style="display:none;">
+  <div class="monitor-wrap" id="viewMaterials" style="display:none;">
     <div class="monitor-toolbar">
-      <input type="text" id="inventorySearch" placeholder="Search by material..." oninput="renderInventoryRows()">
-      <button class="ghost" onclick="loadInventoryList()">↻ Refresh</button>
-      <button class="primary" onclick="addInventoryRow()">+ Add Material</button>
+      <input type="text" id="materialsSearch" placeholder="Search by material, supplier, or brand..." oninput="renderMaterialRows()">
+      <button class="ghost" onclick="loadMaterialsList()">↻ Refresh</button>
+      <button class="primary" onclick="addMaterialRow()">+ Add Material</button>
     </div>
     <div class="monitor-scroll">
       <table class="monitor-table">
         <thead>
           <tr>
             <th>Material</th>
+            <th>Supplier</th>
+            <th>Brand</th>
+            <th>Unit</th>
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody id="materialsTbody"></tbody>
+      </table>
+    </div>
+    <div class="browse-empty" id="materialsEmpty" style="display:none;">No materials yet — click "+ Add Material" to start the master list.</div>
+    <div class="monitor-summary-hint">Materials added here become available across Inventory, Purchase History, and Stock In/Out. Deleting a material here does not delete its past purchase or stock history.</div>
+  </div>
+
+  <div class="monitor-wrap" id="viewInventory" style="display:none;">
+    <div class="monitor-toolbar">
+      <input type="text" id="inventorySearch" placeholder="Search by material..." oninput="renderInventoryRows()">
+      <button class="ghost" onclick="loadInventoryList()">↻ Refresh</button>
+    </div>
+    <div class="monitor-scroll">
+      <table class="monitor-table">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Supplier</th>
             <th>Unit</th>
             <th class="num">Current Stock</th>
-            <th class="num">Reorder Level</th>
-            <th>Notes</th>
-            <th style="width:30px;"></th>
           </tr>
         </thead>
         <tbody id="inventoryTbody"></tbody>
       </table>
     </div>
-    <div class="browse-empty" id="inventoryEmpty" style="display:none;">No materials yet — click "+ Add Material" to start tracking stock.</div>
+    <div class="browse-empty" id="inventoryEmpty" style="display:none;">No materials yet — add one in the Material List tab to start tracking stock.</div>
+    <div class="monitor-summary-hint">Material, Supplier, and Unit come from the Material List tab. Current Stock is computed automatically from Purchase History (stock in) and Stock In/Out (stock out) — it isn't edited here.</div>
   </div>
 
   <div class="monitor-wrap" id="viewPurchases" style="display:none;">
@@ -1629,6 +1655,7 @@
             <th>DR No.</th>
             <th>Supplier</th>
             <th>Material</th>
+            <th>Unit</th>
             <th class="num">Qty</th>
             <th class="num">Price</th>
             <th class="num">Amount</th>
@@ -1646,6 +1673,34 @@
         <div class="monitor-summary-row"><span>Total Purchases</span><span id="purchaseTotal">₱0.00</span></div>
       </div>
     </div>
+  </div>
+
+  <div class="monitor-wrap" id="viewStock" style="display:none;">
+    <div class="monitor-toolbar">
+      <input type="text" id="stockSearch" placeholder="Search by material or reference..." oninput="renderStockRows()">
+      <button class="ghost" onclick="loadStockLedger()">↻ Refresh</button>
+      <button class="primary" onclick="addStockRow('out')">+ Stock Out</button>
+      <button class="ghost" onclick="addStockRow('in')">+ Stock In (manual)</button>
+    </div>
+    <div class="monitor-scroll">
+      <table class="monitor-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Material</th>
+            <th>Type</th>
+            <th class="num">Qty</th>
+            <th>Reference</th>
+            <th>Personnel</th>
+            <th>Notes</th>
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody id="stockTbody"></tbody>
+      </table>
+    </div>
+    <div class="browse-empty" id="stockEmpty" style="display:none;">No stock movements yet — Stock In rows appear automatically from Purchase History, or click "+ Stock Out" when a material is used.</div>
+    <div class="monitor-summary-hint">Rows tagged "Purchase" are created automatically from Purchase History and can only be changed there. Use "+ Stock Out" here whenever a material is used, so Inventory's Current Stock stays accurate.</div>
   </div>
 
   <div class="monitor-wrap" id="viewAttendance" style="display:none;">
@@ -3254,92 +3309,111 @@
     syncRowToGoogleSheets(row);
   }
 
-  // ---- Inventory ----
-  // A simple materials stock list — independent of Purchase History and
-  // job orders. Current Stock and Reorder Level are entered/edited by
-  // hand here; add a Purchase History row separately when new stock
-  // comes in, and update the stock number here to match if you want them
-  // to stay in sync.
-  const INVENTORY_API = '/api/inventory';
-  let cachedInventoryRows = [];
+  // ---- Material List ----
+  // The master list of materials, each with its Supplier, Brand, and
+  // Unit. Inventory and Purchase History reference these rows by id
+  // instead of storing their own copies, so editing a material here
+  // (e.g. its Supplier) is reflected everywhere automatically.
+  const MATERIALS_API = '/api/materials';
+  let cachedMaterialRows = [];
 
-  function inventoryRowId(){
-    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  function materialRowId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'mat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   }
 
-  async function loadInventoryList(){
-    const tbody = document.getElementById('inventoryTbody');
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Loading…</td></tr>`;
-    document.getElementById('inventoryEmpty').style.display = 'none';
+  function findMaterialByName(name){
+    const key = (name || '').trim().toLowerCase();
+    if(!key) return null;
+    return cachedMaterialRows.find(m => (m.material || '').trim().toLowerCase() === key) || null;
+  }
+
+  function findMaterialById(id){
+    return cachedMaterialRows.find(m => m.id === id) || null;
+  }
+
+  function refreshMaterialsDatalist(){
+    const list = document.getElementById('materialsDatalist');
+    if(!list) return;
+    const names = Array.from(new Set(cachedMaterialRows.map(m => (m.material || '').trim()).filter(Boolean))).sort();
+    list.innerHTML = names.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+  }
+
+  async function fetchMaterialsFresh(){
     try{
-      const res = await fetch(INVENTORY_API, { headers: { ...authHeaders() } });
-      if(handleAuthFailure(res.status)) return;
+      const res = await fetch(MATERIALS_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return cachedMaterialRows;
       const data = await res.json();
-      cachedInventoryRows = data.rows || [];
+      cachedMaterialRows = data.rows || [];
     }catch(e){
-      cachedInventoryRows = cachedInventoryRows || [];
-      console.warn('Could not load the inventory list.', e);
+      cachedMaterialRows = cachedMaterialRows || [];
+      console.warn('Could not load the material list.', e);
     }
-    renderInventoryRows();
+    refreshMaterialsDatalist();
+    return cachedMaterialRows;
   }
 
-  function getFilteredInventoryRows(){
-    const q = (document.getElementById('inventorySearch').value || '').toLowerCase();
-    return cachedInventoryRows.filter(r => !q || (r.material || '').toLowerCase().includes(q))
+  async function loadMaterialsList(){
+    const tbody = document.getElementById('materialsTbody');
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>`;
+    document.getElementById('materialsEmpty').style.display = 'none';
+    await fetchMaterialsFresh();
+    renderMaterialRows();
+  }
+
+  function getFilteredMaterialRows(){
+    const q = (document.getElementById('materialsSearch').value || '').toLowerCase();
+    return cachedMaterialRows.filter(r => !q || [r.material, r.supplier, r.brand].some(v => (v || '').toLowerCase().includes(q)))
       .sort((a, b) => (a.material || '').localeCompare(b.material || ''));
   }
 
-  function renderInventoryRows(){
-    const tbody = document.getElementById('inventoryTbody');
-    const empty = document.getElementById('inventoryEmpty');
-    const filtered = getFilteredInventoryRows();
+  function renderMaterialRows(){
+    const tbody = document.getElementById('materialsTbody');
+    const empty = document.getElementById('materialsEmpty');
+    const filtered = getFilteredMaterialRows();
     if(filtered.length === 0){
       tbody.innerHTML = '';
       empty.style.display = 'block';
-      empty.textContent = cachedInventoryRows.length === 0
-        ? 'No materials yet — click "+ Add Material" to start tracking stock.'
+      empty.textContent = cachedMaterialRows.length === 0
+        ? 'No materials yet — click "+ Add Material" to start the master list.'
         : 'No materials match this search.';
       return;
     }
     empty.style.display = 'none';
     tbody.innerHTML = filtered.map(r => {
       const id = escapeHtml(r.id);
-      const stock = parseFloat(r.stock);
-      const reorder = parseFloat(r.reorderLevel);
-      const low = !isNaN(stock) && !isNaN(reorder) && reorder > 0 && stock <= reorder;
       return `
       <tr>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="Material name" onchange="saveInventoryField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="unit" value="${escapeHtml(r.unit)}" placeholder="e.g. rolls, kg" onchange="saveInventoryField(this)"></td>
-        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="stock" value="${r.stock || ''}" placeholder="0" style="${low ? 'color:#B23A1B;font-weight:700;' : ''}" onchange="saveInventoryField(this)"></td>
-        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="reorderLevel" value="${r.reorderLevel || ''}" placeholder="0" onchange="saveInventoryField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="notes" value="${escapeHtml(r.notes)}" placeholder="—" onchange="saveInventoryField(this)"></td>
-        <td><button class="monitor-row-delete" title="Delete material" onclick="deleteInventoryRow('${id}')">✕</button></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="Material name" onchange="saveMaterialField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="supplier" value="${escapeHtml(r.supplier)}" placeholder="—" onchange="saveMaterialField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="brand" value="${escapeHtml(r.brand)}" placeholder="—" onchange="saveMaterialField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="unit" value="${escapeHtml(r.unit)}" placeholder="e.g. rolls, kg" onchange="saveMaterialField(this)"></td>
+        <td><button class="monitor-row-delete" title="Delete material" onclick="deleteMaterialRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
   }
 
-  function addInventoryRow(){
-    const row = { id: inventoryRowId(), material: '', unit: '', stock: '', reorderLevel: '', notes: '', createdAt: new Date().toISOString() };
-    cachedInventoryRows.push(row);
-    renderInventoryRows();
-    persistInventoryRow(row);
+  function addMaterialRow(){
+    const row = { id: materialRowId(), material: '', supplier: '', brand: '', unit: '', createdAt: new Date().toISOString() };
+    cachedMaterialRows.push(row);
+    renderMaterialRows();
+    refreshMaterialsDatalist();
+    persistMaterialRow(row);
   }
 
-  async function saveInventoryField(el){
+  function saveMaterialField(el){
     const id = el.dataset.id;
     const field = el.dataset.field;
     const value = el.value;
-    const row = cachedInventoryRows.find(r => r.id === id);
+    const row = cachedMaterialRows.find(r => r.id === id);
     if(!row) return;
     row[field] = value;
-    persistInventoryRow(row);
-    if(field === 'stock' || field === 'reorderLevel') renderInventoryRows();
+    persistMaterialRow(row);
+    if(field === 'material') refreshMaterialsDatalist();
   }
 
-  async function persistInventoryRow(row){
+  async function persistMaterialRow(row){
     try{
-      const res = await fetch(INVENTORY_API, {
+      const res = await fetch(MATERIALS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ id: row.id, data: row })
@@ -3351,21 +3425,238 @@
     }
   }
 
-  async function deleteInventoryRow(id){
-    if(!confirm('Delete this material from inventory?')) return;
-    cachedInventoryRows = cachedInventoryRows.filter(r => r.id !== id);
-    renderInventoryRows();
+  async function deleteMaterialRow(id){
+    if(!confirm('Delete this material from the Material List? Inventory will no longer show it, but past purchase and stock records are kept.')) return;
+    cachedMaterialRows = cachedMaterialRows.filter(r => r.id !== id);
+    renderMaterialRows();
+    refreshMaterialsDatalist();
     try{
-      const res = await fetch(`${INVENTORY_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      const res = await fetch(`${MATERIALS_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
       handleAuthFailure(res.status);
     }catch(e){
       console.warn('Could not delete the material from the server.', e);
     }
   }
 
+  // ---- Stock In/Out ledger ----
+  // Every stock movement for every material. Inventory's Current Stock
+  // is never stored directly — it's computed by summing this ledger
+  // per material. Purchase History rows keep exactly one auto "in" row
+  // each here (id `purchase-<purchaseRowId>`); everything else is a
+  // manual row typed in on the Stock In/Out tab, mainly Stock Out.
+  const STOCK_API = '/api/stock-ledger';
+  let cachedStockRows = [];
+
+  function stockRowId(){
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'stk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  async function fetchStockLedgerFresh(){
+    try{
+      const res = await fetch(STOCK_API, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return cachedStockRows;
+      const data = await res.json();
+      cachedStockRows = data.rows || [];
+    }catch(e){
+      cachedStockRows = cachedStockRows || [];
+      console.warn('Could not load the stock ledger.', e);
+    }
+    return cachedStockRows;
+  }
+
+  // { materialId: netQty } — "in" rows add, "out" rows subtract.
+  function computeStockMap(){
+    const map = {};
+    cachedStockRows.forEach(r => {
+      if(!r.materialId) return;
+      const qty = parseFloat(r.qty) || 0;
+      const signed = r.type === 'out' ? -qty : qty;
+      map[r.materialId] = (map[r.materialId] || 0) + signed;
+    });
+    return map;
+  }
+
+  function materialSelectOptionsHtml(selectedId){
+    const sorted = [...cachedMaterialRows].sort((a, b) => (a.material || '').localeCompare(b.material || ''));
+    return '<option value="">— Select material —</option>' + sorted.map(m =>
+      `<option value="${escapeHtml(m.id)}" ${m.id === selectedId ? 'selected' : ''}>${escapeHtml(m.material)}</option>`
+    ).join('');
+  }
+
+  async function loadStockLedger(){
+    const tbody = document.getElementById('stockTbody');
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>`;
+    document.getElementById('stockEmpty').style.display = 'none';
+    await Promise.all([fetchMaterialsFresh(), fetchStockLedgerFresh()]);
+    renderStockRows();
+  }
+
+  function getFilteredStockRows(){
+    const q = (document.getElementById('stockSearch').value || '').toLowerCase();
+    return cachedStockRows.filter(r => !q || [r.material, r.reference, r.personnel].some(v => (v || '').toLowerCase().includes(q)))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+
+  function renderStockRows(){
+    const tbody = document.getElementById('stockTbody');
+    const empty = document.getElementById('stockEmpty');
+    const filtered = getFilteredStockRows();
+    if(filtered.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = cachedStockRows.length === 0
+        ? 'No stock movements yet — Stock In rows appear automatically from Purchase History, or click "+ Stock Out" when a material is used.'
+        : 'No stock movements match this search.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map(r => {
+      const id = escapeHtml(r.id);
+      const isPurchase = r.source === 'purchase';
+      const typeLabel = r.type === 'out' ? 'Stock Out' : 'Stock In';
+      const typeColor = r.type === 'out' ? '#B23A1B' : '#1B7A3D';
+      if(isPurchase){
+        return `
+        <tr>
+          <td>${escapeHtml(r.date)}</td>
+          <td>${escapeHtml(r.material)}</td>
+          <td><span style="color:${typeColor};font-weight:700;">${typeLabel}</span> <span class="monitor-summary-hint" style="display:inline;">(Purchase)</span></td>
+          <td class="num">${escapeHtml(String(r.qty || 0))}</td>
+          <td>${escapeHtml(r.reference)}</td>
+          <td>${escapeHtml(r.personnel)}</td>
+          <td>${escapeHtml(r.notes)}</td>
+          <td></td>
+        </tr>`;
+      }
+      return `
+      <tr>
+        <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="saveStockField(this)"></td>
+        <td><select class="monitor-input" data-id="${id}" data-field="materialId" onchange="saveStockField(this)">${materialSelectOptionsHtml(r.materialId)}</select></td>
+        <td><select class="monitor-input" data-id="${id}" data-field="type" onchange="saveStockField(this)">
+          <option value="out" ${r.type === 'out' ? 'selected' : ''}>Stock Out</option>
+          <option value="in" ${r.type === 'in' ? 'selected' : ''}>Stock In</option>
+        </select></td>
+        <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveStockField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="reference" value="${escapeHtml(r.reference)}" placeholder="e.g. Job Order #" onchange="saveStockField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="personnel" value="${escapeHtml(r.personnel)}" placeholder="Encoded by" onchange="saveStockField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="notes" value="${escapeHtml(r.notes)}" placeholder="—" onchange="saveStockField(this)"></td>
+        <td><button class="monitor-row-delete" title="Delete row" onclick="deleteStockRow('${id}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function addStockRow(type){
+    const row = {
+      id: stockRowId(), date: new Date().toISOString().slice(0, 10), materialId: '', material: '',
+      type: type === 'in' ? 'in' : 'out', qty: '', unit: '', source: 'manual',
+      reference: '', personnel: '', notes: '', createdAt: new Date().toISOString()
+    };
+    cachedStockRows.push(row);
+    renderStockRows();
+    persistStockRow(row);
+  }
+
+  function saveStockField(el){
+    const id = el.dataset.id;
+    const field = el.dataset.field;
+    const value = el.value;
+    const row = cachedStockRows.find(r => r.id === id);
+    if(!row || row.source === 'purchase') return;
+    if(field === 'materialId'){
+      const material = findMaterialById(value);
+      row.materialId = value;
+      row.material = material ? material.material : '';
+      row.unit = material ? material.unit : '';
+    }else{
+      row[field] = value;
+    }
+    persistStockRow(row);
+  }
+
+  async function persistStockRow(row){
+    try{
+      const res = await fetch(STOCK_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: row.id, data: row })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok) console.warn('Could not save the stock movement.');
+    }catch(e){
+      console.warn('Could not reach the server to save the stock movement.', e);
+    }
+  }
+
+  async function deleteStockRow(id){
+    const row = cachedStockRows.find(r => r.id === id);
+    if(row && row.source === 'purchase'){
+      alert('This row was created automatically from Purchase History. Delete or edit it there instead.');
+      return;
+    }
+    if(!confirm('Delete this stock movement?')) return;
+    cachedStockRows = cachedStockRows.filter(r => r.id !== id);
+    renderStockRows();
+    try{
+      const res = await fetch(`${STOCK_API}?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      handleAuthFailure(res.status);
+    }catch(e){
+      console.warn('Could not delete the stock movement from the server.', e);
+    }
+  }
+
+  // ---- Inventory ----
+  // A computed stock view — not its own data store. Every material
+  // comes from the Material List tab (so Material/Supplier/Unit are
+  // always in sync there), and Current Stock is the sum of the Stock
+  // In/Out ledger for that material (Purchase History feeds "in" rows
+  // automatically; Stock In/Out feeds manual "in"/"out" rows).
+  async function loadInventoryList(){
+    const tbody = document.getElementById('inventoryTbody');
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Loading…</td></tr>`;
+    document.getElementById('inventoryEmpty').style.display = 'none';
+    await Promise.all([fetchMaterialsFresh(), fetchStockLedgerFresh()]);
+    renderInventoryRows();
+  }
+
+  function getFilteredInventoryMaterials(){
+    const q = (document.getElementById('inventorySearch').value || '').toLowerCase();
+    return cachedMaterialRows.filter(r => !q || (r.material || '').toLowerCase().includes(q))
+      .sort((a, b) => (a.material || '').localeCompare(b.material || ''));
+  }
+
+  function renderInventoryRows(){
+    const tbody = document.getElementById('inventoryTbody');
+    const empty = document.getElementById('inventoryEmpty');
+    const filtered = getFilteredInventoryMaterials();
+    if(filtered.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = cachedMaterialRows.length === 0
+        ? 'No materials yet — add one in the Material List tab to start tracking stock.'
+        : 'No materials match this search.';
+      return;
+    }
+    empty.style.display = 'none';
+    const stockMap = computeStockMap();
+    tbody.innerHTML = filtered.map(r => {
+      const stock = stockMap[r.id] || 0;
+      const low = stock <= 0;
+      return `
+      <tr>
+        <td>${escapeHtml(r.material)}</td>
+        <td>${escapeHtml(r.supplier)}</td>
+        <td>${escapeHtml(r.unit)}</td>
+        <td class="num" style="${low ? 'color:#B23A1B;font-weight:700;' : ''}">${stock}</td>
+      </tr>`;
+    }).join('');
+  }
+
   // ---- Purchase History ----
-  // A manual log of materials purchases (PO/DR-backed), separate from
-  // Inventory — add a row here when stock comes in.
+  // A manual log of materials purchases (PO/DR-backed). Saving a row
+  // finds-or-creates a matching Material List entry (case-insensitive,
+  // so retyping an existing name reuses it instead of creating a
+  // duplicate) and keeps one Stock In row in sync on the Stock In/Out
+  // ledger, so Inventory's Current Stock updates automatically.
   const PURCHASE_API = '/api/purchases';
   let cachedPurchaseRows = [];
 
@@ -3375,8 +3666,9 @@
 
   async function loadPurchaseList(){
     const tbody = document.getElementById('purchaseTbody');
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">Loading…</td></tr>`;
     document.getElementById('purchaseEmpty').style.display = 'none';
+    await fetchMaterialsFresh();
     try{
       const res = await fetch(PURCHASE_API, { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
@@ -3424,7 +3716,8 @@
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="poNumber" value="${escapeHtml(r.poNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="drNumber" value="${escapeHtml(r.drNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="supplier" value="${escapeHtml(r.supplier)}" placeholder="—" onchange="savePurchaseField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" list="materialsDatalist" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="Type or pick a material" onchange="onPurchaseMaterialChange(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="unit" value="${escapeHtml(r.unit)}" placeholder="e.g. rolls, kg" onchange="savePurchaseField(this)"></td>
         <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="savePurchaseField(this); renderPurchaseRows();"></td>
         <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="price" value="${r.price || ''}" placeholder="0.00" onchange="savePurchaseField(this); renderPurchaseRows();"></td>
         <td class="num">${formatCurrency(amount)}</td>
@@ -3443,7 +3736,7 @@
 
   function addPurchaseRow(){
     const row = {
-      id: purchaseRowId(), date: '', poNumber: '', drNumber: '', supplier: '', material: '',
+      id: purchaseRowId(), date: '', poNumber: '', drNumber: '', supplier: '', material: '', unit: '',
       qty: '', price: '', preparedBy: '', memo: '', createdAt: new Date().toISOString()
     };
     cachedPurchaseRows.push(row);
@@ -3451,7 +3744,66 @@
     persistPurchaseRow(row);
   }
 
-  async function savePurchaseField(el){
+  // Finds an existing Material List entry (case-insensitive, trimmed
+  // match) for a purchase row's Material text, or creates a new one
+  // seeded from that row's Material/Supplier/Unit. Returns the matching
+  // material row, or null if the purchase row has no material name yet.
+  async function ensureMaterialForPurchase(row){
+    const name = (row.material || '').trim();
+    if(!name) return null;
+    const existing = findMaterialByName(name);
+    if(existing) return existing;
+    const created = { id: materialRowId(), material: name, supplier: row.supplier || '', brand: '', unit: row.unit || '', createdAt: new Date().toISOString() };
+    cachedMaterialRows.push(created);
+    refreshMaterialsDatalist();
+    await persistMaterialRow(created);
+    return created;
+  }
+
+  // Keeps exactly one Stock In row on the ledger for this purchase row
+  // (id `purchase-<row.id>`), so editing a purchase's Material/Qty
+  // updates Inventory's Current Stock instead of double-counting.
+  async function syncPurchaseLedger(row){
+    const ledgerId = `purchase-${row.id}`;
+    const material = await ensureMaterialForPurchase(row);
+    if(!material){
+      cachedStockRows = cachedStockRows.filter(r => r.id !== ledgerId);
+      try{
+        await fetch(`${STOCK_API}?id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+      }catch(e){ /* best effort */ }
+      return;
+    }
+    const entry = {
+      id: ledgerId, date: row.date || '', materialId: material.id, material: material.material,
+      type: 'in', qty: parseFloat(row.qty) || 0, unit: row.unit || material.unit || '',
+      source: 'purchase', reference: [row.poNumber, row.drNumber].filter(Boolean).join(' / ') || 'Purchase',
+      personnel: row.preparedBy || '', notes: row.memo || '', createdAt: row.createdAt || new Date().toISOString()
+    };
+    const idx = cachedStockRows.findIndex(r => r.id === ledgerId);
+    if(idx >= 0) cachedStockRows[idx] = entry; else cachedStockRows.push(entry);
+    await persistStockRow(entry);
+  }
+
+  // Autocomplete/suggestion handler for the Material field: if the
+  // typed name matches an existing Material List entry, reuse it and
+  // fill in its Supplier/Unit (when this row hasn't set its own yet)
+  // instead of letting a near-duplicate get created.
+  function onPurchaseMaterialChange(el){
+    const id = el.dataset.id;
+    const row = cachedPurchaseRows.find(r => r.id === id);
+    if(!row) return;
+    row.material = el.value;
+    const match = findMaterialByName(row.material);
+    if(match){
+      if(!row.supplier) row.supplier = match.supplier || '';
+      if(!row.unit) row.unit = match.unit || '';
+    }
+    renderPurchaseRows();
+    persistPurchaseRow(row);
+    syncPurchaseLedger(row);
+  }
+
+  function savePurchaseField(el){
     const id = el.dataset.id;
     const field = el.dataset.field;
     const value = el.value;
@@ -3459,6 +3811,7 @@
     if(!row) return;
     row[field] = value;
     persistPurchaseRow(row);
+    syncPurchaseLedger(row);
   }
 
   async function persistPurchaseRow(row){
@@ -3476,7 +3829,7 @@
   }
 
   async function deletePurchaseRow(id){
-    if(!confirm('Delete this purchase row?')) return;
+    if(!confirm('Delete this purchase row? Its linked Stock In row will be removed too.')) return;
     cachedPurchaseRows = cachedPurchaseRows.filter(r => r.id !== id);
     renderPurchaseRows();
     try{
@@ -3484,6 +3837,13 @@
       handleAuthFailure(res.status);
     }catch(e){
       console.warn('Could not delete the purchase row from the server.', e);
+    }
+    const ledgerId = `purchase-${id}`;
+    cachedStockRows = cachedStockRows.filter(r => r.id !== ledgerId);
+    try{
+      await fetch(`${STOCK_API}?id=${encodeURIComponent(ledgerId)}`, { method: 'DELETE', headers: { ...authHeaders() } });
+    }catch(e){
+      console.warn('Could not remove the linked stock row from the server.', e);
     }
   }
 
@@ -3493,11 +3853,11 @@
       alert('There are no purchase rows to export' + (document.getElementById('purchaseSearch').value ? ' for the current filter.' : '.'));
       return;
     }
-    const headers = ['Date','PO No.','DR No.','Supplier','Material','Qty','Price','Amount','Prepared By','Memo'];
+    const headers = ['Date','PO No.','DR No.','Supplier','Material','Unit','Qty','Price','Amount','Prepared By','Memo'];
     const lines = [headers.map(csvCell).join(',')];
     rows.forEach(r => {
       lines.push([
-        r.date || '', r.poNumber || '', r.drNumber || '', r.supplier || '', r.material || '',
+        r.date || '', r.poNumber || '', r.drNumber || '', r.supplier || '', r.material || '', r.unit || '',
         r.qty || '', r.price || '', purchaseAmount(r).toFixed(2), r.preparedBy || '', r.memo || ''
       ].map(csvCell).join(','));
     });
@@ -4246,8 +4606,10 @@
     const isNew = tab === 'new';
     const isBrowse = tab === 'browse';
     const isMonitor = tab === 'monitor';
+    const isMaterials = tab === 'materials';
     const isInventory = tab === 'inventory';
     const isPurchases = tab === 'purchases';
+    const isStock = tab === 'stock';
     const isAttendance = tab === 'attendance';
     const isPayroll = tab === 'payroll';
     const isAnalytics = tab === 'analytics';
@@ -4257,8 +4619,10 @@
     document.getElementById('viewNew').style.display = isNew ? 'block' : 'none';
     document.getElementById('viewBrowse').style.display = isBrowse ? 'block' : 'none';
     document.getElementById('viewMonitor').style.display = isMonitor ? 'block' : 'none';
+    document.getElementById('viewMaterials').style.display = isMaterials ? 'block' : 'none';
     document.getElementById('viewInventory').style.display = isInventory ? 'block' : 'none';
     document.getElementById('viewPurchases').style.display = isPurchases ? 'block' : 'none';
+    document.getElementById('viewStock').style.display = isStock ? 'block' : 'none';
     document.getElementById('viewAttendance').style.display = isAttendance ? 'block' : 'none';
     document.getElementById('viewPayroll').style.display = isPayroll ? 'block' : 'none';
     document.getElementById('viewAnalytics').style.display = isAnalytics ? 'block' : 'none';
@@ -4267,19 +4631,23 @@
     document.getElementById('tabBtnNew').classList.toggle('active', isNew);
     document.getElementById('tabBtnBrowse').classList.toggle('active', isBrowse);
     document.getElementById('tabBtnMonitor').classList.toggle('active', isMonitor);
+    document.getElementById('tabBtnMaterials').classList.toggle('active', isMaterials);
     document.getElementById('tabBtnInventory').classList.toggle('active', isInventory);
     document.getElementById('tabBtnPurchases').classList.toggle('active', isPurchases);
+    document.getElementById('tabBtnStock').classList.toggle('active', isStock);
     document.getElementById('tabBtnAttendance').classList.toggle('active', isAttendance);
     document.getElementById('tabBtnPayroll').classList.toggle('active', isPayroll);
     document.getElementById('tabBtnAnalytics').classList.toggle('active', isAnalytics);
     document.getElementById('tabBtnUsers').classList.toggle('active', isUsers);
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
-    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isInventory ? 'viewInventory' : isPurchases ? 'viewPurchases' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
+    const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isMaterials ? 'viewMaterials' : isInventory ? 'viewInventory' : isPurchases ? 'viewPurchases' : isStock ? 'viewStock' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
+    if(isMaterials) loadMaterialsList();
     if(isInventory) loadInventoryList();
     if(isPurchases) loadPurchaseList();
+    if(isStock) loadStockLedger();
     if(isAttendance) loadAttendance();
     if(isPayroll) loadPayrollView();
     if(isAnalytics) loadAnalytics();

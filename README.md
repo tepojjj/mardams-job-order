@@ -168,38 +168,57 @@ If you ever edit `google-apps-script.gs` later, use **Deploy → New
 deployment** again (not just save) — otherwise the live URL keeps running
 the old code.
 
-## Inventory & Purchase History
+## Material List, Inventory, Purchase History & Stock In/Out
 
-Two more tabs, alongside the Monitoring Sheet, for tracking materials:
+Four tabs, alongside the Monitoring Sheet, work together to track
+materials:
 
-- **Inventory** — a stock list: Material, Unit, Current Stock, Reorder
-  Level, Notes. Add/edit/delete rows inline, same as the Monitoring
-  Sheet. A row's stock number turns red once it's at or below its
-  Reorder Level. This is a manually-maintained count — it is **not**
-  automatically adjusted by Purchase History or by job orders.
-- **Purchase History** — a purchase log: Date, PO No., DR No.,
-  Supplier, Material, Qty, Price, Amount (computed as Qty × Price),
-  Prepared By, Memo — matching the columns of an existing paper/Excel
-  purchase log. Supports search, CSV export, and a running total.
+- **Material List** — the master list: Material, Supplier, Brand, Unit.
+  Add/edit/delete rows inline, same as the Monitoring Sheet. Every other
+  tab below references a row here by id, so editing a material's
+  Supplier or Unit here updates it everywhere.
+- **Inventory** — a *computed* stock view, not its own data entry form:
+  Material, Supplier, Unit, Current Stock. The first three columns come
+  straight from Material List; Current Stock is the running total of
+  that material's Stock In/Out ledger (see below). It turns red at zero
+  or below. There's nothing to type here.
+- **Purchase History** — a purchase log: Date, PO No., DR No., Supplier,
+  Material, Unit, Qty, Price, Amount (computed as Qty × Price), Prepared
+  By, Memo. The Material field autocompletes against Material List as
+  you type, to avoid encoding the same material twice under slightly
+  different names. Saving a row finds-or-creates the matching Material
+  List entry and keeps one Stock In row in sync on the ledger — editing
+  a purchase's Qty or Material later updates that same ledger row rather
+  than double-counting, and deleting the purchase removes it too.
+- **Stock In/Out** — the movement ledger Inventory's Current Stock is
+  computed from. Rows tagged "(Purchase)" are the auto-generated ones
+  from Purchase History and can only be changed there. Everything else
+  is typed in by hand — mainly **Stock Out**, logged by whoever uses a
+  material (Material, Qty, Reference, Personnel, Notes), plus a manual
+  **Stock In** option for corrections.
 
-Both tabs are visible to every logged-in Apparel account (Staff,
+All four tabs are visible to every logged-in Apparel account (Staff,
 Admin, Super Admin), and any of them can add, edit, or delete rows —
-same access rule as the Monitoring Sheet. Since the two aren't wired
-together, update Inventory's Current Stock by hand when you log a new
-Purchase History row, if you want the two to match.
+same access rule as the Monitoring Sheet.
 
 ## Files
 
-- `index.html` — the form, login screen, Monitoring Sheet, Inventory,
-  Purchase History, and Users tab
+- `index.html` — the form, login screen, Monitoring Sheet, Material
+  List, Inventory, Purchase History, Stock In/Out, and Users tab
 - `api/counter.js` — tracks the running job-order number (login required)
 - `api/orders.js` — saves/lists job orders (login required), deletes job
   orders (Super Admin only)
 - `api/monitor.js` — saves/lists/deletes Monitoring Sheet rows (login
   required)
-- `api/inventory.js` — saves/lists/deletes Inventory rows (login required)
+- `api/materials.js` — saves/lists/deletes Material List rows (login
+  required)
+- `api/inventory.js` — unused now that Inventory is computed from
+  Material List + the Stock In/Out ledger; kept only for backward
+  compatibility, safe to ignore
 - `api/purchases.js` — saves/lists/deletes Purchase History rows (login
   required)
+- `api/stock-ledger.js` — saves/lists/deletes Stock In/Out ledger rows
+  (login required)
 - `api/sheets-sync.js` — forwards Monitoring Sheet changes to the Google
   Sheets webhook, if configured (see "Google Sheets integration" above)
 - `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)
