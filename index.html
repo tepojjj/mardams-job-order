@@ -3,12 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <title>Mardams Apparel</title>
+<script>
+  // Apply the saved theme before first paint to avoid a flash of the wrong theme.
+  (function(){
+    try{
+      var saved = localStorage.getItem('mardams_theme');
+      var theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    }catch(e){
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 <link rel="icon" type="image/png" href="assets/mardam-favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-  :root{
+  :root, [data-theme="dark"]{
   /* 60% Primary (Background) — black */
   --bg:#0A0A0A;
   --paper:#000000;
@@ -34,6 +46,9 @@
   --accent-soft:#2A0E05;
   --danger:#FF6259;
   --danger-soft:#2A0E0C;
+  --border-danger-soft:#5C231C;
+  --scroll-thumb:rgba(255,255,255,.14);
+  --scroll-thumb-hover:rgba(255,255,255,.24);
   --success:#34C77B;
   --radius-sm:7px;
   --radius-md:11px;
@@ -42,6 +57,41 @@
   --shadow-md:0 10px 22px -14px rgba(0,0,0,.6), 0 2px 8px -3px rgba(0,0,0,.4);
   --shadow-lg:0 26px 54px -26px rgba(0,0,0,.7), 0 8px 20px -12px rgba(0,0,0,.5);
 }
+
+  [data-theme="light"]{
+  --bg:#F1F2F4;
+  --paper:#24272B;
+  --paper-alt:#2F3338;
+  --card:#FFFFFF;
+  --card-warm:#FFFFFF;
+  --ink:#1E2124;
+  --ink-soft:#6B7178;
+  --ink-faint:#9CA1A7;
+  --line:#E3E5E8;
+  --line-strong:#CDD1D6;
+  --stamp:#F93B00;
+  --stamp-dark:#C92E00;
+  --stamp-soft:#FFE4D8;
+  --gold:#AEB4BA;
+  --gold-dark:#5F656B;
+  --gold-soft:#F1F2F3;
+  --field-bg:#F6F7F8;
+  --row-bg:#F5F6F7;
+  --accent:#F93B00;
+  --accent-soft:#FFE4D8;
+  --danger:#D14343;
+  --danger-soft:#FBEAEA;
+  --border-danger-soft:#EFC5C5;
+  --scroll-thumb:rgba(30,33,36,.16);
+  --scroll-thumb-hover:rgba(30,33,36,.28);
+  --success:#2E8B57;
+  --shadow-sm:0 1px 2px rgba(20,22,24,.07), 0 1px 1px rgba(20,22,24,.05);
+  --shadow-md:0 10px 22px -14px rgba(20,22,24,.30), 0 2px 8px -3px rgba(20,22,24,.12);
+  --shadow-lg:0 26px 54px -26px rgba(20,22,24,.38), 0 8px 20px -12px rgba(20,22,24,.18);
+}
+
+  html{transition:background-color .2s ease;}
+  body, .sheet, .card, button, input, select, textarea{transition:background-color .2s ease, color .2s ease, border-color .2s ease;}
   *{box-sizing:border-box;}
   ::selection{background:var(--stamp-soft); color:var(--stamp-dark);}
   html{background:var(--bg);}
@@ -129,7 +179,7 @@
   button:active{transform:translateY(0); box-shadow:none;}
   button.ghost{border-color:var(--line-strong); color:var(--ink-soft); background:var(--field-bg);}
   button.ghost:hover{color:var(--ink); background:var(--card);}
-  button.danger-btn, button.ghost.danger-btn{color:var(--danger); border-color:#5C231C; background:var(--danger-soft);}
+  button.danger-btn, button.ghost.danger-btn{color:var(--danger); border-color:var(--border-danger-soft); background:var(--danger-soft);}
   button.danger-btn:hover, button.ghost.danger-btn:hover{background:#F8D6D6; border-color:var(--danger);}
 
   .head{
@@ -519,6 +569,30 @@
     letter-spacing:.03em;
     color:#fff;
     line-height:1.25;
+  }
+  .theme-toggle-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:30px;
+    height:30px;
+    flex:none;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06);
+    color:#fff;
+    cursor:pointer;
+    font-size:14px;
+    padding:0;
+    transition:background-color .15s ease, transform .15s ease, border-color .15s ease;
+  }
+  .theme-toggle-btn:hover{background:rgba(255,255,255,.14); transform:translateY(-1px); border-color:var(--stamp);}
+  .theme-toggle-btn:active{transform:translateY(0);}
+  #themeToggleBtnLogin{
+    position:absolute;
+    top:16px;
+    right:16px;
+    z-index:5;
   }
   .tabs{
     display:flex;
@@ -1128,7 +1202,7 @@
     color:var(--ink);
   }
   .danger-btn{
-    border-color:#5C231C !important;
+    border-color:var(--border-danger-soft) !important;
     color:var(--danger) !important;
     background:var(--danger-soft) !important;
     margin-left:6px;
@@ -1555,8 +1629,8 @@
   /* ---- Global polish pass ---- */
   ::-webkit-scrollbar{width:11px; height:11px;}
   ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14); border-radius:20px; border:3px solid transparent; background-clip:padding-box;}
-  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24); background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb{background:var(--scroll-thumb); border-radius:20px; border:3px solid transparent; background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover); background-clip:padding-box;}
 
   input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="time"],
   select, textarea{
@@ -1624,6 +1698,9 @@
 
 
   <div class="login-overlay" id="loginOverlay">
+    <button type="button" class="theme-toggle-btn" id="themeToggleBtnLogin" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">
+      <span class="theme-toggle-icon">🌙</span>
+    </button>
     <div class="login-blob login-blob-1"></div>
     <div class="login-blob login-blob-2"></div>
     <div class="login-card">
@@ -1658,6 +1735,9 @@
     <div class="sidebar-brand">
       <img src="assets/mardam-logo-header.jpg" alt="Mardams Apparel">
       <div class="sidebar-app-name">Job Order System</div>
+      <button type="button" class="theme-toggle-btn" id="themeToggleBtnApp" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle light/dark theme" style="margin-left:auto;">
+        <span class="theme-toggle-icon">🌙</span>
+      </button>
     </div>
 
     <div class="tabs" id="appTabs" style="display:none;">
@@ -2310,6 +2390,36 @@
   </div>
 
 <script>
+  // ---- Theme (light / dark) ----
+  const THEME_STORAGE_KEY = 'mardams_theme';
+
+  function getTheme(){
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+
+  function applyThemeIcon(theme){
+    // Show the icon for the theme you'd switch TO.
+    const icon = theme === 'light' ? '🌙' : '☀️';
+    document.querySelectorAll('.theme-toggle-icon').forEach(el => { el.textContent = icon; });
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+      btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+      btn.setAttribute('title', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    });
+  }
+
+  function setTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    try{ localStorage.setItem(THEME_STORAGE_KEY, theme); }catch(e){}
+    applyThemeIcon(theme);
+  }
+
+  function toggleTheme(){
+    setTheme(getTheme() === 'light' ? 'dark' : 'light');
+  }
+
+  // Sync the icon with whatever theme the blocking <head> script already applied.
+  applyThemeIcon(getTheme());
+
   // ---- Auth ----
   const AUTH_STORAGE_KEY = 'mardams_auth';
   let authToken = null;
