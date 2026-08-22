@@ -1350,10 +1350,6 @@
     </div>
   </div>
 
-
-
-    </div>
-
   <div class="account-bar" id="accountBar" style="display:none;">
     <span id="accountAvatarWrap"></span>
     <span class="who" id="accountInfo"></span>
@@ -1724,6 +1720,24 @@
     <div class="section-label" style="margin-top:0;">Holidays</div>
     <div class="drilldown-sub" style="margin:-6px 0 12px;">
       Add the holidays that fall within a payroll period so pay for those dates follows Philippine holiday-pay rules instead of an ordinary working day.
+    </div>
+    <div class="user-form" style="margin-bottom:10px;">
+      <input type="number" id="holidaySuggestYear" style="max-width:110px;" placeholder="Year">
+      <button class="ghost" onclick="suggestHolidays()" id="suggestHolidaysBtn">Auto-Fill PH Holidays</button>
+    </div>
+    <div class="login-error" id="holidaySuggestError"></div>
+    <div id="holidaySuggestPanel" style="display:none;margin-bottom:16px;">
+      <div class="drilldown-sub" style="margin:0 0 8px;">
+        Suggested from the official PH public holiday calendar — review the type (it's a best guess) before adding. Movable special non-working days announced individually by proclamation may not appear here.
+      </div>
+      <table class="browse-table" style="margin-bottom:10px;">
+        <thead>
+          <tr><th style="width:1%;"><input type="checkbox" id="holidaySuggestAll" onchange="toggleAllHolidaySuggestions(this.checked)"></th><th>Date</th><th>Name</th><th>Type</th></tr>
+        </thead>
+        <tbody id="holidaySuggestTbody"></tbody>
+      </table>
+      <button class="primary" onclick="addSelectedHolidaySuggestions()">Add Selected</button>
+      <button class="ghost" onclick="closeHolidaySuggestPanel()">Cancel</button>
     </div>
     <div class="user-form" style="margin-bottom:10px;">
       <input type="date" id="newHolidayDate">
@@ -4899,6 +4913,8 @@
   let cachedHolidays = [];
 
   async function loadHolidaysPanel(){
+    const yearInput = document.getElementById('holidaySuggestYear');
+    if(yearInput && !yearInput.value) yearInput.value = String(new Date().getFullYear());
     const tbody = document.getElementById('holidaysTbody');
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('holidaysEmpty').style.display = 'none';
@@ -4911,6 +4927,107 @@
       cachedHolidays = [];
     }
     renderHolidaysPanel();
+  }
+
+  // ---- Holidays: auto-fill from the official PH public holiday source ----
+  let cachedHolidaySuggestions = [];
+
+  async function suggestHolidays(){
+    const errEl = document.getElementById('holidaySuggestError');
+    errEl.textContent = '';
+    const yearInput = document.getElementById('holidaySuggestYear');
+    const year = (yearInput.value || '').trim() || String(new Date().getFullYear());
+    yearInput.value = year;
+    const btn = document.getElementById('suggestHolidaysBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    try{
+      const res = await fetch(`/api/holidays?${new URLSearchParams({ action: 'suggest', year })}`, {
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not load PH holidays for that year.';
+        document.getElementById('holidaySuggestPanel').style.display = 'none';
+        return;
+      }
+      cachedHolidaySuggestions = data.suggestions || [];
+      if(cachedHolidaySuggestions.length === 0){
+        errEl.textContent = `No new holidays found for ${year} (they may already be added).`;
+        document.getElementById('holidaySuggestPanel').style.display = 'none';
+        return;
+      }
+      renderHolidaySuggestions();
+      document.getElementById('holidaySuggestPanel').style.display = 'block';
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }finally{
+      btn.disabled = false;
+      btn.textContent = 'Auto-Fill PH Holidays';
+    }
+  }
+
+  function renderHolidaySuggestions(){
+    const tbody = document.getElementById('holidaySuggestTbody');
+    document.getElementById('holidaySuggestAll').checked = true;
+    tbody.innerHTML = cachedHolidaySuggestions.map((h, i) => `
+      <tr>
+        <td><input type="checkbox" class="holidaySuggestCheck" data-i="${i}" checked></td>
+        <td>${escapeHtml(h.date)}</td>
+        <td>${escapeHtml(h.name)}</td>
+        <td>
+          <select class="holidaySuggestType" data-i="${i}">
+            <option value="regular" ${h.type === 'regular' ? 'selected' : ''}>Regular Holiday</option>
+            <option value="special_non_working" ${h.type === 'special_non_working' ? 'selected' : ''}>Special Non-Working Day</option>
+            <option value="special_working" ${h.type === 'special_working' ? 'selected' : ''}>Special Working Holiday</option>
+          </select>
+        </td>
+      </tr>`).join('');
+  }
+
+  function toggleAllHolidaySuggestions(checked){
+    document.querySelectorAll('.holidaySuggestCheck').forEach(cb => { cb.checked = checked; });
+  }
+
+  function closeHolidaySuggestPanel(){
+    document.getElementById('holidaySuggestPanel').style.display = 'none';
+    document.getElementById('holidaySuggestError').textContent = '';
+    cachedHolidaySuggestions = [];
+  }
+
+  async function addSelectedHolidaySuggestions(){
+    const errEl = document.getElementById('holidaySuggestError');
+    errEl.textContent = '';
+    const rows = [...document.querySelectorAll('.holidaySuggestCheck')].filter(cb => cb.checked);
+    if(rows.length === 0){
+      errEl.textContent = 'Select at least one holiday to add.';
+      return;
+    }
+    let failed = 0;
+    for(const cb of rows){
+      const i = Number(cb.dataset.i);
+      const suggestion = cachedHolidaySuggestions[i];
+      const typeSelect = document.querySelector(`.holidaySuggestType[data-i="${i}"]`);
+      const type = typeSelect ? typeSelect.value : suggestion.type;
+      try{
+        const res = await fetch('/api/holidays', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ date: suggestion.date, name: suggestion.name, type })
+        });
+        if(handleAuthFailure(res.status)) return;
+        if(!res.ok) failed++;
+      }catch(e){
+        failed++;
+      }
+    }
+    closeHolidaySuggestPanel();
+    loadHolidaysPanel();
+    generatePayroll();
+    if(failed > 0){
+      errEl.textContent = `${failed} holiday(s) could not be added — they may already exist.`;
+    }
   }
 
   function renderHolidaysPanel(){
