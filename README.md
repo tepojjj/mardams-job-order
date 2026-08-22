@@ -58,10 +58,127 @@ That's it — `/api/counter` will read/write to that KV store.
 The form now uses **Roboto** (loaded from Google Fonts) instead of the
 original Courier New / Georgia mix.
 
+## Login & accounts
+
+The whole tool is now behind a login screen, with four account types:
+
+- **Super Admin** — the one built-in top account. Can do everything,
+  including **deleting** and **editing** job orders on the Browse tab,
+  create or remove Admin, Accounting, and Staff accounts, and is the
+  only role that can see the **Analytics** tab, the **Payroll** tab,
+  and the full **Users / Account Log**.
+- **Admin** — can use the form and Browse tab, and can **view and
+  edit** existing job orders (but not delete them). Has a **Users**
+  tab where they can create and remove **Staff** accounts (limited
+  access). Admins cannot delete job orders, cannot create other
+  Admins or Accounting accounts, cannot see/remove other Admin or
+  Super Admin accounts, and cannot see the Analytics tab.
+- **Staff** — view-only on job orders (no edit, no delete), has no
+  Users tab, and cannot see Analytics.
+- **Accounting** — doesn't use this app at all. Trying to log in here
+  shows a message pointing to the **Attendance & Payroll** app
+  instead (a separate deployment — see below). Only the Super Admin
+  can create Accounting accounts, from this app's Users tab.
+
+Every account also has a **Department** — **Apparel** or **Sign
+Ads** — set when the account is created (not applicable to
+Accounting accounts). **Sign Ads department accounts are blocked from
+this app entirely**, the same as Accounting: logging in here shows
+the "use the other app" message. This app is Apparel-only; Sign Ads
+staff/admins log into a Sign Ads-specific tool instead (not included
+here).
+
+- **Everyone who *can* use this app** (Apparel Staff, Apparel Admin,
+  Super Admin) can also clock themselves **in and out** from the
+  **Attendance** tab. The **Payroll** tab (holiday calendar, pay
+  generation, per-employee breakdown, and OT rate/allowance/deduction
+  editing) is visible to the **Super Admin only**.
+
+### Attendance & Payroll is also its own app
+
+Accounting and Sign Ads accounts don't use Job Orders at all, so a
+second deployment — **Mardams Attendance & Payroll** (a sibling
+folder/project) — gives them somewhere to clock in/out and (for
+Accounting) run payroll. Both apps share the same accounts, KV
+database, and `AUTH_SECRET`, and both read/write the same underlying
+attendance and payroll records — running payroll from either app
+updates the same shared data, so nothing needs to be kept in sync.
+See that app's README for its own setup.
+### Required: set up the Super Admin
+
+There's no sign-up page — the first Super Admin is created automatically
+the first time someone logs in with credentials you set yourself:
+
+1. In the Vercel dashboard, open your project → **Settings → Environment
+   Variables** and add:
+   - `SUPERADMIN_USERNAME` — the login username for the Super Admin
+   - `SUPERADMIN_PASSWORD` — the login password for the Super Admin
+   - `AUTH_SECRET` — any long random string (used to sign login sessions —
+     e.g. generate one with `openssl rand -hex 32`)
+2. Redeploy so the new env vars are picked up.
+3. Open the site and log in once with the `SUPERADMIN_USERNAME` /
+   `SUPERADMIN_PASSWORD` you set. That first successful login creates the
+   real Super Admin account in the KV store (hashed password, not the raw
+   env var). From then on, log in with that same username/password as
+   normal — the env vars are only used for that one-time bootstrap.
+4. From the **Users** tab, the Super Admin can then create Admin and
+   Staff accounts with their own separate passwords.
+
+Sessions last 12 hours; after that, logging in again is required.
+
+## Material List, Inventory, Purchase History & Stock In/Out
+
+Four tabs, alongside the Monitoring Sheet, work together to track
+materials:
+
+- **Material List** — the master list: Material, Supplier, Brand, Unit.
+  Add/edit/delete rows inline, same as the Monitoring Sheet. Every other
+  tab below references a row here by id, so editing a material's
+  Supplier or Unit here updates it everywhere.
+- **Inventory** — a *computed* stock view, not its own data entry form:
+  Material, Supplier, Unit, Current Stock. The first three columns come
+  straight from Material List; Current Stock is the running total of
+  that material's Stock In/Out ledger (see below). It turns red at zero
+  or below. There's nothing to type here.
+- **Purchase History** — a purchase log: Date, PO No., DR No., Supplier,
+  Material, Unit, Qty, Price, Amount (computed as Qty × Price), Prepared
+  By, Memo. The Material field autocompletes against Material List as
+  you type, to avoid encoding the same material twice under slightly
+  different names. Saving a row finds-or-creates the matching Material
+  List entry and keeps one Stock In row in sync on the ledger — editing
+  a purchase's Qty or Material later updates that same ledger row rather
+  than double-counting, and deleting the purchase removes it too.
+- **Stock In/Out** — the movement ledger Inventory's Current Stock is
+  computed from. Rows tagged "(Purchase)" are the auto-generated ones
+  from Purchase History and can only be changed there. Everything else
+  is typed in by hand — mainly **Stock Out**, logged by whoever uses a
+  material (Material, Qty, Reference, Personnel, Notes), plus a manual
+  **Stock In** option for corrections.
+
+All four tabs are visible to every logged-in Apparel account (Staff,
+Admin, Super Admin), and any of them can add, edit, or delete rows —
+same access rule as the Monitoring Sheet.
+
 ## Files
 
-- `index.html` — the form itself
-- `api/counter.js` — the backend serverless function
+- `index.html` — the form, login screen, Monitoring Sheet, Material
+  List, Inventory, Purchase History, Stock In/Out, and Users tab
+- `api/counter.js` — tracks the running job-order number (login required)
+- `api/orders.js` — saves/lists job orders (login required), deletes job
+  orders (Super Admin only)
+- `api/monitor.js` — saves/lists/deletes Monitoring Sheet rows (login
+  required)
+- `api/materials.js` — saves/lists/deletes both Material List rows
+  (`?resource=materials`, the default) and Stock In/Out ledger rows
+  (`?resource=stock`); login required. Combined into one file so this
+  stays a single serverless function — Vercel's Hobby plan caps a
+  deployment at 12, and this project is already at that limit
+- `api/purchases.js` — saves/lists/deletes Purchase History rows (login
+  required)
+- `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)
+- `api/login.js` — verifies login and issues a session token; also
+  bootstraps the first Super Admin account (see above)
+- `api/_auth.js` — shared password hashing + session token helpers
 - `package.json` — declares the `@vercel/kv` dependency
 
 No `vercel.json` is required — Vercel automatically serves `index.html` as
