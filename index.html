@@ -2343,6 +2343,7 @@
     <div class="section-label" style="margin-top:0;">Add Account</div>
     <div class="user-form">
       <input type="text" id="newUserUsername" placeholder="Username">
+      <input type="text" id="newUserDisplayName" placeholder="Display Name (optional)" maxlength="60">
       <input type="password" id="newUserPassword" placeholder="Password (min 6 characters)">
       <select id="newUserRole" onchange="document.getElementById('newUserDepartment').style.display = (this.value === 'accounting' || currentUser.role !== 'super_admin') ? 'none' : '';">
         <option value="staff">Staff</option>
@@ -2375,6 +2376,7 @@
       <thead>
         <tr>
           <th>Username</th>
+          <th>Display Name</th>
           <th>Role</th>
           <th>Department</th>
           <th class="payroll-col">Pay Type</th>
@@ -2501,6 +2503,26 @@
           <input type="number" id="payrollSettingsCashAdvance" placeholder="Cash Advance" min="0" step="0.01">
           <div class="login-error" id="payrollSettingsError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayrollSettingsEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drilldown-overlay" id="editDisplayNameOverlay" onclick="if(event.target===this) closeEditDisplayName();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Edit Display Name</div>
+          <div class="drilldown-sub" id="editDisplayNameUsername">—</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closeEditDisplayName();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <div class="drilldown-sub" style="margin-bottom:2px;">Shown instead of the username in Attendance, Payroll, and the account bar. Leave blank to fall back to the username.</div>
+          <input type="text" id="editDisplayNameInput" placeholder="Display Name" maxlength="60">
+          <div class="login-error" id="editDisplayNameError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="submitEditDisplayName();">Save</button>
         </div>
       </div>
     </div>
@@ -2741,7 +2763,7 @@
 
   // ---- Account bar (avatar + name) ----
   function renderAccountBar(){
-    const nameToShow = currentUser.username;
+    const nameToShow = currentUser.displayName || currentUser.username;
     document.getElementById('accountInfo').innerHTML =
       'Signed in as <b>' + escapeHtml(nameToShow) + '</b><span class="role-pill">' + roleLabel(currentUser.role) + '</span>';
     const wrap = document.getElementById('accountAvatarWrap');
@@ -4736,9 +4758,12 @@
         deptCell = escapeHtml(u.department === 'sign_ads' ? 'Sign Ads' : 'Apparel');
       }
 
+      const canEditName = currentUser.role === 'super_admin' || (currentUser.role === 'admin' && u.role === 'staff');
+
       return `
       <tr>
         <td>${escapeHtml(u.username)}</td>
+        <td>${escapeHtml(u.displayName || '—')}</td>
         <td>${escapeHtml(roleLabel(u.role))}</td>
         <td>${deptCell}</td>
         <td class="payroll-col">${escapeHtml(payTypeLabel)}</td>
@@ -4747,6 +4772,7 @@
         <td>${escapeHtml(u.createdBy)}</td>
         <td>${escapeHtml((u.createdAt || '').slice(0, 10))}</td>
         <td>
+          ${canEditName ? `<button class="ghost edit-btn" onclick="openEditDisplayName('${escapeHtml(u.username)}')">Name</button>` : ''}
           ${isSuperAdmin() ? `<button class="ghost edit-btn" onclick="openPayEdit('${escapeHtml(u.username)}')">Pay/Shift</button>` : ''}
           ${canResetPassword ? `<button class="ghost edit-btn" onclick="openResetPassword('${escapeHtml(u.username)}')">Reset Password</button>` : ''}
           ${canDelete ? `<button class="ghost danger-btn" onclick="deleteUserAccount('${escapeHtml(u.username)}')">Delete</button>` : ''}
@@ -4757,7 +4783,7 @@
 
   async function loadUsersList(){
     const tbody = document.getElementById('usersTbody');
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('usersEmpty').style.display = 'none';
     try{
       const res = await fetch('/api/users', { headers: { ...authHeaders() } });
@@ -4787,7 +4813,9 @@
       return;
     }
 
+    const displayName = document.getElementById('newUserDisplayName').value.trim();
     const body = { username, password, role };
+    if(displayName) body.displayName = displayName;
     // Department doesn't apply to Accounting accounts — leave it unset for those.
     // Admins only ever create Apparel Staff (Sign Ads accounts can't reach
     // this app's Users tab at all), so the picker is hidden for them and
@@ -4823,6 +4851,7 @@
         return;
       }
       document.getElementById('newUserUsername').value = '';
+      document.getElementById('newUserDisplayName').value = '';
       document.getElementById('newUserPassword').value = '';
       document.getElementById('newUserPayType').value = '';
       document.getElementById('newUserRate').value = '';
@@ -4865,7 +4894,7 @@
     if(!isSuperAdmin()) return;
     const u = cachedUsers.find(x => x.username === username);
     if(!u) return;
-    document.getElementById('payEditUsername').textContent = username;
+    document.getElementById('payEditUsername').textContent = u.displayName || username;
     document.getElementById('payEditType').value = u.payType || '';
     document.getElementById('payEditRate').value = typeof u.rate === 'number' ? u.rate : '';
     document.getElementById('payEditTimeIn').value = u.regularTimeIn || '';
@@ -4913,9 +4942,57 @@
     }
   }
 
+  // ---- Display Name editing (Admin for their Staff, Super Admin for anyone) ----
+  // The display name is shown instead of the raw username in Attendance,
+  // Payroll, and the account bar — see renderAttendanceReport(), the
+  // Payroll tab, and renderAccountBar(). Falls back to the username
+  // wherever it's blank.
+  function openEditDisplayName(username){
+    const u = cachedUsers.find(x => x.username === username);
+    document.getElementById('editDisplayNameUsername').textContent = username;
+    document.getElementById('editDisplayNameInput').value = (u && u.displayName) || '';
+    document.getElementById('editDisplayNameError').textContent = '';
+    document.getElementById('editDisplayNameOverlay').dataset.username = username;
+    document.getElementById('editDisplayNameOverlay').classList.add('open');
+  }
+
+  function closeEditDisplayName(){
+    document.getElementById('editDisplayNameOverlay').classList.remove('open');
+  }
+
+  async function submitEditDisplayName(){
+    const username = document.getElementById('editDisplayNameOverlay').dataset.username;
+    const errEl = document.getElementById('editDisplayNameError');
+    errEl.textContent = '';
+    const displayName = document.getElementById('editDisplayNameInput').value.trim();
+    try{
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ username, displayName: displayName || null })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not update that account\'s display name.';
+        return;
+      }
+      closeEditDisplayName();
+      loadUsersList();
+      // Displayed name may need to update the account bar if this is us.
+      if(currentUser && currentUser.username === username){
+        currentUser.displayName = data.user.displayName;
+        renderAccountBar();
+      }
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
+    }
+  }
+
   // ---- Reset Password (Admin / Super Admin resetting another account) ----
   function openResetPassword(username){
-    document.getElementById('resetPasswordUsername').textContent = username;
+    const u = cachedUsers.find(x => x.username === username);
+    document.getElementById('resetPasswordUsername').textContent = (u && u.displayName) || username;
     document.getElementById('resetPasswordNew').value = '';
     document.getElementById('resetPasswordError').textContent = '';
     document.getElementById('resetPasswordOverlay').dataset.username = username;
@@ -5316,7 +5393,7 @@
         : '<td></td>';
       return `<tr>
         <td>${escapeHtml(r.date)}</td>
-        <td>${escapeHtml(r.username)}</td>
+        <td>${escapeHtml((u && u.displayName) || r.username)}</td>
         <td>${formatTimeStamp(r.morningIn)}</td>
         <td>${formatTimeStamp(r.noonOut)}</td>
         <td>${formatTimeStamp(r.afternoonIn)}</td>
@@ -5349,7 +5426,8 @@
     if(!isSuperAdmin()) return;
     const row = cachedAttendanceReport.find(r => r.date === date && r.username === username);
     if(!row) return;
-    document.getElementById('attendanceEditSub').textContent = `${username} — ${date}`;
+    const u = (cachedUsers || []).find(x => x.username === username);
+    document.getElementById('attendanceEditSub').textContent = `${(u && u.displayName) || username} — ${date}`;
     document.getElementById('attendanceEditMorningIn').value = isoToManilaTimeInput(row.morningIn);
     document.getElementById('attendanceEditNoonOut').value = isoToManilaTimeInput(row.noonOut);
     document.getElementById('attendanceEditAfternoonIn').value = isoToManilaTimeInput(row.afternoonIn);
@@ -6161,7 +6239,7 @@
         + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
       return `
       <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(r.u.username)}')">
-        <td>${escapeHtml(r.u.username)}</td>
+        <td>${escapeHtml(r.u.displayName || r.u.username)}</td>
         <td><span class="pay-type-pill">${r.u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</span></td>
         <td title="${escapeHtml(tooltip)}">${r.daysWorkedDisplay.toLocaleString('en-PH')}</td>
         <td>${r.otHours.toFixed(1)}</td>
@@ -6195,7 +6273,7 @@
     const from = document.getElementById('payFrom').value;
     const to = document.getElementById('payTo').value;
 
-    document.getElementById('drilldownTitle').textContent = `${username} — Payroll Detail`;
+    document.getElementById('drilldownTitle').textContent = `${entry.u.displayName || username} — Payroll Detail`;
     document.getElementById('drilldownSub').textContent = `${from} to ${to}`;
 
     const breakdownRows = [
@@ -6302,7 +6380,7 @@
       { u: (cachedUsers || []).find(u => u.username === username) };
     const u = entry.u;
     if(!u) return;
-    document.getElementById('payrollSettingsUsername').textContent = username;
+    document.getElementById('payrollSettingsUsername').textContent = u.displayName || username;
     document.getElementById('payrollSettingsOtRate').value = typeof u.otRate === 'number' ? u.otRate : '';
     document.getElementById('payrollSettingsAllowance').value = typeof u.allowance === 'number' ? u.allowance : '';
     document.getElementById('payrollSettingsSss').value = typeof u.sssDeduction === 'number' ? u.sssDeduction : '';

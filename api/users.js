@@ -68,6 +68,19 @@ function parseMoneyFields(body) {
   return { fields };
 }
 
+// Display name — the human-readable name shown for an account throughout
+// the app (attendance, payroll, the account bar) instead of the raw
+// username. Optional; falls back to the username wherever it's blank.
+// Anyone who can create/edit accounts (Admin or Super Admin) can set it.
+function parseDisplayNameField(body) {
+  if (body.displayName === undefined) return { fields: {} };
+  const raw = body.displayName === null ? '' : String(body.displayName).trim();
+  if (raw.length > 60) {
+    return { error: 'Display name must be 60 characters or fewer' };
+  }
+  return { fields: { displayName: raw || null } };
+}
+
 // Department (Apparel / Sign Ads) decides which side of Job Orders an
 // account can see. It doesn't mean anything for Accounting accounts, so
 // it's left optional there. Anyone who can create/edit accounts can set it.
@@ -101,6 +114,7 @@ module.exports = async (req, res) => {
       .filter(Boolean)
       .map((u) => ({
         username: u.username,
+        displayName: u.displayName || null,
         role: u.role,
         department: u.department || null,
         createdBy: u.createdBy,
@@ -199,8 +213,16 @@ module.exports = async (req, res) => {
     }
     Object.assign(record, deptFields);
 
+    // Display name — optional at creation time, same as department.
+    const { fields: nameFields, error: nameError } = parseDisplayNameField(body);
+    if (nameError) {
+      res.status(400).json({ error: nameError });
+      return;
+    }
+    Object.assign(record, nameFields);
+
     await kv.hset(USERS_KEY, { [uname]: JSON.stringify(record) });
-    res.status(200).json({ ok: true, user: { username: uname, role, department: record.department || null, createdBy: auth.username, createdAt: record.createdAt } });
+    res.status(200).json({ ok: true, user: { username: uname, displayName: record.displayName || null, role, department: record.department || null, createdBy: auth.username, createdAt: record.createdAt } });
     return;
   }
 
@@ -318,6 +340,31 @@ module.exports = async (req, res) => {
       changed = true;
     }
 
+    // Display name — Admin (for Staff) or Super Admin (for anyone) can set
+    // it. Logged to the account-change log so there's a record of who
+    // renamed an account and what it changed from/to.
+    const { fields: nameFields, error: nameError } = parseDisplayNameField(body);
+    if (nameError) {
+      res.status(400).json({ error: nameError });
+      return;
+    }
+    if (Object.keys(nameFields).length) {
+      const from = target.displayName || null;
+      const to = nameFields.displayName;
+      if (from !== to) {
+        Object.assign(target, nameFields);
+        changed = true;
+        await logAccountChange({
+          type: 'display-name-change',
+          username: target.username,
+          from,
+          to,
+          changedBy: auth.username,
+          changedByRole: auth.role
+        });
+      }
+    }
+
     if (!changed) {
       res.status(400).json({ error: 'No changes provided' });
       return;
@@ -327,7 +374,7 @@ module.exports = async (req, res) => {
     res.status(200).json({
       ok: true,
       user: {
-        username: target.username, role: target.role, department: target.department || null,
+        username: target.username, displayName: target.displayName || null, role: target.role, department: target.department || null,
         createdBy: target.createdBy, createdAt: target.createdAt,
         payType: target.payType || null, rate: typeof target.rate === 'number' ? target.rate : null,
         regularTimeIn: target.regularTimeIn || null, regularTimeOut: target.regularTimeOut || null,

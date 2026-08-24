@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
     };
     await kv.hset(USERS_KEY, { [uname]: JSON.stringify(record) });
     const token = signToken({ username: uname, role: 'super_admin' });
-    res.status(200).json({ token, user: { username: uname, role: 'super_admin' } });
+    res.status(200).json({ token, user: { username: uname, displayName: null, role: 'super_admin' } });
     return;
   }
 
@@ -70,5 +70,5 @@ module.exports = async (req, res) => {
   }
 
   const token = signToken({ username: uname, role: record.role, department: record.department || null });
-  res.status(200).json({ token, user: { username: uname, role: record.role, department: record.department || null } });
+  res.status(200).json({ token, user: { username: uname, displayName: record.displayName || null, role: record.role, department: record.department || null } });
 };
