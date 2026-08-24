@@ -5939,6 +5939,7 @@
 
       let presentDays = 0, absentDays = 0, halfDays = 0, lateDays = 0, undertimeDays = 0;
       let totalLateMinutes = 0, totalUndertimeMinutes = 0;
+      let lateDeduction = 0, undertimeDeduction = 0;
       let normalPay = 0;
       const dayDetails = [];
 
@@ -5954,8 +5955,18 @@
           presentDays += 1;
           if(c.lateMinutes > 0){ lateDays += 1; totalLateMinutes += c.lateMinutes; }
           if(c.undertimeMinutes > 0){ undertimeDays += 1; totalUndertimeMinutes += c.undertimeMinutes; }
-          const deduction = (c.lateMinutes + c.undertimeMinutes) * perMinuteRate;
-          normalPay += Math.max(0, dailyRate - deduction);
+          const rawLateAmt = c.lateMinutes * perMinuteRate;
+          const rawUndertimeAmt = c.undertimeMinutes * perMinuteRate;
+          const deduction = rawLateAmt + rawUndertimeAmt;
+          // A day's deduction never exceeds that day's own pay (no
+          // negative days) — when the cap kicks in, scale late and
+          // undertime down proportionally so the two figures below
+          // still add up to what was actually deducted.
+          const appliedDeduction = Math.min(dailyRate, deduction);
+          const scale = deduction > 0 ? appliedDeduction / deduction : 1;
+          lateDeduction += rawLateAmt * scale;
+          undertimeDeduction += rawUndertimeAmt * scale;
+          normalPay += dailyRate - appliedDeduction;
         }
       });
 
@@ -6035,7 +6046,8 @@
 
       return {
         u, workingDays: normalDates.length, presentDays, absentDays, halfDays, lateDays, undertimeDays,
-        totalLateMinutes, totalUndertimeMinutes, daysWorkedDisplay, dayDetails,
+        totalLateMinutes, totalUndertimeMinutes, lateDeduction, undertimeDeduction, perMinuteRate,
+        daysWorkedDisplay, dayDetails,
         otHours, otDetails, ndMinutes, ndPay, basePay, holidayTotal, holidayDetails, otPay, grossPay,
         allowance, sss, philhealth, pagibig, cashAdvance, totalDeductions, netPay
       };
@@ -6101,10 +6113,12 @@
       ['Working Days (Mon–Sat, excl. holidays)', String(entry.workingDays)],
       ['Absent Days', `− ${entry.absentDays}`],
       ['Half Days', `− ${entry.halfDays} (½ day pay each)`],
-      ['Late Days', `${entry.lateDays} (${entry.totalLateMinutes} min total — pay adjusted, not a full-day deduction)`],
-      ['Undertime Days', `${entry.undertimeDays} (${entry.totalUndertimeMinutes} min total — pay adjusted, not a full-day deduction)`],
+      ['Late Days', `${entry.lateDays} (${entry.totalLateMinutes} min total)`],
+      ['Late Deduction', `- ${formatCurrency(entry.lateDeduction)} (${entry.totalLateMinutes} min × ${formatCurrency(entry.perMinuteRate)}/min — already netted into Base Pay below, shown here for reference)`],
+      ['Undertime Days', `${entry.undertimeDays} (${entry.totalUndertimeMinutes} min total)`],
+      ['Undertime Deduction', `- ${formatCurrency(entry.undertimeDeduction)} (${entry.totalUndertimeMinutes} min × ${formatCurrency(entry.perMinuteRate)}/min — already netted into Base Pay below, shown here for reference)`],
       ['Days Worked (pay basis)', String(entry.daysWorkedDisplay)],
-      ['Base Pay', formatCurrency(entry.basePay)],
+      ['Base Pay', `${formatCurrency(entry.basePay)} (full days + half days, minus Late/Undertime deductions above — never below ₱0 for a single day)`],
       ['Holiday Pay', formatCurrency(entry.holidayTotal)],
       ['Overtime Pay', `${formatCurrency(entry.otPay)} (${entry.otHours.toFixed(1)} hr, rate varies by day type — see below)`],
       ['Night Differential', `${formatCurrency(entry.ndPay)} (${entry.ndMinutes} min, 10PM–6AM, +10%)`],
@@ -6113,7 +6127,7 @@
       ['SSS Deduction', `- ${formatCurrency(entry.sss)}`],
       ['PhilHealth Deduction', `- ${formatCurrency(entry.philhealth)}`],
       ['Pag-IBIG Deduction', `- ${formatCurrency(entry.pagibig)}`],
-      ['Cash Advance Deduction', `- ${formatCurrency(entry.cashAdvance)}`],
+      ['Cash Advance Deduction', `- ${formatCurrency(entry.cashAdvance)} (flat amount set in Payroll Settings for this run — not computed from a running balance; increase/decrease it manually as the employee pays it down)`],
       ['Net Pay', formatCurrency(entry.netPay)]
     ];
     const breakdownHtml = `<table class="drilldown-table" style="margin-bottom:18px;">
