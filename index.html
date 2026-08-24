@@ -1363,10 +1363,62 @@
   @media (prefers-reduced-motion: reduce){
     .login-card.card-in, .login-card.shake, .login-card.success-glow, .view-fade-in, .app-shell-in, .login-overlay,
     .login-blob, .login-submit .btn-spinner, .login-submit .btn-check,
-    .settings-card.card-in, .settings-overlay{
+    .settings-card.card-in, .settings-overlay,
+    .stat-cards .stat-card, .chart-card, .tab-btn.tab-pop, .tab-btn, .sidebar-indicator,
+    .chart-card svg rect, .chart-card svg path, .chart-card svg circle{
       animation:none !important;
       transition:none !important;
     }
+  }
+
+  /* ---- Polish pass: sidebar motion, stat/chart entrances ---- */
+  @keyframes tabPop{
+    0%{transform:scale(1);}
+    45%{transform:scale(1.04);}
+    100%{transform:scale(1);}
+  }
+  .tab-btn{
+    transition:color .2s cubic-bezier(.16,1,.3,1), background-color .2s cubic-bezier(.16,1,.3,1), border-color .28s cubic-bezier(.16,1,.3,1), transform .12s ease;
+  }
+  .tab-btn.tab-pop{animation:tabPop .32s cubic-bezier(.34,1.56,.64,1);}
+  .tab-btn:active{transform:scale(.98);}
+  .tab-btn .tab-ico{transition:color .2s ease, opacity .2s ease, transform .28s cubic-bezier(.34,1.56,.64,1);}
+  .tab-btn.active .tab-ico{transform:scale(1.08);}
+
+  @keyframes statCardIn{
+    from{opacity:0; transform:translateY(10px) scale(.97);}
+    to{opacity:1; transform:translateY(0) scale(1);}
+  }
+  .stat-cards .stat-card{
+    animation:statCardIn .45s cubic-bezier(.16,1,.3,1) backwards;
+  }
+  .stat-cards .stat-card:nth-child(1){animation-delay:.02s;}
+  .stat-cards .stat-card:nth-child(2){animation-delay:.06s;}
+  .stat-cards .stat-card:nth-child(3){animation-delay:.10s;}
+  .stat-cards .stat-card:nth-child(4){animation-delay:.14s;}
+  .stat-cards .stat-card:nth-child(5){animation-delay:.18s;}
+  .stat-cards .stat-card:nth-child(6){animation-delay:.22s;}
+  .stat-cards .stat-card:nth-child(7){animation-delay:.26s;}
+  .stat-cards .stat-card:nth-child(8){animation-delay:.30s;}
+  .stat-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-md);}
+  .stat-card .stat-value{transition:color .2s ease;}
+  @keyframes statValuePop{
+    0%{transform:scale(1);}
+    35%{transform:scale(1.09); color:var(--stamp);}
+    100%{transform:scale(1);}
+  }
+  .stat-card .stat-value.stat-pop{display:inline-block; animation:statValuePop .5s cubic-bezier(.34,1.56,.64,1);}
+
+  @keyframes chartCardIn{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .chart-card{animation:chartCardIn .45s cubic-bezier(.16,1,.3,1) backwards; animation-delay:.06s;}
+
+  @keyframes payrollGlow{
+    0%{box-shadow:var(--shadow-sm);}
+    45%{box-shadow:0 0 0 5px var(--stamp-soft), var(--shadow-sm);}
+    100%{box-shadow:var(--shadow-sm);}
   }
 
   body.hide-revenue .monitor-revenue-col,
@@ -4385,18 +4437,38 @@
       const barH = maxVal ? (val / maxVal) * chartH : 0;
       const x = (w / keys.length) * i + ((w / keys.length) - barW) / 2;
       const y = padTop + (chartH - barH);
+      const delay = Math.min(i * 35, 420);
       bars += `
-        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${barColor}" rx="2">
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${barColor}" rx="2"
+          style="transform-box:fill-box; transform-origin:center bottom; transform:scaleY(0); opacity:0; transition:transform .5s cubic-bezier(.16,1,.3,1) ${delay}ms, opacity .3s ease ${delay}ms;">
           <title>${analyticsLabel(key, groupBy)}: ${formatValue(val)}</title>
         </rect>
-        <text x="${(x + barW / 2).toFixed(1)}" y="${(h - padBottom + 16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${analyticsLabel(key, groupBy)}</text>
-        <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${formatValue(val)}</text>`;
+        <text x="${(x + barW / 2).toFixed(1)}" y="${(h - padBottom + 16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)"
+          style="opacity:0; transition:opacity .35s ease ${delay}ms;">${analyticsLabel(key, groupBy)}</text>
+        <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)"
+          style="opacity:0; transition:opacity .35s ease ${delay + 90}ms;">${formatValue(val)}</text>`;
     });
 
     container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">
       <line x1="0" y1="${(h - padBottom).toFixed(1)}" x2="${w}" y2="${(h - padBottom).toFixed(1)}" stroke="var(--line)" stroke-width="1"></line>
       ${bars}
     </svg>`;
+    growChart(container);
+  }
+
+  // Flips every freshly-inserted bar/slice from its animate-in state (0
+  // scale / 0 opacity, set inline above) to its resting state on the next
+  // frame, so the CSS transition actually plays instead of snapping in.
+  function growChart(container){
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        container.querySelectorAll('svg rect, svg path, svg circle, svg text, svg g').forEach(el => {
+          el.style.opacity = '1';
+          if(el.style.transform) el.style.transform = el.style.transform.replace(/scale[XY]?\([^)]*\)/, m => m.startsWith('scaleX') ? 'scaleX(1)' : m.startsWith('scaleY') ? 'scaleY(1)' : 'scale(1)');
+          if(el.hasAttribute('stroke-dasharray')) el.style.strokeDashoffset = '0';
+        });
+      });
+    });
   }
 
   function renderOrdersTrendChart(keys, buckets){
@@ -4434,7 +4506,7 @@
 
     let slices = '';
     let angle = -90; // start at 12 o'clock
-    entries.forEach(([label, val]) => {
+    entries.forEach(([label, val], i) => {
       const pct = val / total;
       const sweep = pct * 360;
       const startRad = (angle * Math.PI) / 180;
@@ -4443,11 +4515,12 @@
       const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
       const largeArc = sweep > 180 ? 1 : 0;
       const isActive = MONITOR_ACTIVE_STATUSES.includes(label);
+      const sliceStyle = `transform-box:fill-box; transform-origin:${cx}px ${cy}px; transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.34,1.56,.64,1) ${i * 70}ms, opacity .35s ease ${i * 70}ms;`;
       if(pct >= 0.9995){
         // Single full-circle slice: draw as a circle instead of a degenerate arc.
-        slices += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[label] || '#B9C2CB'}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></circle>`;
+        slices += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[label] || '#B9C2CB'}" style="${sliceStyle}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></circle>`;
       } else {
-        slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[label] || '#B9C2CB'}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></path>`;
+        slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[label] || '#B9C2CB'}" style="${sliceStyle}"><title>${label}${isActive ? ' (Active)' : ''}: ${val} (${Math.round(pct * 100)}%)</title></path>`;
       }
       angle += sweep;
     });
@@ -4466,6 +4539,7 @@
         <div class="chart-legend" style="max-width:280px;">${legend}</div>
       </div>` +
       '<div class="chart-legend" style="margin-top:8px;"><span>• = counted as an Active Job Order</span></div>';
+    growChart(container);
   }
 
   // Semi-circular gauge showing the completion rate (Done ÷ Tracked
@@ -4505,14 +4579,25 @@
     const nx = cx + (r - 18) * Math.cos(needleRad);
     const ny = cy - (r - 18) * Math.sin(needleRad);
 
+    // Draw-in lengths for the track/value arcs (classic stroke-dasharray
+    // reveal — dashoffset starts equal to the path length, then animates
+    // to 0 so the arc appears to sweep into place).
+    const trackLen = (r * Math.PI).toFixed(2);
+    const valueLen = pct > 0 ? (r * (pct * 180 * Math.PI / 180)).toFixed(2) : '0';
+
     container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;margin:0 auto;">
-        <path d="${trackPath}" fill="none" stroke="var(--line)" stroke-width="16" stroke-linecap="round"></path>
-        ${valuePath ? `<path d="${valuePath}" fill="none" stroke="var(--stamp)" stroke-width="16" stroke-linecap="round"></path>` : ''}
-        <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"></line>
-        <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
-        <text x="${cx}" y="${cy - 26}" text-anchor="middle" font-size="26" font-weight="700" fill="var(--ink)">${Math.round(pct * 100)}%</text>
-        <text x="${cx}" y="${(cy - 4).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--ink-soft)">${doneCount} of ${orderCount} done</text>
+        <path d="${trackPath}" fill="none" stroke="var(--line)" stroke-width="16" stroke-linecap="round"
+          stroke-dasharray="${trackLen}" stroke-dashoffset="${trackLen}" style="transition:stroke-dashoffset .6s cubic-bezier(.16,1,.3,1);"></path>
+        ${valuePath ? `<path d="${valuePath}" fill="none" stroke="var(--stamp)" stroke-width="16" stroke-linecap="round"
+          stroke-dasharray="${valueLen}" stroke-dashoffset="${valueLen}" style="transition:stroke-dashoffset .8s cubic-bezier(.16,1,.3,1) .15s;"></path>` : ''}
+        <g style="transform-box:fill-box; transform-origin:${cx}px ${cy}px; transform:scale(0); opacity:0; transition:transform .5s cubic-bezier(.34,1.56,.64,1) .55s, opacity .35s ease .55s;">
+          <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"></line>
+          <circle cx="${cx}" cy="${cy}" r="5" fill="var(--ink)"></circle>
+        </g>
+        <text x="${cx}" y="${cy - 26}" text-anchor="middle" font-size="26" font-weight="700" fill="var(--ink)" style="opacity:0; transition:opacity .4s ease .55s;">${Math.round(pct * 100)}%</text>
+        <text x="${cx}" y="${(cy - 4).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--ink-soft)" style="opacity:0; transition:opacity .4s ease .65s;">${doneCount} of ${orderCount} done</text>
       </svg>`;
+    growChart(container);
   }
 
   // Horizontal bar chart of the top clients by total revenue (Grand
@@ -4543,14 +4628,17 @@
     entries.forEach(([label, val], i) => {
       const barW = Math.max(2, (val / maxVal) * (w - labelW - 90));
       const y = i * (barH + gap);
+      const delay = i * 55;
       bars += `
-        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)">${escapeHtml(label.length > 18 ? label.slice(0, 17) + '…' : label)}</text>
-        <rect x="${labelW}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="var(--stamp)" rx="2">
+        <text x="0" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink)" style="opacity:0; transition:opacity .35s ease ${delay}ms;">${escapeHtml(label.length > 18 ? label.slice(0, 17) + '…' : label)}</text>
+        <rect x="${labelW}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH}" fill="var(--stamp)" rx="2"
+          style="transform-box:fill-box; transform-origin:left center; transform:scaleX(0); opacity:0; transition:transform .5s cubic-bezier(.16,1,.3,1) ${delay}ms, opacity .3s ease ${delay}ms;">
           <title>${escapeHtml(label)}: ${formatCurrency(val)}</title>
         </rect>
-        <text x="${(labelW + barW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)">${formatCurrency(val)}</text>`;
+        <text x="${(labelW + barW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="11" fill="var(--ink-soft)" style="opacity:0; transition:opacity .35s ease ${delay + 120}ms;">${formatCurrency(val)}</text>`;
     });
     container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
+    growChart(container);
   }
 
   // ---- Analytics KPI drill-down ----
@@ -4990,6 +5078,7 @@
     document.getElementById('tabBtnAccountLog').classList.toggle('active', isAccountLog);
     const activeViewId = isNew ? 'viewNew' : isBrowse ? 'viewBrowse' : isMonitor ? 'viewMonitor' : isMaterials ? 'viewMaterials' : isInventory ? 'viewInventory' : isPurchases ? 'viewPurchases' : isStock ? 'viewStock' : isAttendance ? 'viewAttendance' : isPayroll ? 'viewPayroll' : isAnalytics ? 'viewAnalytics' : isUsers ? 'viewUsers' : 'viewAccountLog';
     replayAnimation(document.getElementById(activeViewId), 'view-fade-in');
+    replayAnimation(document.querySelector('#appTabs .tab-btn.active'), 'tab-pop');
     if(isBrowse) loadBrowseList();
     if(isMonitor) loadMonitorList();
     if(isMaterials) loadMaterialsList();
@@ -6295,6 +6384,31 @@
       errEl.textContent = 'Could not reach the server. Please try again.';
     }
   }
+
+  // ---- Polish: pop stat-value numbers whenever their text changes ----
+  // Generic, non-invasive — doesn't touch any of the render functions that
+  // set these values, just watches for the text to change and plays a
+  // quick highlight so updated KPIs feel alive instead of just appearing.
+  (function watchStatValues(){
+    if(!('MutationObserver' in window)) return;
+    const seen = new WeakSet();
+    function armPop(el){
+      if(seen.has(el)) return;
+      seen.add(el);
+      let last = el.textContent;
+      const mo = new MutationObserver(() => {
+        if(el.textContent === last) return;
+        last = el.textContent;
+        el.classList.remove('stat-pop');
+        void el.offsetWidth;
+        el.classList.add('stat-pop');
+      });
+      mo.observe(el, { characterData:true, childList:true, subtree:true });
+    }
+    function scan(){ document.querySelectorAll('.stat-card .stat-value').forEach(armPop); }
+    scan();
+    new MutationObserver(scan).observe(document.body, { childList:true, subtree:true });
+  })();
 
   // ---- Boot ----
   if(loadAuthFromStorage()){
