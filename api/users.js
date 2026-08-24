@@ -1,6 +1,6 @@
 const { kv } = require('@vercel/kv');
 const { hashPassword, requireRole } = require('./_auth');
-const { logAccountChange } = require('./_account-log');
+const { logAccountChange, LOG_KEY } = require('./_account-log');
 
 const USERS_KEY = 'app-users';
 
@@ -94,6 +94,29 @@ function parseDepartmentField(body) {
 }
 
 module.exports = async (req, res) => {
+  // Account-change log is served through this endpoint so it does not need
+  // its own Vercel Serverless Function. This keeps the project at or below
+  // the Hobby-plan function limit while preserving the existing UI.
+  if (req.method === 'GET' && req.query.resource === 'account-log') {
+    const auth = requireRole(req, res, ['admin', 'super_admin']);
+    if (!auth) return;
+
+    const all = (await kv.hgetall(LOG_KEY)) || {};
+    const entries = Object.values(all)
+      .map((v) => {
+        try {
+          return typeof v === 'string' ? JSON.parse(v) : v;
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.changedAt || '').localeCompare(a.changedAt || ''));
+
+    res.status(200).json({ entries });
+    return;
+  }
+
   // List all accounts — Admins and the Super Admin can see the staff list.
   // Pay type/rate/regular shift times are payroll data, so those fields are
   // only included in the response when the requester is the Super Admin.

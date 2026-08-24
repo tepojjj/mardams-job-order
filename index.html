@@ -5104,7 +5104,7 @@
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('accountLogEmpty').style.display = 'none';
     try{
-      const res = await fetch('/api/account-log', { headers: { ...authHeaders() } });
+      const res = await fetch('/api/users?resource=account-log', { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       cachedAccountLog = data.entries || [];
@@ -6287,11 +6287,11 @@
         + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
       const paid = cachedPayrollPaymentsByUser[r.u.username];
       const statusCell = paid
-        ? `<span class="pay-type-pill" style="background:#e6f4ea; color:#1a7f37;" title="Marked paid by ${escapeHtml(paid.paidBy)} on ${new Date(paid.paidAt).toLocaleString('en-PH')}">✓ Paid ${new Date(paid.paidAt).toLocaleDateString('en-PH')}</span>`
-        : `<span class="pay-type-pill" style="background:#fdecea; color:#a3231b;">Unpaid</span>`;
+        ? `<span class="pay-type-pill" style="background:#e6f4ea; color:#1a7f37;" title="Marked paid by ${escapeHtml(paid.paidBy)} on ${new Date(paid.paidAt).toLocaleString('en-PH')}">✓ Salary Paid ${new Date(paid.paidAt).toLocaleDateString('en-PH')}</span>`
+        : `<span class="pay-type-pill" style="background:#fdecea; color:#a3231b;">Salary Unpaid</span>`;
       const statusBtn = paid
         ? `<button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); undoPayrollPaid('${escapeHtml(r.u.username)}')">Undo</button>`
-        : `<button type="button" class="primary edit-btn" onclick="event.stopPropagation(); markPayrollPaid('${escapeHtml(r.u.username)}')">Mark Paid</button>`;
+        : `<button type="button" class="primary edit-btn" onclick="event.stopPropagation(); markPayrollPaid('${escapeHtml(r.u.username)}')">Mark Salary Paid</button>`;
       return `
       <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(r.u.username)}')">
         <td>${escapeHtml(r.u.displayName || r.u.username)}</td>
