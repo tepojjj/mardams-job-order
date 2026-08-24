@@ -2204,7 +2204,7 @@
     <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employee's OT rate, allowance, or deductions.</div>
     <table class="browse-table payroll-table">
       <thead>
-        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th></th></tr>
+        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th></th></tr>
       </thead>
       <tbody id="payrollTbody"></tbody>
     </table>
@@ -2403,14 +2403,18 @@
       </div>
       <div class="drilldown-body" style="padding:18px; max-height:70vh; overflow:auto;">
         <div class="user-form" style="flex-direction:column; align-items:stretch;">
-          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);">Overtime Rate (₱ per hour)</label>
-          <input type="number" id="payrollSettingsOtRate" placeholder="e.g. 125.00" min="0" step="0.01">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);">Overtime Base Hourly Rate (₱/hr)</label>
+          <input type="number" id="payrollSettingsOtRate" placeholder="blank = auto (daily rate ÷ 8)" min="0" step="0.01">
+          <div class="drilldown-sub" style="margin-top:2px;">Day-type premiums (ordinary 125%, rest day/special 169–195%, regular holiday 260–338%) are applied automatically on top of this base rate — leave blank to let it default to the employee's daily rate ÷ 8.</div>
           <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Allowance (₱ per payroll run)</label>
           <input type="number" id="payrollSettingsAllowance" placeholder="e.g. 500.00" min="0" step="0.01">
           <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Deductions (₱ per payroll run)</label>
           <input type="number" id="payrollSettingsSss" placeholder="SSS" min="0" step="0.01">
           <input type="number" id="payrollSettingsPhilhealth" placeholder="PhilHealth" min="0" step="0.01">
           <input type="number" id="payrollSettingsPagibig" placeholder="Pag-IBIG" min="0" step="0.01">
+          <button type="button" class="ghost" style="margin-top:6px;" onclick="autoFillGovContributions()">Auto-fill SSS / PhilHealth / Pag-IBIG (2026 rates)</button>
+          <div class="drilldown-sub" style="margin-top:2px;">Estimates the employee share from the 2026 contribution tables, scaled to the currently selected payroll period. Review before saving — SSS uses an approximate ₱500 bracket, so confirm exact centavos against the official SSS table.</div>
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:10px;">Cash Advance (₱ per payroll run)</label>
           <input type="number" id="payrollSettingsCashAdvance" placeholder="Cash Advance" min="0" step="0.01">
           <div class="login-error" id="payrollSettingsError"></div>
           <button class="primary" style="margin-top:12px;" onclick="savePayrollSettingsEdit()">Save</button>
@@ -5418,6 +5422,104 @@
     return { amount: dailyRate, label: '100% — worked, ordinary rate' };
   }
 
+  // ---- Overtime, Night Differential, and government-contribution rules ----
+  // Added so the Payroll tab follows DOLE premium-pay rules and the 2026
+  // SSS / PhilHealth / Pag-IBIG contribution schedules automatically,
+  // instead of relying entirely on flat manually-entered figures.
+
+  // The *basic* (non-OT) hourly multiplier for a worked day of this type —
+  // used both to sanity-check holiday pay above and to rate Night
+  // Differential hours correctly when they fall on a holiday or rest day.
+  //   ordinary day               → 100%
+  //   plain rest day (no holiday)→ 130%
+  //   special non-working        → 130% (150% if also a rest day)
+  //   special working holiday    → 100% (paid like an ordinary day)
+  //   regular holiday            → 200% (260% if also a rest day)
+  function basicDayMultiplier(type, isRestDay){
+    if(type === 'regular') return isRestDay ? 2.6 : 2.0;
+    if(type === 'special_non_working') return isRestDay ? 1.5 : 1.3;
+    if(type === 'special_working') return 1.0;
+    return isRestDay ? 1.3 : 1.0; // ordinary day, or a plain (non-holiday) rest day
+  }
+
+  // The OT premium multiplier (applied on top of the OT base hourly rate)
+  // per DOLE rules:
+  //   ordinary day OT                          → 125%
+  //   rest day / special non-working day OT    → day rate × 130% (169% / 195%)
+  //   regular holiday OT                       → day rate × 130% (260% / 338%)
+  //   special working holiday OT               → day rate × 130% (130%)
+  function otMultiplier(type, isRestDay){
+    if(type === 'ordinary' && !isRestDay) return 1.25;
+    return basicDayMultiplier(type, isRestDay) * 1.30;
+  }
+
+  // Type of a calendar date for premium-pay purposes: an actual configured
+  // holiday, or 'ordinary' otherwise (rest-day-ness is tracked separately).
+  function dayTypeFor(date, holidayByDate){
+    const h = holidayByDate[date];
+    return h ? h.type : 'ordinary';
+  }
+
+  // Minutes of a worked segment [startIso, endIso) that fall within the
+  // Night Differential window, 10:00 PM–6:00 AM Asia/Manila (RA 10151 /
+  // Labor Code Art. 86). Fast-paths the (very common) case of an ordinary
+  // daytime segment to avoid a minute-by-minute scan.
+  function manilaHour(d){
+    return Number(new Date(d).toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', timeZone: 'Asia/Manila' }));
+  }
+  function nightDiffMinutesForSegment(startIso, endIso){
+    if(!startIso || !endIso) return 0;
+    const start = new Date(startIso), end = new Date(endIso);
+    const startMs = start.getTime(), endMs = end.getTime();
+    if(endMs <= startMs) return 0;
+    const startHour = manilaHour(start), endHour = manilaHour(end);
+    // Neither end touches the 10PM–6AM window and the segment is under a
+    // day long (so it can't wrap all the way around into it) — skip.
+    if(startHour >= 6 && startHour < 22 && endHour >= 6 && endHour < 22 && (endMs - startMs) < 16 * 60 * 60 * 1000){
+      return 0;
+    }
+    let count = 0;
+    for(let ms = startMs; ms < endMs; ms += 60000){
+      const hour = manilaHour(ms);
+      if(hour >= 22 || hour < 6) count++;
+    }
+    return count;
+  }
+
+  // The regular (non-OT, non-lunch) worked segments for a day, mirroring
+  // the same shape workedMinutesForDay() assumes.
+  function regularSegmentsForRow(row){
+    if(!row || !row.morningIn) return [];
+    if(row.noonOut && row.afternoonIn && row.afternoonOut){
+      return [[row.morningIn, row.noonOut], [row.afternoonIn, row.afternoonOut]];
+    }
+    if(row.afternoonOut) return [[row.morningIn, row.afternoonOut]];
+    if(row.noonOut) return [[row.morningIn, row.noonOut]];
+    return [];
+  }
+
+  // ---- 2026 government contribution tables (employee share) ----
+  // SSS: 15% of Monthly Salary Credit (10% ER / 5% EE), MSC floor ₱5,000,
+  // ceiling ₱35,000, in ₱500 brackets (RA 11199 schedule, unchanged for 2026).
+  // PhilHealth: 5% of monthly basic salary (2.5% EE / 2.5% ER), salary floor
+  // ₱10,000, ceiling ₱100,000 (UHC Law, RA 11223).
+  // Pag-IBIG: 2% EE / 2% ER of monthly compensation, capped at a ₱10,000
+  // compensation ceiling — i.e. max ₱200 EE share.
+  // NOTE: SSS uses an official bracket table with specific compensation
+  // ranges per MSC step; this rounds up to the nearest ₱500 as a close
+  // approximation. Always confirm exact centavo amounts against the
+  // official SSS table before finalizing payroll.
+  function govContributionsMonthly(monthlyEquivalent){
+    const salary = Math.max(0, monthlyEquivalent || 0);
+    const msc = Math.min(35000, Math.max(5000, Math.ceil(salary / 500) * 500));
+    const sss = Math.round(msc * 0.05 * 100) / 100;
+    const philhealthBase = Math.min(100000, Math.max(10000, salary));
+    const philhealth = Math.round(philhealthBase * 0.025 * 100) / 100;
+    const pagibigBase = Math.min(10000, salary);
+    const pagibig = Math.round(pagibigBase * 0.02 * 100) / 100;
+    return { sss, philhealth, pagibig };
+  }
+
   function setPayrollPreset(preset){
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth();
@@ -5644,7 +5746,7 @@
     if(!from || !to) return;
 
     const tbody = document.getElementById('payrollTbody');
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('payrollEmpty').style.display = 'none';
 
     // Fetch attendance a few days earlier than "from" too, so we can check
@@ -5685,14 +5787,9 @@
     // scheduled working day — not just the days they have a punch record
     // for. A day with no record at all is what makes it Absent.
     const attByUserDate = {};
-    const otMsByUser = {};
     attRows.forEach(r => {
       if(!attByUserDate[r.username]) attByUserDate[r.username] = {};
       attByUserDate[r.username][r.date] = r;
-      if(r.date >= from && r.date <= to && r.otIn && r.otOut){
-        const ms = new Date(r.otOut) - new Date(r.otIn);
-        if(ms > 0) otMsByUser[r.username] = (otMsByUser[r.username] || 0) + ms;
-      }
     });
 
     const configured = users.filter(u => u.payType && typeof u.rate === 'number');
@@ -5744,9 +5841,52 @@
       });
 
       const basePay = u.payType === 'daily' ? normalPay : u.rate;
-      const otHours = (otMsByUser[u.username] || 0) / (60 * 60 * 1000);
-      const otPay = otHours * (u.otRate || 0);
-      const grossPay = basePay + holidayTotal + otPay;
+
+      // ---- Overtime + Night Differential, computed per calendar date so
+      // each date's DOLE premium (ordinary / rest day / holiday) applies
+      // correctly, instead of one flat OT rate for the whole period.
+      const hourlyRate = dailyRate / (shiftMinutes / 60);
+      const otBaseRate = typeof u.otRate === 'number' ? u.otRate : hourlyRate;
+      let otHours = 0, otPay = 0, ndMinutes = 0, ndPay = 0;
+      const otDetails = [];
+      Object.keys(userAtt).filter(d => d >= from && d <= to).sort().forEach(date => {
+        const row = userAtt[date];
+        const type = dayTypeFor(date, holidayByDate);
+        const isRestDay = dayOfWeek(date) === 0;
+
+        // Overtime for this date.
+        let dateOtMs = 0;
+        if(row.otIn && row.otOut){
+          const ms = new Date(row.otOut) - new Date(row.otIn);
+          if(ms > 0) dateOtMs = ms;
+        }
+        const dateOtHours = dateOtMs / (60 * 60 * 1000);
+        const multiplier = otMultiplier(type, isRestDay);
+        const otHourlyRateForDate = otBaseRate * multiplier;
+        if(dateOtHours > 0){
+          const amount = otHourlyRateForDate * dateOtHours;
+          otHours += dateOtHours;
+          otPay += amount;
+          otDetails.push({ date, type, isRestDay, hours: dateOtHours, rate: otHourlyRateForDate, amount });
+        }
+
+        // Night Differential — 10% premium for hours worked 10PM–6AM,
+        // rated against the applicable basic hourly rate for regular
+        // hours, and the OT hourly rate (already inclusive of that day's
+        // premium) for hours worked during OT.
+        const regularNdMin = regularSegmentsForRow(row).reduce((sum, [s, e]) => sum + nightDiffMinutesForSegment(s, e), 0);
+        const otNdMin = (row.otIn && row.otOut) ? nightDiffMinutesForSegment(row.otIn, row.otOut) : 0;
+        if(regularNdMin > 0){
+          const effectiveHourlyRate = hourlyRate * basicDayMultiplier(type, isRestDay);
+          ndPay += effectiveHourlyRate * 0.10 * (regularNdMin / 60);
+        }
+        if(otNdMin > 0){
+          ndPay += otHourlyRateForDate * 0.10 * (otNdMin / 60);
+        }
+        ndMinutes += regularNdMin + otNdMin;
+      });
+
+      const grossPay = basePay + holidayTotal + otPay + ndPay;
       const allowance = u.allowance || 0;
       const sss = u.sssDeduction || 0;
       const philhealth = u.philhealthDeduction || 0;
@@ -5761,7 +5901,7 @@
       return {
         u, workingDays: normalDates.length, presentDays, absentDays, halfDays, lateDays, undertimeDays,
         totalLateMinutes, totalUndertimeMinutes, daysWorkedDisplay, dayDetails,
-        otHours, basePay, holidayTotal, holidayDetails, otPay, grossPay,
+        otHours, otDetails, ndMinutes, ndPay, basePay, holidayTotal, holidayDetails, otPay, grossPay,
         allowance, sss, philhealth, pagibig, cashAdvance, totalDeductions, netPay
       };
     }).sort((a, b) => b.netPay - a.netPay);
@@ -5790,6 +5930,7 @@
         <td title="${escapeHtml(tooltip)}">${r.daysWorkedDisplay.toLocaleString('en-PH')}</td>
         <td>${r.otHours.toFixed(1)}</td>
         <td>${formatCurrency(r.holidayTotal)}</td>
+        <td title="${r.ndMinutes} min at 10PM–6AM">${formatCurrency(r.ndPay)}</td>
         <td>${formatCurrency(r.grossPay)}</td>
         <td>${formatCurrency(r.allowance)}</td>
         <td>${formatCurrency(r.totalDeductions)}</td>
@@ -5830,7 +5971,8 @@
       ['Days Worked (pay basis)', String(entry.daysWorkedDisplay)],
       ['Base Pay', formatCurrency(entry.basePay)],
       ['Holiday Pay', formatCurrency(entry.holidayTotal)],
-      ['Overtime Pay', `${formatCurrency(entry.otPay)} (${entry.otHours.toFixed(1)} hr${entry.u.otRate ? ` × ${formatCurrency(entry.u.otRate)}/hr` : ''})`],
+      ['Overtime Pay', `${formatCurrency(entry.otPay)} (${entry.otHours.toFixed(1)} hr, rate varies by day type — see below)`],
+      ['Night Differential', `${formatCurrency(entry.ndPay)} (${entry.ndMinutes} min, 10PM–6AM, +10%)`],
       ['Gross Pay', formatCurrency(entry.grossPay)],
       ['Allowance', `+ ${formatCurrency(entry.allowance)}`],
       ['SSS Deduction', `- ${formatCurrency(entry.sss)}`],
@@ -5860,6 +6002,25 @@
         </table>`;
     }
 
+    let otHtml = '';
+    if(entry.otDetails && entry.otDetails.length > 0){
+      const otTypeLabel = (d) => {
+        const base = d.type === 'ordinary' ? (d.isRestDay ? 'Rest Day' : 'Ordinary Day') : (HOLIDAY_TYPE_LABEL[d.type] || d.type);
+        return d.isRestDay && d.type !== 'ordinary' ? `${base} + Rest Day` : base;
+      };
+      otHtml = `<div class="section-label" style="margin-top:0;">Overtime Breakdown</div>
+        <table class="drilldown-table" style="margin-bottom:18px;">
+          <thead><tr><th>Date</th><th>Day Type</th><th>Hours</th><th>Rate/hr</th><th style="text-align:right;">Amount</th></tr></thead>
+          <tbody>${entry.otDetails.map(d => `<tr>
+            <td>${escapeHtml(d.date)}</td>
+            <td>${escapeHtml(otTypeLabel(d))}</td>
+            <td>${d.hours.toFixed(2)}</td>
+            <td>${formatCurrency(d.rate)}</td>
+            <td style="text-align:right;">${formatCurrency(d.amount)}</td>
+          </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
     let attHtml;
     if(attRows.length === 0){
       attHtml = '<div class="drilldown-empty">No attendance punches in this range.</div>';
@@ -5885,7 +6046,7 @@
       </table>`;
     }
 
-    document.getElementById('drilldownBody').innerHTML = breakdownHtml + holidayHtml +
+    document.getElementById('drilldownBody').innerHTML = breakdownHtml + holidayHtml + otHtml +
       '<div class="section-label" style="margin-top:0;">Day-by-Day Attendance</div>' + attHtml;
     document.getElementById('drilldownOverlay').classList.add('open');
   }
@@ -5917,6 +6078,35 @@
 
   function closePayrollSettingsEdit(){
     document.getElementById('payrollSettingsOverlay').classList.remove('open');
+  }
+
+  // Estimates SSS / PhilHealth / Pag-IBIG employee-share deductions from
+  // the 2026 contribution tables and fills the three fields (doesn't save
+  // until the admin clicks Save). Scales the monthly figure down for a
+  // semi-monthly (~15-day) cutoff so it isn't double-deducted twice a month.
+  function autoFillGovContributions(){
+    const username = document.getElementById('payrollSettingsOverlay').dataset.username;
+    const entry = cachedPayrollRows.find(r => r.u.username === username);
+    const u = entry ? entry.u : (cachedUsers || []).find(x => x.username === username);
+    const errEl = document.getElementById('payrollSettingsError');
+    if(!u || !u.payType || typeof u.rate !== 'number'){
+      errEl.textContent = 'Set Pay Type and Rate for this employee first (Users tab).';
+      return;
+    }
+    const monthlyEquivalent = u.payType === 'fixed' ? u.rate : u.rate * MONTHLY_RATE_DIVISOR;
+    const full = govContributionsMonthly(monthlyEquivalent);
+
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    let scale = 1;
+    if(from && to){
+      const days = (new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / (24 * 60 * 60 * 1000) + 1;
+      scale = days <= 20 ? 0.5 : 1; // ~half-month cutoff vs a full-month run
+    }
+    document.getElementById('payrollSettingsSss').value = Math.round(full.sss * scale * 100) / 100;
+    document.getElementById('payrollSettingsPhilhealth').value = Math.round(full.philhealth * scale * 100) / 100;
+    document.getElementById('payrollSettingsPagibig').value = Math.round(full.pagibig * scale * 100) / 100;
+    errEl.textContent = '';
   }
 
   async function savePayrollSettingsEdit(){
