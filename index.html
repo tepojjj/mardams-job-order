@@ -2189,6 +2189,7 @@
     <div class="attendance-filters">
       <div><label>From</label><input type="date" id="payFrom"></div>
       <div><label>To</label><input type="date" id="payTo"></div>
+      <div><button class="ghost" onclick="setPayrollPreset('this_week')">This Week</button></div>
       <div><button class="ghost" onclick="setPayrollPreset('this_half_1')">1st–15th</button></div>
       <div><button class="ghost" onclick="setPayrollPreset('this_half_2')">16th–End</button></div>
       <div><button class="ghost" onclick="setPayrollPreset('this_month')">This Month</button></div>
@@ -5828,7 +5829,16 @@
     const pad = n => String(n).padStart(2, '0');
     const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     let from, to;
-    if(preset === 'this_half_1'){
+    if(preset === 'this_week'){
+      const day = now.getDay(); // 0=Sun...6=Sat
+      const diffToMon = (day === 0 ? -6 : 1 - day);
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMon);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      from = fmt(monday);
+      to = fmt(sunday);
+    }else if(preset === 'this_half_1'){
       from = fmt(new Date(y, m, 1));
       to = fmt(new Date(y, m, 15));
     }else if(preset === 'this_half_2'){
