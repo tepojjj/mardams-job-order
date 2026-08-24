@@ -2361,6 +2361,37 @@
   </main>
   </div>
 
+  <div class="drilldown-overlay" id="attendanceEditOverlay" onclick="if(event.target===this) closeAttendanceEdit();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Edit Attendance Times</div>
+          <div class="drilldown-sub" id="attendanceEditSub">—</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closeAttendanceEdit();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px; max-height:70vh; overflow:auto;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);">AM In</label>
+          <input type="time" id="attendanceEditMorningIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Lunch Out</label>
+          <input type="time" id="attendanceEditNoonOut">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">PM In</label>
+          <input type="time" id="attendanceEditAfternoonIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">PM Out</label>
+          <input type="time" id="attendanceEditAfternoonOut">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">OT In</label>
+          <input type="time" id="attendanceEditOtIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">OT Out</label>
+          <input type="time" id="attendanceEditOtOut">
+          <div class="drilldown-sub" style="margin-top:10px;">Times are Asia/Manila local time. Leave a field blank to clear that punch. Editing affects Payroll for this date.</div>
+          <div class="login-error" id="attendanceEditError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="saveAttendanceEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="drilldown-overlay" id="payEditOverlay" onclick="if(event.target===this) closePayEdit();">
     <div class="drilldown-modal" style="max-width:380px;">
       <div class="drilldown-head">
@@ -5188,8 +5219,11 @@
         if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
       }
       if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
-      const deleteCell = isSuperAdmin()
-        ? `<td><button type="button" class="ghost edit-btn" onclick="deleteAttendanceRow('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Delete</button></td>`
+      const actionsCell = isSuperAdmin()
+        ? `<td style="white-space:nowrap;">
+            <button type="button" class="ghost edit-btn" onclick="openAttendanceEdit('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Edit</button>
+            <button type="button" class="ghost edit-btn" onclick="deleteAttendanceRow('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Delete</button>
+          </td>`
         : '<td></td>';
       return `<tr>
         <td>${escapeHtml(r.date)}</td>
@@ -5201,9 +5235,81 @@
         <td>${formatTimeStamp(r.otIn)}</td>
         <td>${formatTimeStamp(r.otOut)}</td>
         <td>${statusHtml || '—'}</td>
-        ${deleteCell}
+        ${actionsCell}
       </tr>`;
     }).join('');
+  }
+
+  // ---- Edit attendance punch times (Super Admin only) ----
+  // A Manila-local HH:MM (from a <input type="time">) converted to the
+  // UTC ISO instant that timestamp represents for the given date — the
+  // same representation normal clock-in/out punches are stored as.
+  function manilaTimeToIso(date, hhmm){
+    if(!hhmm) return null;
+    const d = new Date(`${date}T${hhmm}:00.000+08:00`);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  // The reverse: an ISO instant to the HH:MM to show in a time input,
+  // in Asia/Manila local time.
+  function isoToManilaTimeInput(iso){
+    if(!iso) return '';
+    return new Date(iso).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+  }
+
+  function openAttendanceEdit(date, username){
+    if(!isSuperAdmin()) return;
+    const row = cachedAttendanceReport.find(r => r.date === date && r.username === username);
+    if(!row) return;
+    document.getElementById('attendanceEditSub').textContent = `${username} — ${date}`;
+    document.getElementById('attendanceEditMorningIn').value = isoToManilaTimeInput(row.morningIn);
+    document.getElementById('attendanceEditNoonOut').value = isoToManilaTimeInput(row.noonOut);
+    document.getElementById('attendanceEditAfternoonIn').value = isoToManilaTimeInput(row.afternoonIn);
+    document.getElementById('attendanceEditAfternoonOut').value = isoToManilaTimeInput(row.afternoonOut);
+    document.getElementById('attendanceEditOtIn').value = isoToManilaTimeInput(row.otIn);
+    document.getElementById('attendanceEditOtOut').value = isoToManilaTimeInput(row.otOut);
+    document.getElementById('attendanceEditError').textContent = '';
+    document.getElementById('attendanceEditOverlay').dataset.date = date;
+    document.getElementById('attendanceEditOverlay').dataset.username = username;
+    document.getElementById('attendanceEditOverlay').classList.add('open');
+  }
+
+  function closeAttendanceEdit(){
+    document.getElementById('attendanceEditOverlay').classList.remove('open');
+  }
+
+  async function saveAttendanceEdit(){
+    const overlay = document.getElementById('attendanceEditOverlay');
+    const date = overlay.dataset.date;
+    const username = overlay.dataset.username;
+    const errEl = document.getElementById('attendanceEditError');
+
+    const morningIn = manilaTimeToIso(date, document.getElementById('attendanceEditMorningIn').value);
+    const noonOut = manilaTimeToIso(date, document.getElementById('attendanceEditNoonOut').value);
+    const afternoonIn = manilaTimeToIso(date, document.getElementById('attendanceEditAfternoonIn').value);
+    const afternoonOut = manilaTimeToIso(date, document.getElementById('attendanceEditAfternoonOut').value);
+    const otIn = manilaTimeToIso(date, document.getElementById('attendanceEditOtIn').value);
+    const otOut = manilaTimeToIso(date, document.getElementById('attendanceEditOtOut').value);
+
+    errEl.textContent = '';
+    try{
+      const res = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ date, username, morningIn, noonOut, afternoonIn, afternoonOut, otIn, otOut })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not save changes.';
+        return;
+      }
+      const idx = cachedAttendanceReport.findIndex(r => r.date === date && r.username === username);
+      if(idx !== -1) cachedAttendanceReport[idx] = { ...cachedAttendanceReport[idx], ...data.record };
+      renderAttendanceReport();
+      closeAttendanceEdit();
+    }catch(e){
+      errEl.textContent = 'Could not save changes.';
+    }
   }
 
   // Removes one attendance punch record — Super Admin only (enforced both

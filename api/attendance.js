@@ -172,5 +172,74 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Edit one or more punch times on an existing attendance record (Super
+  // Admin only). Accepts each field as either an ISO instant or null to
+  // clear it — the client sends a Manila-local HH:MM converted to a
+  // UTC ISO instant for the record's date, so what's stored stays
+  // consistent with how punches are recorded normally.
+  if (req.method === 'PATCH') {
+    const auth = requireRole(req, res, ['super_admin']);
+    if (!auth) return;
+
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body || '{}');
+      } catch (e) {
+        res.status(400).json({ error: 'Invalid JSON' });
+        return;
+      }
+    }
+    body = body || {};
+
+    const date = String(body.date || '');
+    const username = String(body.username || '').trim().toLowerCase();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !username) {
+      res.status(400).json({ error: 'Missing or invalid date/username' });
+      return;
+    }
+
+    const key = fieldKey(date, username);
+    const existingRaw = await kv.hget(KEY, key);
+    if (!existingRaw) {
+      res.status(404).json({ error: 'No attendance record found for that date/employee' });
+      return;
+    }
+    const existing = typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw;
+
+    const EDITABLE_FIELDS = ['morningIn', 'noonOut', 'afternoonIn', 'afternoonOut', 'otIn', 'otOut'];
+    const updated = { ...existing };
+    const changes = [];
+    for (const field of EDITABLE_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+      const value = body[field];
+      if (value === null || value === '') {
+        if (updated[field]) changes.push(`${field}: cleared`);
+        updated[field] = null;
+        continue;
+      }
+      const parsed = new Date(value);
+      if (isNaN(parsed.getTime())) {
+        res.status(400).json({ error: `Invalid time value for ${field}` });
+        return;
+      }
+      if (updated[field] !== value) changes.push(`${field}: ${value}`);
+      updated[field] = parsed.toISOString();
+    }
+
+    await kv.hset(KEY, { [key]: JSON.stringify(updated) });
+    if (changes.length > 0) {
+      await logAccountChange({
+        type: 'attendance-edited',
+        username,
+        changedBy: auth.username,
+        changedByRole: auth.role,
+        details: `Edited attendance for ${date} — ${changes.join(', ')}`
+      });
+    }
+    res.status(200).json({ ok: true, record: updated });
+    return;
+  }
+
   res.status(405).send('Method not allowed');
 };
