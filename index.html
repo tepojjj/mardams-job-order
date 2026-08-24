@@ -6037,7 +6037,7 @@
     generatePayroll();
   }
 
-  const MONTHLY_RATE_DIVISOR = 26; // standard PH payroll divisor used to derive a daily-equivalent rate for Fixed Monthly employees — used only for holiday pay; their base pay itself doesn't change with attendance.
+  const MONTHLY_RATE_DIVISOR = 26; // standard PH payroll divisor used to derive a daily-equivalent rate for Fixed Monthly employees — drives both their prorated base pay and their holiday pay.
 
   let cachedPayrollRows = [];
 
@@ -6153,7 +6153,14 @@
         holidayDetails.push({ date: h.date, name: h.name, type: h.type, worked, amount: result.amount, label: result.label });
       });
 
-      const basePay = u.payType === 'daily' ? normalPay : u.rate;
+      // Fixed Monthly employees are paid a share of their monthly rate for
+      // whatever period payroll is run over (weekly, semi-monthly/15-day,
+      // etc.) — not the full monthly figure every run. Their attendance is
+      // converted to pesos the same way as Daily Rate employees, using their
+      // monthly-derived daily-equivalent rate (dailyRate, above), so
+      // absences, half days, lates, and undertime all reduce basePay
+      // exactly like they do for Daily Rate staff.
+      const basePay = normalPay;
 
       // ---- Overtime + Night Differential, computed per calendar date so
       // each date's DOLE premium (ordinary / rest day / holiday) applies
