@@ -2254,14 +2254,36 @@
     <div class="browse-empty" id="holidaysEmpty" style="display:none;"></div>
 
     <div class="section-label">Payroll Breakdown</div>
-    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employee's OT rate, allowance, or deductions.</div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employee's OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period.</div>
     <table class="browse-table payroll-table">
       <thead>
-        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th></th></tr>
+        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="payrollTbody"></tbody>
     </table>
     <div class="browse-empty" id="payrollEmpty" style="display:none;"></div>
+
+    <div class="section-label" style="margin-top:26px; display:flex; align-items:center; justify-content:space-between;">
+      <span>Payment History</span>
+      <button type="button" class="ghost" onclick="togglePayrollHistory()" id="payrollHistoryToggleBtn">Show</button>
+    </div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">Track record of every payout that's been marked as paid, across all periods.</div>
+    <div id="payrollHistoryPanel" style="display:none;">
+      <div class="attendance-filters">
+        <div><label>Employee</label>
+          <select id="payHistoryUserFilter" onchange="loadPayrollHistory()"><option value="">All employees</option></select>
+        </div>
+        <div><label>From</label><input type="date" id="payHistoryFrom" onchange="loadPayrollHistory()"></div>
+        <div><label>To</label><input type="date" id="payHistoryTo" onchange="loadPayrollHistory()"></div>
+      </div>
+      <table class="browse-table">
+        <thead>
+          <tr><th>Employee</th><th>Period</th><th>Net Pay</th><th>Paid On</th><th>Paid By</th><th></th></tr>
+        </thead>
+        <tbody id="payrollHistoryTbody"></tbody>
+      </table>
+      <div class="browse-empty" id="payrollHistoryEmpty" style="display:none;"></div>
+    </div>
   </div>
 
   <div class="analytics-wrap" id="viewAnalytics" style="display:none;">
@@ -6058,7 +6080,7 @@
     if(!from || !to) return;
 
     const tbody = document.getElementById('payrollTbody');
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Loading…</td></tr>';
     document.getElementById('payrollEmpty').style.display = 'none';
 
     // Fetch attendance a few days earlier than "from" too, so we can check
@@ -6066,20 +6088,28 @@
     // holiday that falls right at the start of the range.
     const extendedFrom = addDaysToDateStr(from, -5);
 
-    let users = [], attRows = [], holidays = [];
+    let users = [], attRows = [], holidays = [], payments = [];
     try{
-      const [usersRes, attRes, holidaysRes] = await Promise.all([
+      const [usersRes, attRes, holidaysRes, paymentsRes] = await Promise.all([
         fetch('/api/users', { headers: { ...authHeaders() } }),
         fetch(`/api/attendance?${new URLSearchParams({ report: '1', from: extendedFrom, to })}`, { headers: { ...authHeaders() } }),
-        fetch(`/api/holidays?${new URLSearchParams({ from, to })}`, { headers: { ...authHeaders() } })
+        fetch(`/api/holidays?${new URLSearchParams({ from, to })}`, { headers: { ...authHeaders() } }),
+        fetch(`/api/payroll-payments?${new URLSearchParams({ from, to })}`, { headers: { ...authHeaders() } })
       ]);
-      if(handleAuthFailure(usersRes.status) || handleAuthFailure(attRes.status) || handleAuthFailure(holidaysRes.status)) return;
+      if(handleAuthFailure(usersRes.status) || handleAuthFailure(attRes.status) || handleAuthFailure(holidaysRes.status) || handleAuthFailure(paymentsRes.status)) return;
       const usersData = await usersRes.json();
       const attData = await attRes.json();
       const holidaysData = await holidaysRes.json();
+      const paymentsData = await paymentsRes.json().catch(() => ({}));
       users = usersData.users || [];
       attRows = attData.rows || [];
       holidays = holidaysData.holidays || [];
+      // Only an exact match on this period counts as "paid" for the
+      // Status column — the endpoint also returns overlapping periods,
+      // which matters for the Payment History table but would be
+      // misleading here (e.g. a 1st–15th payout showing as "Paid" while
+      // viewing the full month).
+      payments = (paymentsData.payments || []).filter(p => p.from === from && p.to === to);
       cachedUsers = users;
     }catch(e){
       tbody.innerHTML = '';
@@ -6239,6 +6269,7 @@
 
     cachedPayrollRows = rows;
     cachedAttendanceReport = attRows.filter(r => r.date >= from && r.date <= to); // reused for the drill-down detail below
+    cachedPayrollPaymentsByUser = Object.fromEntries(payments.map(p => [p.username, p]));
 
     document.getElementById('payrollTotal').textContent = formatCurrency(grandTotal);
     document.getElementById('payrollEmpCount').textContent = rows.length.toLocaleString('en-PH');
@@ -6254,6 +6285,13 @@
     tbody.innerHTML = rows.map(r => {
       const tooltip = `${r.workingDays} working days − ${r.absentDays} absent − ${r.halfDays} half day(s) `
         + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
+      const paid = cachedPayrollPaymentsByUser[r.u.username];
+      const statusCell = paid
+        ? `<span class="pay-type-pill" style="background:#e6f4ea; color:#1a7f37;" title="Marked paid by ${escapeHtml(paid.paidBy)} on ${new Date(paid.paidAt).toLocaleString('en-PH')}">✓ Paid ${new Date(paid.paidAt).toLocaleDateString('en-PH')}</span>`
+        : `<span class="pay-type-pill" style="background:#fdecea; color:#a3231b;">Unpaid</span>`;
+      const statusBtn = paid
+        ? `<button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); undoPayrollPaid('${escapeHtml(r.u.username)}')">Undo</button>`
+        : `<button type="button" class="primary edit-btn" onclick="event.stopPropagation(); markPayrollPaid('${escapeHtml(r.u.username)}')">Mark Paid</button>`;
       return `
       <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(r.u.username)}')">
         <td>${escapeHtml(r.u.displayName || r.u.username)}</td>
@@ -6266,9 +6304,150 @@
         <td>${formatCurrency(r.allowance)}</td>
         <td>${formatCurrency(r.totalDeductions)}</td>
         <td>${formatCurrency(r.netPay)}</td>
-        <td><button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); openPayrollSettingsEdit('${escapeHtml(r.u.username)}')">Edit</button></td>
+        <td>${statusCell}</td>
+        <td style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); openPayrollSettingsEdit('${escapeHtml(r.u.username)}')">Edit</button>
+          ${statusBtn}
+        </td>
       </tr>`;
     }).join('');
+  }
+
+  // ---- Payroll payment tracking ("has this person actually been paid
+  // for this period yet?") ----
+  let cachedPayrollPaymentsByUser = {};
+
+  async function markPayrollPaid(username){
+    const entry = cachedPayrollRows.find(r => r.u.username === username);
+    if(!entry) return;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    if(!confirm(`Mark ${entry.u.displayName || username} as paid ${formatCurrency(entry.netPay)} for ${from} to ${to}?`)) return;
+    try{
+      const res = await fetch('/api/payroll-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ username, displayName: entry.u.displayName || username, from, to, netPay: entry.netPay })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Could not mark this payout as paid.');
+        return;
+      }
+      generatePayroll();
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+    }
+  }
+
+  async function undoPayrollPaid(username){
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    if(!confirm('Undo the "Paid" mark for this employee and period?')) return;
+    try{
+      const res = await fetch(`/api/payroll-payments?${new URLSearchParams({ username, from, to })}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        alert('Could not undo that.');
+        return;
+      }
+      generatePayroll();
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+    }
+  }
+
+  function togglePayrollHistory(){
+    const panel = document.getElementById('payrollHistoryPanel');
+    const btn = document.getElementById('payrollHistoryToggleBtn');
+    const showing = panel.style.display !== 'none';
+    panel.style.display = showing ? 'none' : 'block';
+    btn.textContent = showing ? 'Show' : 'Hide';
+    if(!showing){
+      const sel = document.getElementById('payHistoryUserFilter');
+      if(sel.options.length <= 1){
+        (cachedUsers || []).slice().sort((a, b) => (a.displayName || a.username).localeCompare(b.displayName || b.username)).forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.username;
+          opt.textContent = u.displayName || u.username;
+          sel.appendChild(opt);
+        });
+      }
+      loadPayrollHistory();
+    }
+  }
+
+  async function loadPayrollHistory(){
+    if(!isSuperAdmin()) return;
+    const tbody = document.getElementById('payrollHistoryTbody');
+    const empty = document.getElementById('payrollHistoryEmpty');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading…</td></tr>';
+    empty.style.display = 'none';
+
+    const username = document.getElementById('payHistoryUserFilter').value;
+    const from = document.getElementById('payHistoryFrom').value;
+    const to = document.getElementById('payHistoryTo').value;
+    const params = {};
+    if(username) params.username = username;
+    if(from) params.from = from;
+    if(to) params.to = to;
+
+    let payments = [];
+    try{
+      const res = await fetch(`/api/payroll-payments?${new URLSearchParams(params)}`, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      payments = data.payments || [];
+    }catch(e){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'Could not load payment history.';
+      return;
+    }
+
+    if(payments.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No payouts marked as paid yet.';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = payments.map(p => `
+      <tr>
+        <td>${escapeHtml(p.displayName || p.username)}</td>
+        <td>${escapeHtml(p.from)} – ${escapeHtml(p.to)}</td>
+        <td>${formatCurrency(p.netPay)}</td>
+        <td>${new Date(p.paidAt).toLocaleString('en-PH')}</td>
+        <td>${escapeHtml(p.paidBy)}</td>
+        <td><button type="button" class="ghost edit-btn" onclick="undoPayrollPaidFromHistory('${escapeHtml(p.username)}', '${escapeHtml(p.from)}', '${escapeHtml(p.to)}')">Undo</button></td>
+      </tr>`).join('');
+  }
+
+  async function undoPayrollPaidFromHistory(username, from, to){
+    if(!confirm('Undo the "Paid" mark for this employee and period?')) return;
+    try{
+      const res = await fetch(`/api/payroll-payments?${new URLSearchParams({ username, from, to })}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        alert('Could not undo that.');
+        return;
+      }
+      loadPayrollHistory();
+      // Keep the main breakdown's Status column in sync if it currently
+      // shows the same period.
+      if(document.getElementById('payFrom').value === from && document.getElementById('payTo').value === to){
+        generatePayroll();
+      }
+    }catch(e){
+      alert('Could not reach the server. Please try again.');
+    }
   }
 
   // Clicking a payroll row opens the drill-down modal (shared with the
