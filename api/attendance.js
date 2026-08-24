@@ -1,5 +1,6 @@
 const { kv } = require('@vercel/kv');
 const { requireAuth, requireRole } = require('./_auth');
+const { logAccountChange } = require('./_account-log');
 
 // All attendance punches live in one Redis hash: { "date|username": JSON string }.
 // date is YYYY-MM-DD in Asia/Manila local time, computed server-side so the
@@ -134,6 +135,40 @@ module.exports = async (req, res) => {
       today = { ...today, morningIn: today.timeIn || null, afternoonOut: today.timeOut || null, noonOut: null, afternoonIn: null, otIn: null, otOut: null };
     }
     res.status(200).json({ today, date });
+    return;
+  }
+
+  // Remove one attendance punch record (one date, one employee). This
+  // edits the payroll-relevant record directly, so it's restricted to the
+  // Super Admin only, and logged the same way password resets and other
+  // sensitive account changes are.
+  if (req.method === 'DELETE') {
+    const auth = requireRole(req, res, ['super_admin']);
+    if (!auth) return;
+
+    const date = String(req.query.date || '');
+    const username = String(req.query.username || '').trim().toLowerCase();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !username) {
+      res.status(400).json({ error: 'Missing or invalid date/username' });
+      return;
+    }
+
+    const key = fieldKey(date, username);
+    const existingRaw = await kv.hget(KEY, key);
+    if (!existingRaw) {
+      res.status(404).json({ error: 'No attendance record found for that date/employee' });
+      return;
+    }
+
+    await kv.hdel(KEY, key);
+    await logAccountChange({
+      type: 'attendance-deleted',
+      username,
+      changedBy: auth.username,
+      changedByRole: auth.role,
+      details: `Deleted attendance record for ${date}`
+    });
+    res.status(200).json({ ok: true });
     return;
   }
 

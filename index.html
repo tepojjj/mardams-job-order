@@ -2125,7 +2125,7 @@
       </div>
       <table class="browse-table drilldown-table">
         <thead>
-          <tr><th>Date</th><th>Employee</th><th>AM In</th><th>Lunch Out</th><th>PM In</th><th>PM Out</th><th>OT In</th><th>OT Out</th><th>Status</th></tr>
+          <tr><th>Date</th><th>Employee</th><th>AM In</th><th>Lunch Out</th><th>PM In</th><th>PM Out</th><th>OT In</th><th>OT Out</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="attendanceReportTbody"></tbody>
       </table>
@@ -5188,6 +5188,9 @@
         if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
       }
       if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
+      const deleteCell = isSuperAdmin()
+        ? `<td><button type="button" class="ghost edit-btn" onclick="deleteAttendanceRow('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Delete</button></td>`
+        : '<td></td>';
       return `<tr>
         <td>${escapeHtml(r.date)}</td>
         <td>${escapeHtml(r.username)}</td>
@@ -5198,8 +5201,34 @@
         <td>${formatTimeStamp(r.otIn)}</td>
         <td>${formatTimeStamp(r.otOut)}</td>
         <td>${statusHtml || '—'}</td>
+        ${deleteCell}
       </tr>`;
     }).join('');
+  }
+
+  // Removes one attendance punch record — Super Admin only (enforced both
+  // here and server-side in api/attendance.js). Deleting a record affects
+  // Payroll, since Payroll reads from this same attendance log, so it asks
+  // for confirmation naming exactly what's being removed.
+  async function deleteAttendanceRow(date, username){
+    if(!isSuperAdmin()) return;
+    if(!confirm(`Delete the attendance record for ${username} on ${date}? This also affects Payroll for that date. This cannot be undone.`)) return;
+    try{
+      const res = await fetch(`/api/attendance?${new URLSearchParams({ date, username })}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders() }
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Could not delete the attendance record.');
+        return;
+      }
+      cachedAttendanceReport = cachedAttendanceReport.filter(r => !(r.date === date && r.username === username));
+      renderAttendanceReport();
+    }catch(e){
+      alert('Could not delete the attendance record.');
+    }
   }
 
   // ---- Reference photo: click-to-upload, drag-drop, and clipboard paste ----
