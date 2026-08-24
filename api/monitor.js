@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess } = require('./_auth');
+const { requireJobOrdersAccess } = require('../lib/auth');
 
 // The Monitoring Sheet is a standalone manual tracker — separate from the
 // job-order records in api/orders.js. Rows are typed in by hand (Date, JO

@@ -1,6 +1,6 @@
 const { kv } = require('@vercel/kv');
-const { hashPassword, requireRole } = require('./_auth');
-const { logAccountChange, LOG_KEY } = require('./_account-log');
+const { hashPassword, requireRole } = require('../lib/auth');
+const { logAccountChange, LOG_KEY } = require('../lib/account-log');
 
 const USERS_KEY = 'app-users';
 

@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess, requireJobOrdersRole } = require('./_auth');
+const { requireJobOrdersAccess, requireJobOrdersRole } = require('../lib/auth');
 
 // All saved job orders live in one Redis hash: { [joNumber]: JSON string }.
 // This is separate from api/counter.js (which only tracks the running number).

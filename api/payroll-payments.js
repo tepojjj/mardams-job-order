@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireRole } = require('./_auth');
+const { requireRole } = require('../lib/auth');
 
 // Track record of which employees have actually been PAID for a given
 // payroll period, separate from generatePayroll() (in index.html) which
