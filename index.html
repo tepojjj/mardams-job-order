@@ -2168,8 +2168,24 @@
       </div>
     </div>
 
+    <div id="myAttendanceSection" style="display:none;">
+      <div class="section-label" style="margin-top:0;">My Attendance</div>
+      <div class="attendance-filters">
+        <div><label>From</label><input type="date" id="myAttFrom"></div>
+        <div><label>To</label><input type="date" id="myAttTo"></div>
+        <div><button class="ghost" onclick="loadMyAttendance()">Filter</button></div>
+      </div>
+      <table class="browse-table drilldown-table">
+        <thead>
+          <tr><th>Date</th><th>AM In</th><th>Lunch Out</th><th>PM In</th><th>PM Out</th><th>OT In</th><th>OT Out</th><th>Status</th></tr>
+        </thead>
+        <tbody id="myAttendanceTbody"></tbody>
+      </table>
+      <div class="browse-empty" id="myAttendanceEmpty" style="display:none;"></div>
+    </div>
+
     <div id="attendanceReportSection" style="display:none;">
-      <div class="section-label" style="margin-top:0;">Attendance Report</div>
+      <div class="section-label" style="margin-top:0;">Attendance Report — All Employees</div>
       <div class="attendance-filters">
         <div><label>From</label><input type="date" id="attFrom"></div>
         <div><label>To</label><input type="date" id="attTo"></div>
@@ -4698,6 +4714,7 @@
     document.getElementById('drilldownTitle').textContent = entry.title;
     document.getElementById('drilldownSub').textContent =
       `${rows.length.toLocaleString('en-PH')} job order${rows.length === 1 ? '' : 's'}` + (entry.sub ? ` · ${entry.sub}` : '');
+    document.getElementById('drilldownPrintPayslipBtn').style.display = 'none';
 
     const body = document.getElementById('drilldownBody');
     if(rows.length === 0){
@@ -4730,6 +4747,7 @@
 
   function closeAnalyticsDrilldown(){
     document.getElementById('drilldownOverlay').classList.remove('open');
+    currentPayslipUsername = null;
   }
 
   document.addEventListener('keydown', (e) => {
@@ -5277,6 +5295,7 @@
   async function loadAttendance(){
     startClockTick();
     document.getElementById('attendanceReportSection').style.display = isSuperAdmin() ? 'block' : 'none';
+    document.getElementById('myAttendanceSection').style.display = isSuperAdmin() ? 'none' : 'block';
 
     try{
       const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
@@ -5308,7 +5327,78 @@
       if(!document.getElementById('attFrom').value) document.getElementById('attFrom').value = fromDate.toISOString().slice(0, 10);
       if(!document.getElementById('attTo').value) document.getElementById('attTo').value = toStr;
       loadAttendanceReport();
+    }else{
+      const today = new Date();
+      const toStr = today.toISOString().slice(0, 10);
+      const fromDate = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);
+      if(!document.getElementById('myAttFrom').value) document.getElementById('myAttFrom').value = fromDate.toISOString().slice(0, 10);
+      if(!document.getElementById('myAttTo').value) document.getElementById('myAttTo').value = toStr;
+      loadMyAttendance();
     }
+  }
+
+  let cachedMyAttendance = [];
+
+  async function loadMyAttendance(){
+    const from = document.getElementById('myAttFrom').value;
+    const to = document.getElementById('myAttTo').value;
+    const tbody = document.getElementById('myAttendanceTbody');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading…</td></tr>';
+    document.getElementById('myAttendanceEmpty').style.display = 'none';
+    try{
+      const params = new URLSearchParams({ report: '1', mine: '1' });
+      if(from) params.set('from', from);
+      if(to) params.set('to', to);
+      const res = await fetch(`/api/attendance?${params}`, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      // The server already scopes non-Super-Admin callers to their own
+      // records regardless of what's asked for, but filter again here
+      // too in case a Super Admin ever views this section.
+      cachedMyAttendance = (data.rows || []).filter(r => r.username === (currentUser && currentUser.username));
+    }catch(e){
+      cachedMyAttendance = [];
+      console.warn('Could not load your attendance.', e);
+    }
+    renderMyAttendance();
+  }
+
+  function renderMyAttendance(){
+    const tbody = document.getElementById('myAttendanceTbody');
+    const empty = document.getElementById('myAttendanceEmpty');
+    if(cachedMyAttendance.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = 'No attendance punches in this range.';
+      return;
+    }
+    empty.style.display = 'none';
+    const u = currentUser;
+    tbody.innerHTML = cachedMyAttendance.map(r => {
+      let statusHtml = '';
+      if(!r.afternoonOut){
+        statusHtml += '<span class="badge-open">Open shift</span>';
+      }
+      if(u && u.regularTimeIn && r.morningIn){
+        const inLocal = new Date(r.morningIn).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(inLocal > u.regularTimeIn) statusHtml += '<span class="badge-late">Late</span>';
+      }
+      if(u && u.regularTimeOut && r.afternoonOut){
+        const outLocal = new Date(r.afternoonOut).toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Manila' }).slice(0, 5);
+        if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
+      }
+      if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
+      return `<tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${formatTimeStamp(r.morningIn)}</td>
+        <td>${formatTimeStamp(r.noonOut)}</td>
+        <td>${formatTimeStamp(r.afternoonIn)}</td>
+        <td>${formatTimeStamp(r.afternoonOut)}</td>
+        <td>${formatTimeStamp(r.otIn)}</td>
+        <td>${formatTimeStamp(r.otOut)}</td>
+        <td>${statusHtml || '—'}</td>
+      </tr>`;
+    }).join('');
   }
 
   async function doPunch(action){
@@ -6307,6 +6397,7 @@
         <td>${statusCell}</td>
         <td style="display:flex; gap:6px; flex-wrap:wrap;">
           <button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); openPayrollSettingsEdit('${escapeHtml(r.u.username)}')">Edit</button>
+          <button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); printPayslip('${escapeHtml(r.u.username)}')">Payslip</button>
           ${statusBtn}
         </td>
       </tr>`;
@@ -6471,6 +6562,8 @@
 
     document.getElementById('drilldownTitle').textContent = `${entry.u.displayName || username} — Payroll Detail`;
     document.getElementById('drilldownSub').textContent = `${from} to ${to}`;
+    document.getElementById('drilldownPrintPayslipBtn').style.display = 'inline-block';
+    currentPayslipUsername = username;
 
     const breakdownRows = [
       ['Working Days (Mon–Sat, excl. holidays)', String(entry.workingDays)],
@@ -6567,6 +6660,102 @@
     const h = (entry.holidayDetails || []).find(x => x.date === date);
     if(!h) return null;
     return `${HOLIDAY_TYPE_LABEL[h.type] || h.type} (${h.worked ? 'Worked' : 'Unworked'})`;
+  }
+
+  // ---- Printable payslip ----
+  // Reuses the same cachedPayrollRows figures shown in the drill-down
+  // modal — no separate calculation, no new endpoint. Opens a plain new
+  // tab with print-friendly markup and triggers the browser print dialog;
+  // the person can print to paper or "Save as PDF" from there.
+  let currentPayslipUsername = null;
+
+  function printCurrentPayslip(){
+    if(currentPayslipUsername) printPayslip(currentPayslipUsername);
+  }
+
+  function printPayslip(username){
+    const entry = cachedPayrollRows.find(r => r.u.username === username);
+    if(!entry) return;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+    const paid = cachedPayrollPaymentsByUser[username];
+
+    const rows = [
+      ['Days Worked', String(entry.daysWorkedDisplay), false],
+      ['Base Pay', formatCurrency(entry.basePay), false],
+      ['Holiday Pay', formatCurrency(entry.holidayTotal), false],
+      ['Overtime Pay', formatCurrency(entry.otPay), false],
+      ['Night Differential', formatCurrency(entry.ndPay), false],
+      ['Gross Pay', formatCurrency(entry.grossPay), true],
+      ['Allowance', `+ ${formatCurrency(entry.allowance)}`, false],
+      ['SSS', `- ${formatCurrency(entry.sss)}`, false],
+      ['PhilHealth', `- ${formatCurrency(entry.philhealth)}`, false],
+      ['Pag-IBIG', `- ${formatCurrency(entry.pagibig)}`, false],
+      ['Cash Advance', `- ${formatCurrency(entry.cashAdvance)}`, false],
+      ['NET PAY', formatCurrency(entry.netPay), true]
+    ];
+
+    const paidLine = paid
+      ? `Paid on ${new Date(paid.paidAt).toLocaleDateString('en-PH')} by ${escapeHtml(paid.paidBy)}`
+      : 'Not yet marked as paid';
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Payslip — ${escapeHtml(entry.u.displayName || username)}</title>
+<style>
+  @page { size: A5; margin: 14mm; }
+  body{ font-family: Arial, Helvetica, sans-serif; color:#1a1a1a; margin:0; padding:24px; }
+  .header{ display:flex; align-items:center; gap:12px; border-bottom:2px solid #1a1a1a; padding-bottom:12px; margin-bottom:16px; }
+  .header img{ height:44px; width:auto; }
+  .header .co-name{ font-size:18px; font-weight:700; }
+  .header .co-sub{ font-size:11px; color:#555; }
+  h1{ font-size:15px; margin:0 0 2px; }
+  .meta{ font-size:12px; color:#444; margin-bottom:14px; }
+  .meta div{ margin-bottom:2px; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  td{ padding:5px 0; border-bottom:1px solid #eee; }
+  td:last-child{ text-align:right; font-variant-numeric: tabular-nums; }
+  tr.strong td{ font-weight:700; border-top:1px solid #1a1a1a; border-bottom:1px solid #1a1a1a; padding-top:7px; padding-bottom:7px; }
+  tr.net td{ font-size:15px; }
+  .status{ margin-top:14px; font-size:11px; color:#555; }
+  .sig{ margin-top:46px; display:flex; justify-content:space-between; font-size:11px; }
+  .sig div{ width:44%; border-top:1px solid #999; padding-top:4px; text-align:center; color:#555; }
+  @media print{ .no-print{ display:none; } }
+</style></head>
+<body>
+  <div class="header">
+    <img src="${location.origin}/assets/mardam-logo-header.jpg" alt="Mardams Apparel">
+    <div>
+      <div class="co-name">Mardams Apparel</div>
+      <div class="co-sub">Payslip</div>
+    </div>
+  </div>
+  <h1>${escapeHtml(entry.u.displayName || username)}</h1>
+  <div class="meta">
+    <div>Pay Period: ${escapeHtml(from)} to ${escapeHtml(to)}</div>
+    <div>Pay Type: ${entry.u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</div>
+  </div>
+  <table><tbody>
+    ${rows.map(([label, val, strong]) => `<tr class="${strong ? (label === 'NET PAY' ? 'strong net' : 'strong') : ''}"><td>${escapeHtml(label)}</td><td>${val}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="status">${paidLine}</div>
+  <div class="sig">
+    <div>Employee Signature</div>
+    <div>Prepared By</div>
+  </div>
+  <div class="no-print" style="margin-top:24px; text-align:center;">
+    <button onclick="window.print()" style="padding:8px 18px; font-size:13px;">Print / Save as PDF</button>
+  </div>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    if(!win){
+      alert('Please allow pop-ups to view the payslip.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { try{ win.print(); }catch(e){} }, 300);
   }
 
   // ---- Payroll settings editing (OT rate, allowance, deductions) ----
@@ -6699,6 +6888,7 @@
           <div class="drilldown-title" id="drilldownTitle">—</div>
           <div class="drilldown-sub" id="drilldownSub"></div>
         </div>
+        <button type="button" class="ghost" id="drilldownPrintPayslipBtn" style="display:none; margin-right:8px;" onclick="printCurrentPayslip();">Print Payslip</button>
         <button type="button" class="drilldown-close" onclick="closeAnalyticsDrilldown();">✕</button>
       </div>
       <div class="drilldown-body" id="drilldownBody"></div>

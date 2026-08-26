@@ -95,8 +95,15 @@ module.exports = async (req, res) => {
   // the "attendance results" view and is Super Admin/Accounting only.
   if (req.method === 'GET') {
     if (req.query.report === '1') {
-      const auth = requireRole(req, res, ['super_admin']);
+      const auth = requireAuth(req, res);
       if (!auth) return;
+
+      // Super Admin gets the full company-wide report (every employee).
+      // Everyone else (Staff/Admin) only ever gets their OWN records —
+      // `mine=1` is how the frontend asks for that explicitly, but the
+      // restriction is enforced here regardless of what's passed, so a
+      // non-Super-Admin account can never pull another employee's history.
+      const isSelfOnly = auth.role !== 'super_admin';
 
       const to = /^\d{4}-\d{2}-\d{2}$/.test(req.query.to || '') ? req.query.to : manilaDateStr(manilaNow());
       const defaultFrom = manilaDateStr(new Date(manilaNow().getTime() - 30 * 24 * 60 * 60 * 1000));
@@ -119,6 +126,7 @@ module.exports = async (req, res) => {
         })
         .filter(Boolean)
         .filter((r) => r.date >= from && r.date <= to)
+        .filter((r) => !isSelfOnly || r.username === auth.username)
         .sort((a, b) => (b.date === a.date ? a.username.localeCompare(b.username) : b.date.localeCompare(a.date)));
 
       res.status(200).json({ rows, from, to });
