@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess } = require('../lib/auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 // Every stock movement — Stock In and Stock Out — for every material.
 // Inventory's Current Stock is not stored anywhere; it's computed by

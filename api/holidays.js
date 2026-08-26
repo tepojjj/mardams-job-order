@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireRole } = require('../lib/auth');
+const { requireRole } = require('./_auth');
 
 // Company-wide holiday calendar used to compute holiday pay. One holiday
 // per calendar date. The Super Admin manages this list —

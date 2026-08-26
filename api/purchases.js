@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess } = require('../lib/auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 // A manual purchase-history log for materials (Date, PO No., DR No.,
 // Supplier, Material, Qty, Price, Prepared By, Memo — Amount is computed

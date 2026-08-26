@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess } = require('../lib/auth');
+const { requireJobOrdersAccess } = require('./_auth');
 
 const KEY = 'last-job-order-number';
 

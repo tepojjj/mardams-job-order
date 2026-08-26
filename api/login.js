@@ -1,5 +1,5 @@
 const { kv } = require('@vercel/kv');
-const { hashPassword, verifyPassword, signToken } = require('../lib/auth');
+const { hashPassword, verifyPassword, signToken } = require('./_auth');
 
 // All app accounts live in one Redis hash: { [username]: JSON string }.
 const USERS_KEY = 'app-users';

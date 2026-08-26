@@ -1,6 +1,6 @@
 const { kv } = require('@vercel/kv');
-const { requireAuth, requireRole } = require('../lib/auth');
-const { logAccountChange } = require('../lib/account-log');
+const { requireAuth, requireRole } = require('./_auth');
+const { logAccountChange } = require('./_account-log');
 
 // All attendance punches live in one Redis hash: { "date|username": JSON string }.
 // date is YYYY-MM-DD in Asia/Manila local time, computed server-side so the
