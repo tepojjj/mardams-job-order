@@ -6376,8 +6376,12 @@
       const tooltip = `${r.workingDays} working days − ${r.absentDays} absent − ${r.halfDays} half day(s) `
         + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
       const paid = cachedPayrollPaymentsByUser[r.u.username];
+      // Paid amount goes stale if attendance is corrected after the fact
+      // (e.g. an absence gets fixed to present) — flag it rather than
+      // silently showing a "Paid" badge next to a now-wrong net pay.
+      const drifted = paid && Math.abs(paid.netPay - r.netPay) >= 0.01;
       const statusCell = paid
-        ? `<span class="pay-type-pill" style="background:#e6f4ea; color:#1a7f37;" title="Marked paid by ${escapeHtml(paid.paidBy)} on ${new Date(paid.paidAt).toLocaleString('en-PH')}">✓ Paid ${new Date(paid.paidAt).toLocaleDateString('en-PH')}</span>`
+        ? `<span class="pay-type-pill" style="background:${drifted ? '#fff4e5' : '#e6f4ea'}; color:${drifted ? '#8a5300' : '#1a7f37'};" title="Marked paid by ${escapeHtml(paid.paidBy)} on ${new Date(paid.paidAt).toLocaleString('en-PH')}${drifted ? ` — paid ${formatCurrency(paid.netPay)}, now recalculates to ${formatCurrency(r.netPay)}. Attendance may have changed since this was marked paid.` : ''}">${drifted ? '⚠ Paid (amount changed)' : `✓ Paid ${new Date(paid.paidAt).toLocaleDateString('en-PH')}`}</span>`
         : `<span class="pay-type-pill" style="background:#fdecea; color:#a3231b;">Unpaid</span>`;
       const statusBtn = paid
         ? `<button type="button" class="ghost edit-btn" onclick="event.stopPropagation(); undoPayrollPaid('${escapeHtml(r.u.username)}')">Undo</button>`
@@ -6695,8 +6699,10 @@
       ['NET PAY', formatCurrency(entry.netPay), true]
     ];
 
+    const drifted = paid && Math.abs(paid.netPay - entry.netPay) >= 0.01;
     const paidLine = paid
       ? `Paid on ${new Date(paid.paidAt).toLocaleDateString('en-PH')} by ${escapeHtml(paid.paidBy)}`
+        + (drifted ? ` — ⚠ paid amount was ${formatCurrency(paid.netPay)}; this payslip now recalculates to ${formatCurrency(entry.netPay)}. Attendance may have changed since payment.` : '')
       : 'Not yet marked as paid';
 
     const html = `<!DOCTYPE html>
