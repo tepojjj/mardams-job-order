@@ -1912,6 +1912,33 @@
     70%{ transform:scale(1.06) rotate(-14deg); opacity:1; }
     100%{ transform:scale(1) rotate(-14deg); opacity:1; }
   }
+
+  /* Live spinning 3D logo — a real flip, not a flat image squash: front
+     and back faces both carry the logo (back mirrored back to normal via
+     rotateY(180deg)) so it reads as a solid rotating badge from every
+     angle, not a paper cutout. Hover slows it down — a small nod to
+     "interactive" rather than just decorative. */
+  .logo3d{
+    display:block; flex:none;
+    perspective:700px;
+  }
+  .logo3d-inner{
+    position:relative;
+    display:inline-block;
+    transform-style:preserve-3d;
+    animation:logo3dSpin 7s linear infinite;
+    transition:animation-duration .3s ease;
+  }
+  .logo3d:hover .logo3d-inner{ animation-duration:22s; }
+  @keyframes logo3dSpin{ from{ transform:rotateY(0deg); } to{ transform:rotateY(360deg); } }
+  .logo3d-face{
+    display:block; backface-visibility:hidden;
+    border-radius:4px;
+  }
+  .logo3d-face.back{
+    position:absolute; inset:0; top:0; left:0;
+    transform:rotateY(180deg);
+  }
 </style>
 </head>
 <body>
@@ -1973,7 +2000,12 @@
   <div class="app-shell">
   <nav class="sidebar">
     <div class="sidebar-brand">
-      <img src="assets/mardam-logo-header.jpg" alt="Mardams Apparel">
+      <span class="logo3d" style="height:34px;">
+        <span class="logo3d-inner" style="height:34px;">
+          <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel">
+          <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="">
+        </span>
+      </span>
       <div class="sidebar-app-name">Job Order System</div>
       <button type="button" class="theme-toggle-btn" id="themeToggleBtnApp" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle light/dark theme" style="margin-left:auto;">
         <span class="theme-toggle-icon">🌙</span>
@@ -2032,7 +2064,12 @@
   <div class="sheet">
     <div class="head">
       <div class="brand">
-        <img src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
+        <span class="logo3d" style="height:48px;">
+          <span class="logo3d-inner" style="height:48px;">
+            <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="" style="display:block;height:48px;width:auto;">
+          </span>
+        </span>
         <small>Job Order Form</small>
       </div>
       <div class="stamp-box">
