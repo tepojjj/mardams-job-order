@@ -1932,31 +1932,20 @@
     100%{ transform:scale(1) rotate(-14deg); opacity:1; }
   }
 
-  /* Live spinning 3D logo — a real flip, not a flat image squash: front
-     and back faces both carry the logo (back mirrored back to normal via
-     rotateY(180deg)) so it reads as a solid rotating badge from every
-     angle, not a paper cutout. Hover slows it down — a small nod to
-     "interactive" rather than just decorative. */
+  /* Static logo badge (spinning 3D effect removed). */
   .logo3d{
     display:block; flex:none;
-    perspective:700px;
   }
   .logo3d-inner{
     position:relative;
     display:inline-block;
-    transform-style:preserve-3d;
-    animation:logo3dSpin 7s linear infinite;
-    transition:animation-duration .3s ease;
   }
-  .logo3d:hover .logo3d-inner{ animation-duration:22s; }
-  @keyframes logo3dSpin{ from{ transform:rotateY(0deg); } to{ transform:rotateY(360deg); } }
   .logo3d-face{
-    display:block; backface-visibility:hidden;
+    display:block;
     border-radius:4px;
   }
   .logo3d-face.back{
-    position:absolute; inset:0; top:0; left:0;
-    transform:rotateY(180deg);
+    display:none;
   }
 </style>
 </head>
@@ -1990,7 +1979,7 @@
     <div class="login-blob login-blob-1"></div>
     <div class="login-blob login-blob-2"></div>
     <div class="login-card">
-      <img src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" class="login-logo">
+      <img src="assets/mardam-logo-header.png" alt="Mardams Apparel" class="login-logo">
       <div class="login-title">Job Order System</div>
       <div class="login-subtitle">Sign in to continue</div>
 
@@ -2021,8 +2010,8 @@
     <div class="sidebar-brand">
       <span class="logo3d" style="height:34px;">
         <span class="logo3d-inner" style="height:34px;">
-          <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel">
-          <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="">
+          <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel">
+          <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="">
         </span>
       </span>
       <div class="sidebar-app-name">Job Order System</div>
@@ -2085,8 +2074,8 @@
       <div class="brand">
         <span class="logo3d" style="height:48px;">
           <span class="logo3d-inner" style="height:48px;">
-            <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
-            <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="" style="display:block;height:48px;width:auto;">
           </span>
         </span>
         <small>Job Order Form</small>
@@ -7031,7 +7020,7 @@
 </style></head>
 <body>
   <div class="header">
-    <img src="${location.origin}/assets/mardam-logo-header.jpg" alt="Mardams Apparel">
+    <img src="${location.origin}/assets/mardam-logo-header.png" alt="Mardams Apparel">
     <div>
       <div class="co-name">Mardams Apparel</div>
       <div class="co-sub">Payslip</div>
