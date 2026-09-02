@@ -774,6 +774,7 @@
   }
 
   @media print{
+    @page{margin:10mm;}
     .sidebar{display:none !important;}
     .settings-overlay{display:none !important;}
     .browse-wrap{display:none;}
@@ -782,21 +783,39 @@
     .app-shell{display:block;}
     .app-main{padding:0;}
     .toolbar{display:none !important;}
-    .sheet{background:#fff; box-shadow:none; border:none; border-radius:0; padding:10px 6px;}
+    .sheet{background:#fff; box-shadow:none; border:none; border-radius:0; padding:0;}
     tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F4F5F7;}
     tbody td.remove{display:none;}
     .add-row-btn{display:none;}
     input, textarea, select{border-color:transparent !important;}
     tbody td input, textarea{background:transparent !important;}
-    .meta-grid{border-color:#999;}
+    .meta-grid{border-color:#999; margin-bottom:12px;}
     .meta-cell{border-color:#ccc;}
     thead th{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .totals-row.grand{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .new-num-btn{display:none;}
     .photo-zone{display:none !important;}
     .photo-preview-wrap{border:none; padding:0;}
+    .photo-preview-wrap img{max-height:160px;}
     .photo-remove{display:none;}
     input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
+
+    /* Solid black text in every input field so printed values are crisp,
+       not the theme's soft grey ink color. Covers typed values and the
+       placeholder text shown on a blank form. */
+    input, select, textarea{color:#000 !important;}
+    input::placeholder, textarea::placeholder{color:#000 !important; opacity:1;}
+
+    /* Trim the header down: drop the divider line under the logo and
+       tighten its spacing so the form takes less vertical room. */
+    .head{border-bottom:none; padding-bottom:6px; margin-bottom:8px;}
+
+    /* Compress the remaining sections so a normal 5-line order fits one page. */
+    .section-label{margin:10px 0 6px;}
+    .material-row{margin:8px 0 2px;}
+    textarea{min-height:36px;}
+    .sign-grid{margin-top:10px;}
+    table, .meta-grid, .sign-grid{page-break-inside:avoid;}
   }
 
   /* ---- Login ---- */
@@ -1913,31 +1932,20 @@
     100%{ transform:scale(1) rotate(-14deg); opacity:1; }
   }
 
-  /* Live spinning 3D logo — a real flip, not a flat image squash: front
-     and back faces both carry the logo (back mirrored back to normal via
-     rotateY(180deg)) so it reads as a solid rotating badge from every
-     angle, not a paper cutout. Hover slows it down — a small nod to
-     "interactive" rather than just decorative. */
+  /* Static logo badge (spinning 3D effect removed). */
   .logo3d{
     display:block; flex:none;
-    perspective:700px;
   }
   .logo3d-inner{
     position:relative;
     display:inline-block;
-    transform-style:preserve-3d;
-    animation:logo3dSpin 7s linear infinite;
-    transition:animation-duration .3s ease;
   }
-  .logo3d:hover .logo3d-inner{ animation-duration:22s; }
-  @keyframes logo3dSpin{ from{ transform:rotateY(0deg); } to{ transform:rotateY(360deg); } }
   .logo3d-face{
-    display:block; backface-visibility:hidden;
+    display:block;
     border-radius:4px;
   }
   .logo3d-face.back{
-    position:absolute; inset:0; top:0; left:0;
-    transform:rotateY(180deg);
+    display:none;
   }
 </style>
 </head>
@@ -1971,7 +1979,7 @@
     <div class="login-blob login-blob-1"></div>
     <div class="login-blob login-blob-2"></div>
     <div class="login-card">
-      <img src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" class="login-logo">
+      <img src="assets/mardam-logo-header.png" alt="Mardams Apparel" class="login-logo">
       <div class="login-title">Job Order System</div>
       <div class="login-subtitle">Sign in to continue</div>
 
@@ -2002,8 +2010,8 @@
     <div class="sidebar-brand">
       <span class="logo3d" style="height:34px;">
         <span class="logo3d-inner" style="height:34px;">
-          <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel">
-          <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="">
+          <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel">
+          <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="">
         </span>
       </span>
       <div class="sidebar-app-name">Job Order System</div>
@@ -2066,8 +2074,8 @@
       <div class="brand">
         <span class="logo3d" style="height:48px;">
           <span class="logo3d-inner" style="height:48px;">
-            <img class="logo3d-face front" src="assets/mardam-logo-header.jpg" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
-            <img class="logo3d-face back" src="assets/mardam-logo-header.jpg" alt="" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="" style="display:block;height:48px;width:auto;">
           </span>
         </span>
         <small>Job Order Form</small>
@@ -5405,7 +5413,7 @@
     tbody.innerHTML = skeletonRows(5);
     document.getElementById('accountLogEmpty').style.display = 'none';
     try{
-      const res = await fetch('/api/account-log', { headers: { ...authHeaders() } });
+      const res = await fetch('/api/counter?log=1', { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       cachedAccountLog = data.entries || [];
@@ -7012,7 +7020,7 @@
 </style></head>
 <body>
   <div class="header">
-    <img src="${location.origin}/assets/mardam-logo-header.jpg" alt="Mardams Apparel">
+    <img src="${location.origin}/assets/mardam-logo-header.png" alt="Mardams Apparel">
     <div>
       <div class="co-name">Mardams Apparel</div>
       <div class="co-sub">Payslip</div>

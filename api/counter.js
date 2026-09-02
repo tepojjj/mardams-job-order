@@ -1,9 +1,40 @@
 const { kv } = require('@vercel/kv');
-const { requireJobOrdersAccess } = require('./_auth');
+const { requireRole, requireJobOrdersAccess } = require('./_auth');
+const { LOG_KEY } = require('./_account-log');
 
 const KEY = 'last-job-order-number';
 
+// Merged with the old standalone api/account-log.js so the project stays
+// under Vercel Hobby's 12-serverless-function cap. Routed by ?log=1 so the
+// job-order counter keeps its original URL and behavior untouched; only the
+// account-log GET moved, from /api/account-log to /api/counter?log=1.
 module.exports = async (req, res) => {
+  if (req.query && req.query.log === '1') {
+    // Only Admins and the Super Admin can view this — never Staff.
+    if (req.method === 'GET') {
+      const auth = requireRole(req, res, ['admin', 'super_admin']);
+      if (!auth) return;
+
+      const all = (await kv.hgetall(LOG_KEY)) || {};
+      const entries = Object.values(all)
+        .map((v) => {
+          try {
+            return typeof v === 'string' ? JSON.parse(v) : v;
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => (b.changedAt || '').localeCompare(a.changedAt || ''));
+
+      res.status(200).json({ entries });
+      return;
+    }
+
+    res.status(405).send('Method not allowed');
+    return;
+  }
+
   // Preview the next number — does NOT save anything.
   if (req.method === 'GET') {
     const auth = requireJobOrdersAccess(req, res);
