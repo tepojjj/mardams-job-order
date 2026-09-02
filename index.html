@@ -5413,7 +5413,7 @@
     tbody.innerHTML = skeletonRows(5);
     document.getElementById('accountLogEmpty').style.display = 'none';
     try{
-      const res = await fetch('/api/account-log', { headers: { ...authHeaders() } });
+      const res = await fetch('/api/counter?log=1', { headers: { ...authHeaders() } });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       cachedAccountLog = data.entries || [];
