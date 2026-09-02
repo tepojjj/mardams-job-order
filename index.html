@@ -774,6 +774,7 @@
   }
 
   @media print{
+    @page{margin:10mm;}
     .sidebar{display:none !important;}
     .settings-overlay{display:none !important;}
     .browse-wrap{display:none;}
@@ -782,21 +783,39 @@
     .app-shell{display:block;}
     .app-main{padding:0;}
     .toolbar{display:none !important;}
-    .sheet{background:#fff; box-shadow:none; border:none; border-radius:0; padding:10px 6px;}
+    .sheet{background:#fff; box-shadow:none; border:none; border-radius:0; padding:0;}
     tbody td.rownum, tbody td.rowtotal, tbody td.remove{background:#F4F5F7;}
     tbody td.remove{display:none;}
     .add-row-btn{display:none;}
     input, textarea, select{border-color:transparent !important;}
     tbody td input, textarea{background:transparent !important;}
-    .meta-grid{border-color:#999;}
+    .meta-grid{border-color:#999; margin-bottom:12px;}
     .meta-cell{border-color:#ccc;}
     thead th{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .totals-row.grand{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .new-num-btn{display:none;}
     .photo-zone{display:none !important;}
     .photo-preview-wrap{border:none; padding:0;}
+    .photo-preview-wrap img{max-height:160px;}
     .photo-remove{display:none;}
     input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
+
+    /* Solid black text in every input field so printed values are crisp,
+       not the theme's soft grey ink color. Covers typed values and the
+       placeholder text shown on a blank form. */
+    input, select, textarea{color:#000 !important;}
+    input::placeholder, textarea::placeholder{color:#000 !important; opacity:1;}
+
+    /* Trim the header down: drop the divider line under the logo and
+       tighten its spacing so the form takes less vertical room. */
+    .head{border-bottom:none; padding-bottom:6px; margin-bottom:8px;}
+
+    /* Compress the remaining sections so a normal 5-line order fits one page. */
+    .section-label{margin:10px 0 6px;}
+    .material-row{margin:8px 0 2px;}
+    textarea{min-height:36px;}
+    .sign-grid{margin-top:10px;}
+    table, .meta-grid, .sign-grid{page-break-inside:avoid;}
   }
 
   /* ---- Login ---- */
