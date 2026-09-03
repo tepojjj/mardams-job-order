@@ -796,7 +796,7 @@
     .new-num-btn{display:none;}
     .photo-zone{display:none !important;}
     .photo-preview-wrap{border:none; padding:0;}
-    .photo-preview-wrap img{max-height:280px; max-width:100%;}
+    .photo-preview-wrap img{max-height:340px; max-width:100%;}
     .photo-remove{display:none;}
     input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
 
@@ -2138,8 +2138,9 @@
     </table>
     <button class="add-row-btn" onclick="addRow()">+ Add Line</button>
 
-    <div class="totals">
+        <div class="totals">
       <div class="totals-box">
+        <div class="totals-row"><span>Total QTY</span><span id="totalqty">0</span></div>
         <div class="totals-row grand"><span>Grand Total</span><span id="grandtotal">0.00</span></div>
       </div>
     </div>
@@ -3225,16 +3226,20 @@
     rowCount = rows.length;
   }
 
-  function calc(){
+    function calc(){
     let subtotal = 0;
+    let totalQty = 0;
     document.querySelectorAll('#items tr').forEach(row => {
       const qty = parseFloat(row.querySelector('.qty').value) || 0;
       const cost = parseFloat(row.querySelector('.cost').value) || 0;
       const total = qty * cost;
       row.querySelector('.linetotal').textContent = total.toFixed(2);
       subtotal += total;
+      totalQty += qty;
     });
     document.getElementById('grandtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('totalqty').textContent = totalQty;
+  }
   }
 
   async function resetForm(){
