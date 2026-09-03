@@ -1583,6 +1583,40 @@
   }
   .stat-card.highlight.clickable:hover{border-color:var(--stamp);}
 
+  /* ---- Revenue trend chart (hover tooltip + "live" pulse) ---- */
+  .chart-tooltip{
+    position:fixed;
+    z-index:70;
+    display:none;
+    pointer-events:none;
+    background:var(--paper);
+    color:#fff;
+    border-radius:8px;
+    padding:7px 11px;
+    font-size:12px;
+    line-height:1.4;
+    box-shadow:var(--shadow-md);
+    white-space:nowrap;
+    transform:translate(-50%, -100%);
+  }
+  .chart-tooltip b{font-size:13px;}
+  .trend-hit{cursor:pointer;}
+  .trend-dot{transition:r .15s ease, filter .15s ease;}
+  .trend-dot.hovered{
+    r:6.5;
+    filter:drop-shadow(0 0 6px rgba(30,122,66,.55));
+  }
+  @keyframes pulseRing{
+    0%{transform:scale(1); opacity:.55;}
+    100%{transform:scale(2.4); opacity:0;}
+  }
+  .trend-pulse{
+    transform-box:fill-box;
+    transform-origin:center;
+    animation:pulseRing 1.8s ease-out infinite;
+  }
+  .chart-card svg rect:not(.trend-hit):hover{filter:brightness(1.18); cursor:pointer;}
+
   /* ---- Analytics drill-down modal ---- */
   .drilldown-overlay{
     position:fixed;
@@ -2376,6 +2410,7 @@
             <th>Reference</th>
             <th>Personnel</th>
             <th>Notes</th>
+            <th style="width:70px;">Save</th>
             <th style="width:30px;"></th>
           </tr>
         </thead>
@@ -2545,6 +2580,7 @@
   </div>
 
   <div class="analytics-wrap" id="viewAnalytics" style="display:none;">
+    <div class="chart-tooltip" id="chartTooltip"></div>
     <div class="analytics-toolbar">
       <label class="date-filter-label">Group by
         <select id="analyticsGroupBy" onchange="renderAnalytics()">
@@ -2597,6 +2633,11 @@
         <div class="stat-label">Avg. Order Value</div>
         <div class="stat-value" id="statAvg">₱0.00</div>
       </div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Revenue Trend</div>
+      <div class="chart-card" id="revenueTrendChartCard"></div>
     </div>
 
     <div class="chart-block">
@@ -4358,6 +4399,7 @@
           <td>${escapeHtml(r.personnel)}</td>
           <td>${escapeHtml(r.notes)}</td>
           <td></td>
+          <td></td>
         </tr>`;
       }
       return `
@@ -4372,6 +4414,7 @@
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="reference" value="${escapeHtml(r.reference)}" placeholder="e.g. Job Order #" onchange="saveStockField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="personnel" value="${escapeHtml(r.personnel)}" placeholder="Encoded by" onchange="saveStockField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="notes" value="${escapeHtml(r.notes)}" placeholder="—" onchange="saveStockField(this)"></td>
+        <td><button class="ghost" title="Save this row and sync it to Inventory" onclick="saveStockRowToServer('${id}')">💾 Save</button></td>
         <td><button class="monitor-row-delete" title="Delete row" onclick="deleteStockRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
@@ -4388,6 +4431,12 @@
     persistStockRow(row);
   }
 
+  // Updates this row's in-memory state only — does NOT save to the
+  // server. A Stock In/Out row IS the ledger Inventory reads Current
+  // Stock from, so saving it immediately on every keystroke would move
+  // stock counts while you're still mid-edit. Saving (and therefore
+  // syncing to Inventory) only happens via this row's Save button —
+  // see saveStockRowToServer.
   function saveStockField(el){
     const id = el.dataset.id;
     const field = el.dataset.field;
@@ -4402,7 +4451,20 @@
     }else{
       row[field] = value;
     }
-    persistStockRow(row);
+  }
+
+  // The only path that saves a manual Stock In/Out row to the server —
+  // and therefore the only thing that updates Inventory's Current
+  // Stock from it.
+  async function saveStockRowToServer(id){
+    const row = cachedStockRows.find(r => r.id === id);
+    if(!row) return;
+    if(!row.materialId){
+      showToast('Pick a material for this row before saving.', 'error');
+      return;
+    }
+    await persistStockRow(row);
+    showToast('Saved — synced to Inventory.', 'success');
   }
 
   async function persistStockRow(row){
@@ -4827,6 +4889,7 @@
     });
     const keys = Object.keys(buckets).sort();
 
+    renderRevenueTrendChart(keys, buckets);
     renderOrdersTrendChart(keys, buckets);
     renderStatusBreakdown(rows);
     renderCompletionGauge(rows, orderCount, doneCount);
@@ -4909,6 +4972,104 @@
       v => String(v),
       '#2352A6'
     );
+  }
+
+  // Shared tooltip element (see #chartTooltip) used by the revenue trend
+  // chart's hover points — a small floating label that follows the
+  // pointer, nicer than relying on the browser's native <title> tooltip.
+  function showChartTooltip(evt, html){
+    const tip = document.getElementById('chartTooltip');
+    if(!tip) return;
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    tip.style.left = evt.clientX + 'px';
+    tip.style.top = (evt.clientY - 12) + 'px';
+  }
+  function hideChartTooltip(){
+    const tip = document.getElementById('chartTooltip');
+    if(tip) tip.style.display = 'none';
+  }
+
+  // Revenue Trend — a proper line chart (not bars) so the shape of the
+  // business's revenue over time actually reads as a trend: animated
+  // draw-in stroke, a soft gradient fill under the line, a pulsing
+  // "live" ring on the most recent point, and a floating tooltip with
+  // both the amount and the change from the previous point on hover.
+  function renderRevenueTrendChart(keys, buckets){
+    const container = document.getElementById('revenueTrendChartCard');
+    if(keys.length === 0){
+      container.innerHTML = '<div class="chart-empty">Not enough dated rows yet to show a trend. Add a date to your Monitoring Sheet rows.</div>';
+      return;
+    }
+    const groupBy = document.getElementById('analyticsGroupBy').value;
+    const values = keys.map(k => buckets[k].revenue);
+    const maxVal = Math.max(...values, 1);
+    const minVal = Math.min(...values, 0);
+    const range = (maxVal - minVal) || 1;
+    const w = Math.max(560, keys.length * 70);
+    const h = 240;
+    const padBottom = 34;
+    const padTop = 24;
+    const padX = 24;
+    const chartH = h - padBottom - padTop;
+    const chartW = w - padX * 2;
+    const stepX = keys.length > 1 ? chartW / (keys.length - 1) : 0;
+
+    const points = keys.map((k, i) => ({
+      x: padX + stepX * i,
+      y: padTop + chartH - ((values[i] - minVal) / range) * chartH,
+      val: values[i],
+      key: k
+    }));
+
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const baseline = (h - padBottom).toFixed(1);
+    const areaPath = `${linePath} L${points[points.length - 1].x.toFixed(1)},${baseline} L${points[0].x.toFixed(1)},${baseline} Z`;
+
+    const colWidth = keys.length > 1 ? stepX : chartW;
+    let markup = '';
+    points.forEach((p, i) => {
+      const delay = 550 + i * 45;
+      const isLast = i === points.length - 1;
+      const prevVal = i > 0 ? values[i - 1] : null;
+      const changeHtml = prevVal === null ? '' :
+        (() => {
+          const diff = p.val - prevVal;
+          const pct = prevVal ? Math.round((diff / prevVal) * 100) : null;
+          const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '•';
+          const color = diff > 0 ? '#3E9B5D' : diff < 0 ? '#C0533A' : 'var(--ink-soft)';
+          return `<div style="color:${color};">${arrow} ${pct === null ? '' : Math.abs(pct) + '%'} vs prior</div>`;
+        })();
+      const tipHtml = `<b>${formatCurrency(p.val)}</b><div>${analyticsLabel(p.key, groupBy)}</div>${changeHtml}`;
+      const hitX = (p.x - colWidth / 2).toFixed(1);
+
+      markup += `
+        <rect class="trend-hit" x="${hitX}" y="${padTop}" width="${colWidth.toFixed(1)}" height="${chartH}" fill="transparent"
+          onmousemove="showChartTooltip(event, ${JSON.stringify(tipHtml).replace(/"/g, '&quot;')})"
+          onmouseenter="document.getElementById('trendDot${i}').classList.add('hovered')"
+          onmouseleave="hideChartTooltip(); document.getElementById('trendDot${i}').classList.remove('hovered')"></rect>
+        ${isLast ? `<circle class="trend-pulse" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="none" stroke="#1E7A42" stroke-width="2"></circle>` : ''}
+        <circle id="trendDot${i}" class="trend-dot" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isLast ? 4.5 : 3.5}"
+          fill="${isLast ? '#1E7A42' : 'var(--card)'}" stroke="#1E7A42" stroke-width="2" style="pointer-events:none;
+          opacity:0; transition:opacity .3s ease ${delay}ms;"></circle>
+        <text x="${p.x.toFixed(1)}" y="${(h - padBottom + 16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)"
+          style="opacity:0; transition:opacity .3s ease ${delay}ms; pointer-events:none;">${analyticsLabel(p.key, groupBy)}</text>`;
+    });
+
+    container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">
+      <defs>
+        <linearGradient id="revenueFillGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1E7A42" stop-opacity="0.32"></stop>
+          <stop offset="100%" stop-color="#1E7A42" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+      <line x1="0" y1="${baseline}" x2="${w}" y2="${baseline}" stroke="var(--line)" stroke-width="1"></line>
+      <path d="${areaPath}" fill="url(#revenueFillGrad)" style="opacity:0; transition:opacity .7s ease .25s;"></path>
+      <path d="${linePath}" fill="none" stroke="#1E7A42" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" style="transition:stroke-dashoffset 1.15s cubic-bezier(.16,1,.3,1) .05s;"></path>
+      ${markup}
+    </svg>`;
+    growChart(container);
   }
 
   // Pie/donut chart of job order status counts, with a colored legend
