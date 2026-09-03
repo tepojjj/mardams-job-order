@@ -447,23 +447,41 @@
     margin-top:12px;
   }
   .totals-box{
+    display:flex;
     width:260px;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     overflow:hidden;
   }
   .totals-row{
+    flex:1 1 50%;
     display:flex;
-    justify-content:space-between;
-    padding:9px 15px;
+    flex-direction:column;
+    gap:2px;
+    padding:9px 12px;
     font-size:13px;
-    border-bottom:1px solid var(--line);
+    font-weight:700;
+    color:var(--ink);
+    border-right:1px solid var(--line);
+  }
+  .totals-row:last-child{
+    border-right:none;
   }
   .totals-row.grand{
     background:var(--paper);
     color:#fff;
     font-weight:700;
-    border-bottom:none;
+  }
+  .totals-row > span:first-child{
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    opacity:.75;
+  }
+  .totals-row > span:last-child{
+    font-size:16px;
+    font-weight:700;
   }
 
   .sign-grid{
@@ -2191,6 +2209,7 @@
           <th>Client Name</th>
           <th>Date</th>
           <th>Due Date</th>
+          <th class="num" style="text-align:right;">Total QTY</th>
           <th class="num" style="text-align:right;">Total</th>
           <th></th>
         </tr>
@@ -3187,7 +3206,7 @@
 
   let rowCount = 0;
 
-  const SIZE_OPTIONS = ['S-8','S-10','S-12','S-14','S-16','S-18','S-20','S','M','L','XL','2XL','3XL','4XL','5XL','6XL'];
+  const SIZE_OPTIONS = ['S-8','S-10','S-12','S-14','S-16','S-18','S-20','XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL'];
 
   function sizeOptionsHtml(selected){
     return '<option value="">Size</option>' + SIZE_OPTIONS.map(s =>
@@ -3615,6 +3634,7 @@
         <td>${escapeHtml(o.clientName)}</td>
         <td>${escapeHtml(o.date)}</td>
         <td>${escapeHtml(o.dueDate)}</td>
+        <td class="num" style="text-align:right;">${escapeHtml(totalQtyFromItems(o.items) || '0')}</td>
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
