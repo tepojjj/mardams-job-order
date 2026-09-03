@@ -1947,6 +1947,17 @@
   .logo3d-face.back{
     display:none;
   }
+
+  /* The navy wordmark in the standard logo is nearly invisible on a dark
+     background (contrast ~1.25:1). mardam-logo-header-dark.png is the same
+     mark with the navy recolored to white for use wherever the surface
+     behind it is dark. .logo-ondark is shown by default (root = dark
+     theme) and swapped out for the original navy .logo-onlight version
+     when the light theme is active. */
+  .logo-ondark{display:block;}
+  .logo-onlight{display:none;}
+  [data-theme="light"] .logo-ondark{display:none;}
+  [data-theme="light"] .logo-onlight{display:block;}
 </style>
 </head>
 <body>
@@ -1979,7 +1990,8 @@
     <div class="login-blob login-blob-1"></div>
     <div class="login-blob login-blob-2"></div>
     <div class="login-card">
-      <img src="assets/mardam-logo-header.png" alt="Mardams Apparel" class="login-logo">
+      <img src="assets/mardam-logo-header.png" alt="Mardams Apparel" class="login-logo logo-onlight">
+      <img src="assets/mardam-logo-header-dark.png" alt="Mardams Apparel" class="login-logo logo-ondark">
       <div class="login-title">Job Order System</div>
       <div class="login-subtitle">Sign in to continue</div>
 
@@ -2010,8 +2022,7 @@
     <div class="sidebar-brand">
       <span class="logo3d" style="height:34px;">
         <span class="logo3d-inner" style="height:34px;">
-          <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel">
-          <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="">
+          <img class="logo3d-face front" src="assets/mardam-logo-header-dark.png" alt="Mardams Apparel">
         </span>
       </span>
       <div class="sidebar-app-name">Job Order System</div>
@@ -2074,8 +2085,8 @@
       <div class="brand">
         <span class="logo3d" style="height:48px;">
           <span class="logo3d-inner" style="height:48px;">
-            <img class="logo3d-face front" src="assets/mardam-logo-header.png" alt="Mardams Apparel" style="display:block;height:48px;width:auto;">
-            <img class="logo3d-face back" src="assets/mardam-logo-header.png" alt="" style="display:block;height:48px;width:auto;">
+            <img class="logo3d-face front logo-onlight" src="assets/mardam-logo-header.png" alt="Mardams Apparel" style="height:48px;width:auto;">
+            <img class="logo3d-face front logo-ondark" src="assets/mardam-logo-header-dark.png" alt="Mardams Apparel" style="height:48px;width:auto;">
           </span>
         </span>
         <small>Job Order Form</small>
