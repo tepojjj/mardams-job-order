@@ -796,9 +796,15 @@
     .new-num-btn{display:none;}
     .photo-zone{display:none !important;}
     .photo-preview-wrap{border:none; padding:0;}
-    .photo-preview-wrap img{max-height:160px;}
+    .photo-preview-wrap img{max-height:280px; max-width:100%;}
     .photo-remove{display:none;}
     input[type="date"]::-webkit-calendar-picker-indicator{display:none;}
+
+    /* Printed paper is always white, regardless of which theme was active
+       on screen — so always print the original navy logo, never the
+       white dark-mode variant (which would be invisible on the page). */
+    .logo-onlight{display:block !important;}
+    .logo-ondark{display:none !important;}
 
     /* Solid black text in every input field so printed values are crisp,
        not the theme's soft grey ink color. Covers typed values and the
