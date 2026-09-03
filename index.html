@@ -51,6 +51,10 @@
   --scroll-thumb:rgba(255,255,255,.14);
   --scroll-thumb-hover:rgba(255,255,255,.24);
   --success:#34C77B;
+  --stage-pattern:#9B87F5; --stage-pattern-soft:#231A3D;
+  --stage-printing:#3FBE7C; --stage-printing-soft:#0F2A1B;
+  --stage-heatpress:#FF7A45; --stage-heatpress-soft:#3A1A0C;
+  --stage-sewing:#4E8FF0; --stage-sewing-soft:#132038;
   --radius-sm:7px;
   --radius-md:11px;
   --radius-lg:15px;
@@ -86,6 +90,10 @@
   --scroll-thumb:rgba(30,33,36,.16);
   --scroll-thumb-hover:rgba(30,33,36,.28);
   --success:#2E8B57;
+  --stage-pattern:#6D4FD6; --stage-pattern-soft:#EEE9FC;
+  --stage-printing:#1E8A50; --stage-printing-soft:#E4F5EA;
+  --stage-heatpress:#D9531F; --stage-heatpress-soft:#FCE8DE;
+  --stage-sewing:#2F63C9; --stage-sewing-soft:#E5EDFB;
   --shadow-sm:0 1px 2px rgba(20,22,24,.07), 0 1px 1px rgba(20,22,24,.05);
   --shadow-md:0 10px 22px -14px rgba(20,22,24,.30), 0 2px 8px -3px rgba(20,22,24,.12);
   --shadow-lg:0 26px 54px -26px rgba(20,22,24,.38), 0 8px 20px -12px rgba(20,22,24,.18);
@@ -1585,6 +1593,69 @@
   }
   .stat-card.highlight.clickable:hover{border-color:var(--stamp);}
 
+  /* ---- KPI card icon badges + hero treatments ---- */
+  .stat-card-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px;}
+  .stat-card-icon{
+    width:32px; height:32px; border-radius:9px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .stat-card-icon svg{width:17px; height:17px;}
+  .icon-revenue{background:var(--stamp-soft); color:var(--stamp);}
+  .stat-card.highlight .icon-revenue{background:rgba(255,255,255,.12); color:#fff;}
+  .icon-orders{background:var(--stage-sewing-soft); color:var(--stage-sewing);}
+  .icon-active{background:var(--stage-heatpress-soft); color:var(--stage-heatpress);}
+  .icon-recent{background:var(--gold-soft); color:var(--gold-dark);}
+  .icon-done{background:var(--stage-printing-soft); color:var(--stage-printing);}
+  .icon-pending{background:var(--stage-pattern-soft); color:var(--stage-pattern);}
+  .icon-cancelled{background:var(--danger-soft); color:var(--danger);}
+  .icon-qty{background:var(--field-bg); color:var(--ink-soft);}
+  .icon-avg{background:var(--field-bg); color:var(--ink-soft);}
+  .stat-card .stat-label{margin-top:2px;}
+  .stat-card.hero-wide{grid-column:span 2;}
+  .stat-card.full{grid-column:1/-1;}
+  @media (max-width:640px){ .stat-card.hero-wide{grid-column:span 1;} }
+  .stat-delta{
+    display:inline-flex; align-items:center; gap:3px;
+    font-size:11px; font-weight:700; margin-top:9px;
+  }
+  .stat-delta.up{color:var(--success);}
+  .stat-delta.down{color:var(--danger);}
+  .stat-delta.flat{color:var(--ink-soft);}
+  .stat-delta .delta-note{font-weight:500; color:var(--ink-soft); margin-left:2px;}
+  .stat-sparkline{display:block; margin-top:10px; width:100%; height:30px; overflow:visible;}
+  .stat-card.highlight .stat-sparkline{opacity:.9;}
+
+  /* ---- Production stage pipeline (Active Job Orders card) ---- */
+  .stage-pipeline{margin-top:11px;}
+  .stage-bar{
+    display:flex; width:100%; height:8px; border-radius:5px;
+    overflow:hidden; background:var(--field-bg);
+  }
+  .stage-bar i{height:100%; display:block; transition:width .5s cubic-bezier(.16,1,.3,1);}
+  .stage-legend{
+    display:flex; flex-wrap:wrap; gap:5px 14px;
+    margin-top:9px; font-size:11px; color:var(--ink-soft);
+  }
+  .stage-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .stage-legend b{color:var(--ink); font-variant-numeric:tabular-nums;}
+  .stage-legend i{width:7px; height:7px; border-radius:2px; display:inline-block; flex:none;}
+
+  /* ---- Chart panel headers + responsive 2-col chart grid ---- */
+  .chart-panel-head{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .chart-panel-icon{
+    width:26px; height:26px; border-radius:7px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .chart-panel-icon svg{width:14px; height:14px;}
+  .chart-panel-title{font-size:13.5px; font-weight:700; color:var(--ink); line-height:1.3;}
+  .chart-panel-sub{font-size:11px; color:var(--ink-soft); margin-top:1px;}
+  .chart-grid-2{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
+    gap:16px;
+  }
+  .chart-grid-2 .chart-block{margin-bottom:0;}
+
   /* ---- Revenue trend chart (hover tooltip + "live" pulse) ---- */
   .chart-tooltip{
     position:fixed;
@@ -2598,77 +2669,133 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card highlight">
+      <div class="stat-card highlight hero-wide">
+        <div class="stat-card-icon icon-revenue"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="16" height="10" rx="2"/><circle cx="10" cy="10" r="2.4"/><path d="M4.5 7.5h.01M15.5 12.5h.01"/></svg></div>
         <div class="stat-label">Total Revenue</div>
         <div class="stat-value" id="statRevenue">₱0.00</div>
+        <div class="stat-delta flat" id="statRevenueDelta"></div>
+        <svg class="stat-sparkline" id="statRevenueSpark" viewBox="0 0 120 30" preserveAspectRatio="none"></svg>
       </div>
       <div class="stat-card clickable" onclick="openAnalyticsDrilldown('tracked')">
+        <div class="stat-card-icon icon-orders"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="11" height="14" rx="1.5"/><rect x="7.5" y="2" width="5" height="2.6" rx="1"/><path d="M7 9h6M7 12h6M7 15h3.5"/></svg></div>
         <div class="stat-label">Tracked Orders</div>
         <div class="stat-value" id="statOrders">0</div>
-      </div>
-      <div class="stat-card clickable" onclick="openAnalyticsDrilldown('active')">
-        <div class="stat-label">Active Job Orders</div>
-        <div class="stat-value" id="statActive">0</div>
-        <div class="stat-sub" id="statActiveSub"></div>
+        <div class="stat-delta flat" id="statOrdersDelta"></div>
       </div>
       <div class="stat-card clickable" onclick="openAnalyticsDrilldown('recent')">
+        <div class="stat-card-icon icon-recent"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg></div>
         <div class="stat-label">Recent Job Orders</div>
         <div class="stat-value" id="statRecent">0</div>
         <div class="stat-sub" id="statRecentSub">Last 7 days</div>
       </div>
+
+      <div class="stat-card clickable full" onclick="openAnalyticsDrilldown('active')">
+        <div class="stat-card-top">
+          <div>
+            <div class="stat-card-icon icon-active"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3l7 3.6-7 3.6-7-3.6L10 3z"/><path d="M3 10.6l7 3.6 7-3.6"/><path d="M3 14.2l7 3.6 7-3.6"/></svg></div>
+            <div class="stat-label">Active Job Orders</div>
+            <div class="stat-value" id="statActive">0</div>
+          </div>
+        </div>
+        <div class="stage-pipeline" id="statActiveSub"></div>
+      </div>
+
       <div class="stat-card clickable" onclick="openAnalyticsDrilldown('done')">
+        <div class="stat-card-icon icon-done"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M7 10.2l2 2 4-4.4"/></svg></div>
         <div class="stat-label">Done Job Orders</div>
         <div class="stat-value" id="statDone">0</div>
         <div class="stat-sub" id="statDoneSub"></div>
       </div>
       <div class="stat-card clickable" onclick="openAnalyticsDrilldown('pending')">
+        <div class="stat-card-icon icon-pending"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10M5 17h10M5 3c0 4 3 5 5 7 2-2 5-3 5-7M5 17c0-4 3-5 5-7 2 2 5 3 5 7"/></svg></div>
         <div class="stat-label">Pending Job Orders</div>
         <div class="stat-value" id="statPending">0</div>
         <div class="stat-sub" id="statPendingSub"></div>
       </div>
       <div class="stat-card clickable" onclick="openAnalyticsDrilldown('cancelled')">
+        <div class="stat-card-icon icon-cancelled"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M7.5 7.5l5 5M12.5 7.5l-5 5"/></svg></div>
         <div class="stat-label">Cancelled Job Orders</div>
         <div class="stat-value" id="statCancelled">0</div>
         <div class="stat-sub" id="statCancelledSub"></div>
       </div>
       <div class="stat-card">
+        <div class="stat-card-icon icon-qty"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l6.5 3.5v8L10 17.5 3.5 14V6l6.5-3.5z"/><path d="M3.5 6L10 9.5 16.5 6M10 9.5V17.5"/></svg></div>
         <div class="stat-label">Total Qty</div>
         <div class="stat-value" id="statQty">0</div>
       </div>
       <div class="stat-card">
+        <div class="stat-card-icon icon-avg"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V10M9 15V6M14 15V12M17 15V8"/></svg></div>
         <div class="stat-label">Avg. Order Value</div>
         <div class="stat-value" id="statAvg">₱0.00</div>
       </div>
     </div>
 
     <div class="chart-block">
-      <div class="section-label">Revenue Trend</div>
+      <div class="chart-panel-head">
+        <div class="chart-panel-icon icon-revenue"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.5l4.5-4.5 3 3L17 5"/><path d="M13 5h4v4"/></svg></div>
+        <div>
+          <div class="chart-panel-title">Revenue Trend</div>
+          <div class="chart-panel-sub">Grand total per period, from the Monitoring Sheet</div>
+        </div>
+      </div>
       <div class="chart-card" id="revenueTrendChartCard"></div>
     </div>
 
     <div class="chart-block">
-      <div class="section-label">Orders Tracked Over Time</div>
+      <div class="chart-panel-head">
+        <div class="chart-panel-icon icon-orders"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V10M9 15V6M14 15V12M17 15V8"/></svg></div>
+        <div>
+          <div class="chart-panel-title">Orders Tracked Over Time</div>
+          <div class="chart-panel-sub">Number of job orders logged per period</div>
+        </div>
+      </div>
       <div class="chart-card" id="ordersChartCard"></div>
     </div>
 
-    <div class="chart-block">
-      <div class="section-label">Job Order Status Breakdown</div>
-      <div class="chart-card" id="statusChartCard"></div>
-    </div>
+    <div class="chart-grid-2">
+      <div class="chart-block">
+        <div class="chart-panel-head">
+          <div class="chart-panel-icon icon-active"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 10L14 6.5"/></svg></div>
+          <div>
+            <div class="chart-panel-title">Job Order Status Breakdown</div>
+            <div class="chart-panel-sub">Share of orders at each status</div>
+          </div>
+        </div>
+        <div class="chart-card" id="statusChartCard"></div>
+      </div>
 
-    <div class="chart-block">
-      <div class="section-label">Completion Rate</div>
-      <div class="chart-card" id="completionGaugeCard"></div>
-    </div>
+      <div class="chart-block">
+        <div class="chart-panel-head">
+          <div class="chart-panel-icon icon-done"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a7 7 0 0 1 14 0"/><path d="M10 15l3.5-4.5"/></svg></div>
+          <div>
+            <div class="chart-panel-title">Completion Rate</div>
+            <div class="chart-panel-sub">Complete vs. tracked job orders</div>
+          </div>
+        </div>
+        <div class="chart-card" id="completionGaugeCard"></div>
+      </div>
 
-    <div class="chart-block">
-      <div class="section-label">Top Clients by Revenue</div>
-      <div class="chart-card" id="topClientsChartCard"></div>
-    </div>
+      <div class="chart-block">
+        <div class="chart-panel-head">
+          <div class="chart-panel-icon icon-recent"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="6.5" r="2.5"/><circle cx="14" cy="8" r="2"/><path d="M2.5 16c.5-3 2.5-4.5 5-4.5s4.5 1.5 5 4.5M13 12c1.9 0 3.4 1.2 3.8 3.6"/></svg></div>
+          <div>
+            <div class="chart-panel-title">Top Clients by Revenue</div>
+            <div class="chart-panel-sub">Highest-billing clients this range</div>
+          </div>
+        </div>
+        <div class="chart-card" id="topClientsChartCard"></div>
+      </div>
 
-    <div class="chart-block">
-      <div class="section-label">Client Contribution</div>
-      <div class="chart-card" id="clientContributionTableCard"></div>
+      <div class="chart-block">
+        <div class="chart-panel-head">
+          <div class="chart-panel-icon icon-qty"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="M2.5 8h15M8 8v8.5"/></svg></div>
+          <div>
+            <div class="chart-panel-title">Client Contribution</div>
+            <div class="chart-panel-sub">Every client's share of tracked revenue</div>
+          </div>
+        </div>
+        <div class="chart-card" id="clientContributionTableCard"></div>
+      </div>
     </div>
   </div>
 
@@ -4824,6 +4951,26 @@
     return groupBy === 'day' ? dateStr : dateStr.slice(0, 7); // YYYY-MM
   }
 
+  // Renders the shop-floor stage pipeline shown on the Active Job Orders
+  // card: a segmented bar (proportional to how many active orders sit at
+  // each production stage) plus a small legend with the counts.
+  function renderStagePipeline(container, stages){
+    if(!container) return;
+    const total = stages.reduce((sum, s) => sum + s.count, 0);
+    if(total === 0){
+      container.innerHTML = '<div class="stat-sub" style="margin-top:11px;">No active job orders right now.</div>';
+      return;
+    }
+    const bar = stages.map(s => {
+      const pct = (s.count / total) * 100;
+      return pct > 0 ? `<i style="width:${pct.toFixed(2)}%; background:${s.color};" title="${s.label}: ${s.count}"></i>` : '';
+    }).join('');
+    const legend = stages.map(s =>
+      `<span><i style="background:${s.color};"></i>${s.label} <b>${s.count}</b></span>`
+    ).join('');
+    container.innerHTML = `<div class="stage-bar">${bar}</div><div class="stage-legend">${legend}</div>`;
+  }
+
   function renderAnalytics(){
     const groupBy = document.getElementById('analyticsGroupBy').value;
     const rows = cachedMonitorRows || [];
@@ -4847,7 +4994,12 @@
     const forSewingCount = rows.filter(r => r.status === 'FOR SEWING').length;
     const activeCount = activeRows.length;
     animateCountUp(document.getElementById('statActive'), activeCount, formatInt, 500);
-    document.getElementById('statActiveSub').textContent = `${forPatternCount} Pattern · ${forPrintingCount} Printing · ${forHeatpressCount} Heatpress · ${forSewingCount} Sewing`;
+    renderStagePipeline(document.getElementById('statActiveSub'), [
+      { label: 'Pattern',   count: forPatternCount,   color: 'var(--stage-pattern)' },
+      { label: 'Printing',  count: forPrintingCount,  color: 'var(--stage-printing)' },
+      { label: 'Heatpress', count: forHeatpressCount, color: 'var(--stage-heatpress)' },
+      { label: 'Sewing',    count: forSewingCount,    color: 'var(--stage-sewing)' }
+    ]);
 
     // Recent Job Orders — dated within the last MONITOR_RECENT_DAYS days.
     const cutoff = new Date();
@@ -4905,6 +5057,7 @@
     });
     const keys = Object.keys(buckets).sort();
 
+    renderStatDeltaAndSpark(keys, buckets);
     renderRevenueTrendChart(keys, buckets);
     renderOrdersTrendChart(keys, buckets);
     renderStatusBreakdown(rows);
@@ -4921,6 +5074,50 @@
     }
     const d = new Date(key + 'T00:00:00');
     return isNaN(d) ? key : `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  // Fills in the small trend delta chips and the revenue sparkline on the
+  // two hero KPI cards, using the same bucketed data as the big trend
+  // charts below (last bucket vs. the one before it).
+  function renderStatDeltaAndSpark(keys, buckets){
+    const groupBy = document.getElementById('analyticsGroupBy').value;
+    const periodWord = groupBy === 'day' ? 'day' : 'month';
+    const setDelta = (elId, curr, prev) => {
+      const el = document.getElementById(elId);
+      if(!el) return;
+      if(keys.length < 2){ el.className = 'stat-delta flat'; el.innerHTML = ''; return; }
+      const diff = curr - prev;
+      const pct = prev ? Math.round((diff / prev) * 100) : (curr ? 100 : 0);
+      const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+      const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '•';
+      el.className = 'stat-delta ' + dir;
+      el.innerHTML = `${arrow} ${Math.abs(pct)}%<span class="delta-note">vs previous ${periodWord}</span>`;
+    };
+
+    const revVals = keys.map(k => buckets[k].revenue);
+    const ordVals = keys.map(k => buckets[k].orders);
+    if(keys.length >= 2){
+      setDelta('statRevenueDelta', revVals[revVals.length - 1], revVals[revVals.length - 2]);
+      setDelta('statOrdersDelta', ordVals[ordVals.length - 1], ordVals[ordVals.length - 2]);
+    }else{
+      setDelta('statRevenueDelta', 0, 0);
+      setDelta('statOrdersDelta', 0, 0);
+    }
+
+    const spark = document.getElementById('statRevenueSpark');
+    if(spark){
+      const vals = revVals.slice(-8);
+      if(vals.length < 2){
+        spark.innerHTML = '';
+      }else{
+        const max = Math.max(...vals, 1);
+        const min = Math.min(...vals, 0);
+        const range = (max - min) || 1;
+        const stepX = 120 / (vals.length - 1);
+        const pts = vals.map((v, i) => `${(i * stepX).toFixed(1)},${(28 - ((v - min) / range) * 26).toFixed(1)}`).join(' ');
+        spark.innerHTML = `<polyline points="${pts}" fill="none" stroke="var(--stage-printing)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
+      }
+    }
   }
 
   // Shared bar-chart renderer for both the revenue and orders trend
