@@ -1389,10 +1389,12 @@
   }
   .monitor-input.monitor-locked:hover{border-color:transparent; background:var(--field-bg);}
   .monitor-status{cursor:pointer; font-weight:600;}
-  .monitor-status.status-forprint{background:#DFF0E3; color:#217A3E;}
-  .monitor-status.status-forheat{background:#FBDEDA; color:#B23A26;}
-  .monitor-status.status-printed{background:#E2E8F0; color:#3A4A63;}
-  .monitor-status.status-done{background:#E7E8EA; color:#54585D;}
+  .monitor-status.status-notstarted{background:#E7E8EA; color:#54585D;}
+  .monitor-status.status-forpattern{background:#E8E2F5; color:#5B3FA3;}
+  .monitor-status.status-forprinting{background:#DFF0E3; color:#217A3E;}
+  .monitor-status.status-forheatpress{background:#FBDEDA; color:#B23A26;}
+  .monitor-status.status-forsewing{background:#E2E8F0; color:#3A4A63;}
+  .monitor-status.status-complete{background:#DCEEE6; color:#1E6B4E;}
   .monitor-status.status-cancelled{background:#F0E2DC; color:#8A5138;}
   .monitor-jo-cell{display:flex; align-items:center; gap:4px;}
   .monitor-jo-cell .monitor-input{min-width:70px;}
@@ -3866,17 +3868,19 @@
   // (api/monitor.js / KV key "monitoring-sheet"). Any logged-in user can
   // add, edit, or delete rows.
   const MONITOR_API = '/api/monitor';
-  const MONITOR_STATUS_OPTIONS = ['FOR PRINT','FOR HEAT','PRINTED','DONE','CANCELLED'];
+  const MONITOR_STATUS_OPTIONS = ['NOT STARTED','FOR PATTERN','FOR PRINTING','FOR HEATPRESS','FOR SEWING','COMPLETE','CANCELLED'];
   // "Active" = still in production, using the same status dropdown values
-  // as the Monitoring Sheet — everything that hasn't been printed,
-  // finished, or cancelled yet.
-  const MONITOR_ACTIVE_STATUSES = ['FOR PRINT','FOR HEAT'];
+  // as the Monitoring Sheet — everything that has been started but isn't
+  // yet complete or cancelled.
+  const MONITOR_ACTIVE_STATUSES = ['FOR PATTERN','FOR PRINTING','FOR HEATPRESS','FOR SEWING'];
   const MONITOR_RECENT_DAYS = 7;
   const MONITOR_STATUS_CLASS = {
-    'FOR PRINT':'status-forprint',
-    'FOR HEAT':'status-forheat',
-    'PRINTED':'status-printed',
-    'DONE':'status-done',
+    'NOT STARTED':'status-notstarted',
+    'FOR PATTERN':'status-forpattern',
+    'FOR PRINTING':'status-forprinting',
+    'FOR HEATPRESS':'status-forheatpress',
+    'FOR SEWING':'status-forsewing',
+    'COMPLETE':'status-complete',
     'CANCELLED':'status-cancelled'
   };
   const MONITOR_MATERIAL_OPTIONS = ['Cooltex 140gsm','Cooltex 170gsm','Cooltex 200gsm','Double square'];
@@ -3886,8 +3890,9 @@
   let analyticsDrilldownData = {};
 
   const STATUS_COLORS = {
-    'FOR PRINT': '#1E7A42', 'FOR HEAT': '#B23A1B', 'PRINTED': '#2352A6',
-    'DONE': '#3E4A54', 'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
+    'NOT STARTED': '#54585D', 'FOR PATTERN': '#5B3FA3', 'FOR PRINTING': '#1E7A42',
+    'FOR HEATPRESS': '#B23A1B', 'FOR SEWING': '#2352A6', 'COMPLETE': '#1E6B4E',
+    'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
   };
 
   function initMonitorHeader(){
@@ -4832,15 +4837,17 @@
     animateCountUp(document.getElementById('statQty'), totalQty, formatInt, 500);
     animateCountUp(document.getElementById('statAvg'), orderCount ? totalRevenue / orderCount : 0, formatCurrency, 650);
 
-    // Active Job Orders — status still "FOR PRINT" or "FOR HEAT" (i.e. not
-    // yet PRINTED, DONE, or CANCELLED), straight off the same status
-    // dropdown used on the Monitoring Sheet.
+    // Active Job Orders — status is one of the in-production stages (i.e.
+    // started but not yet COMPLETE or CANCELLED), straight off the same
+    // status dropdown used on the Monitoring Sheet.
     const activeRows = rows.filter(r => MONITOR_ACTIVE_STATUSES.includes(r.status));
-    const forPrintCount = rows.filter(r => r.status === 'FOR PRINT').length;
-    const forHeatCount = rows.filter(r => r.status === 'FOR HEAT').length;
+    const forPatternCount = rows.filter(r => r.status === 'FOR PATTERN').length;
+    const forPrintingCount = rows.filter(r => r.status === 'FOR PRINTING').length;
+    const forHeatpressCount = rows.filter(r => r.status === 'FOR HEATPRESS').length;
+    const forSewingCount = rows.filter(r => r.status === 'FOR SEWING').length;
     const activeCount = activeRows.length;
     animateCountUp(document.getElementById('statActive'), activeCount, formatInt, 500);
-    document.getElementById('statActiveSub').textContent = `${forPrintCount} For Print · ${forHeatCount} For Heat`;
+    document.getElementById('statActiveSub').textContent = `${forPatternCount} Pattern · ${forPrintingCount} Printing · ${forHeatpressCount} Heatpress · ${forSewingCount} Sewing`;
 
     // Recent Job Orders — dated within the last MONITOR_RECENT_DAYS days.
     const cutoff = new Date();
@@ -4855,16 +4862,16 @@
     animateCountUp(document.getElementById('statRecent'), recentCount, formatInt, 500);
     document.getElementById('statRecentSub').textContent = `Last ${MONITOR_RECENT_DAYS} days`;
 
-    // Done Job Orders — status is exactly "DONE" on the Monitoring Sheet.
-    const doneRows = rows.filter(r => r.status === 'DONE');
+    // Done Job Orders — status is exactly "COMPLETE" on the Monitoring Sheet.
+    const doneRows = rows.filter(r => r.status === 'COMPLETE');
     const doneCount = doneRows.length;
     animateCountUp(document.getElementById('statDone'), doneCount, formatInt, 500);
     document.getElementById('statDoneSub').textContent = orderCount ? `${Math.round((doneCount / orderCount) * 100)}% of tracked orders` : '';
 
-    // Pending Job Orders — anything not yet DONE and not CANCELLED
-    // (FOR PRINT, FOR HEAT, PRINTED, or blank status) is automatically
-    // considered pending.
-    const pendingRows = rows.filter(r => r.status !== 'DONE' && r.status !== 'CANCELLED');
+    // Pending Job Orders — anything not yet COMPLETE and not CANCELLED
+    // (NOT STARTED, FOR PATTERN, FOR PRINTING, FOR HEATPRESS, FOR SEWING,
+    // or blank status) is automatically considered pending.
+    const pendingRows = rows.filter(r => r.status !== 'COMPLETE' && r.status !== 'CANCELLED');
     const pendingCount = pendingRows.length;
     animateCountUp(document.getElementById('statPending'), pendingCount, formatInt, 500);
     document.getElementById('statPendingSub').textContent = orderCount ? `${Math.round((pendingCount / orderCount) * 100)}% of tracked orders` : '';
@@ -5094,8 +5101,9 @@
       else if(!r.status) unset += 1;
     });
     const colors = {
-      'FOR PRINT': '#1E7A42', 'FOR HEAT': '#B23A1B', 'PRINTED': '#2352A6',
-      'DONE': '#3E4A54', 'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
+      'NOT STARTED': '#54585D', 'FOR PATTERN': '#5B3FA3', 'FOR PRINTING': '#1E7A42',
+      'FOR HEATPRESS': '#B23A1B', 'FOR SEWING': '#2352A6', 'COMPLETE': '#1E6B4E',
+      'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
     };
     const entries = [...MONITOR_STATUS_OPTIONS.map(s => [s, counts[s]]), ['Unset', unset]].filter(([, v]) => v > 0);
     if(entries.length === 0){
