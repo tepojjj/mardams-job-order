@@ -1616,6 +1616,10 @@
     animation:pulseRing 1.8s ease-out infinite;
   }
   .chart-card svg rect:not(.trend-hit):hover{filter:brightness(1.18); cursor:pointer;}
+  @keyframes clientRowIn{
+    from{opacity:0; transform:translateY(4px);}
+    to{opacity:1; transform:translateY(0);}
+  }
 
   /* ---- Analytics drill-down modal ---- */
   .drilldown-overlay{
@@ -2658,6 +2662,11 @@
     <div class="chart-block">
       <div class="section-label">Top Clients by Revenue</div>
       <div class="chart-card" id="topClientsChartCard"></div>
+    </div>
+
+    <div class="chart-block">
+      <div class="section-label">Client Contribution</div>
+      <div class="chart-card" id="clientContributionTableCard"></div>
     </div>
   </div>
 
@@ -4894,6 +4903,7 @@
     renderStatusBreakdown(rows);
     renderCompletionGauge(rows, orderCount, doneCount);
     renderTopClientsChart(rows);
+    renderClientContributionTable(rows);
   }
 
   function analyticsLabel(key, groupBy){
@@ -5230,6 +5240,64 @@
     });
     container.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;">${bars}</svg>`;
     growChart(container);
+  }
+
+  // Client Contribution — every client with at least one tracked order,
+  // ranked by revenue, showing order count (how often they order) and
+  // each client's share of total revenue as a mini bar so it reads as a
+  // "who actually drives the business" table, not just a top-8 chart.
+  function renderClientContributionTable(rows){
+    const container = document.getElementById('clientContributionTableCard');
+    const stats = {};
+    rows.forEach(r => {
+      const name = (r.clientName || '').trim();
+      if(!name) return;
+      if(!stats[name]) stats[name] = { orders: 0, revenue: 0 };
+      stats[name].orders += 1;
+      stats[name].revenue += parseFloat(r.grandTotal) || 0;
+    });
+    const entries = Object.entries(stats).sort((a, b) => b[1].revenue - a[1].revenue);
+    if(entries.length === 0){
+      container.innerHTML = '<div class="chart-empty">No client orders to show yet.</div>';
+      return;
+    }
+    const totalRevenue = entries.reduce((sum, [, s]) => sum + s.revenue, 0) || 1;
+    const rowsHtml = entries.map(([name, s], i) => {
+      const pct = (s.revenue / totalRevenue) * 100;
+      const avg = s.orders ? s.revenue / s.orders : 0;
+      const delay = Math.min(i * 40, 480);
+      return `
+        <tr style="opacity:0; animation:clientRowIn .4s ease ${delay}ms forwards;">
+          <td style="color:var(--ink-soft);">${i + 1}</td>
+          <td>${escapeHtml(name)}</td>
+          <td class="num">${s.orders}</td>
+          <td class="num">${formatCurrency(s.revenue)}</td>
+          <td style="min-width:150px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden;">
+                <div style="width:${pct.toFixed(1)}%; height:100%; background:var(--stamp); border-radius:3px;"></div>
+              </div>
+              <span style="font-size:11px; color:var(--ink-soft); min-width:36px; text-align:right;">${pct.toFixed(1)}%</span>
+            </div>
+          </td>
+          <td class="num">${formatCurrency(avg)}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <table class="browse-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Client</th>
+            <th class="num">Orders</th>
+            <th class="num">Total Revenue</th>
+            <th>Share of Revenue</th>
+            <th class="num">Avg. Order Value</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
   }
 
   // ---- Analytics KPI drill-down ----
