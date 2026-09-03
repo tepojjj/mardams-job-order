@@ -1333,6 +1333,20 @@
     min-width:2100px;
     border-collapse:collapse;
   }
+  /* Materials list only has 4 real columns, not the ~13 the shared
+     .monitor-table min-width was sized for — without this override each
+     column stretches out with a lot of empty space. */
+  table.monitor-table.monitor-table-compact{
+    width:auto;
+    min-width:0;
+  }
+  table.monitor-table.monitor-table-compact th,
+  table.monitor-table.monitor-table-compact td{
+    width:150px;
+  }
+  table.monitor-table.monitor-table-compact td:has(.monitor-row-delete){
+    width:40px;
+  }
   table.monitor-table thead th{
     background:var(--paper);
     color:#fff;
@@ -2156,7 +2170,7 @@
     </table>
     <button class="add-row-btn" onclick="addRow()">+ Add Line</button>
 
-        <div class="totals">
+    <div class="totals">
       <div class="totals-box">
         <div class="totals-row"><span>Total QTY</span><span id="totalqty">0</span></div>
         <div class="totals-row grand"><span>Grand Total</span><span id="grandtotal">0.00</span></div>
@@ -2268,7 +2282,7 @@
       <button class="primary" onclick="addMaterialRow()">+ Add Material</button>
     </div>
     <div class="monitor-scroll">
-      <table class="monitor-table">
+      <table class="monitor-table monitor-table-compact">
         <thead>
           <tr>
             <th>Material</th>
@@ -2291,7 +2305,7 @@
       <button class="ghost" onclick="loadInventoryList()">↻ Refresh</button>
     </div>
     <div class="monitor-scroll">
-      <table class="monitor-table">
+      <table class="monitor-table monitor-table-compact">
         <thead>
           <tr>
             <th>Material</th>
@@ -2313,7 +2327,6 @@
       <button class="ghost" onclick="loadPurchaseList()">↻ Refresh</button>
       <button class="ghost" onclick="exportPurchaseCsv()">⇩ Export CSV</button>
       <button class="primary" onclick="addPurchaseRow()">+ Add Row</button>
-      <button class="primary" onclick="saveAllPurchaseRows()">💾 Save</button>
     </div>
     <div class="monitor-scroll">
       <table class="monitor-table">
@@ -2330,6 +2343,7 @@
             <th class="num">Amount</th>
             <th>Prepared By</th>
             <th>Memo</th>
+            <th style="width:70px;">Save</th>
             <th style="width:30px;"></th>
           </tr>
         </thead>
@@ -3246,7 +3260,7 @@
     rowCount = rows.length;
   }
 
-    function calc(){
+  function calc(){
     let subtotal = 0;
     let totalQty = 0;
     document.querySelectorAll('#items tr').forEach(row => {
@@ -3260,7 +3274,6 @@
     document.getElementById('grandtotal').textContent = subtotal.toFixed(2);
     document.getElementById('totalqty').textContent = totalQty;
   }
-  
 
   async function resetForm(){
     if(!(await customConfirm('Clear all fields on this job order?'))) return;
@@ -4542,6 +4555,7 @@
         <td class="num">${formatCurrency(amount)}</td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="preparedBy" value="${escapeHtml(r.preparedBy)}" placeholder="—" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="memo" value="${escapeHtml(r.memo)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><button class="ghost" title="Save this row and sync it to Inventory" onclick="saveRowToInventory('${id}')">💾 Save</button></td>
         <td><button class="monitor-row-delete" title="Delete row" onclick="deletePurchaseRow('${id}')">✕</button></td>
       </tr>`;
     }).join('');
@@ -4606,7 +4620,11 @@
   // Autocomplete/suggestion handler for the Material field: if the
   // typed name matches an existing Material List entry, reuse it and
   // fill in its Supplier/Unit (when this row hasn't set its own yet)
-  // instead of letting a near-duplicate get created.
+  // instead of letting a near-duplicate get created. This only saves
+  // the purchase row itself — it does NOT touch the Inventory ledger.
+  // That only happens when the row's own Save button is clicked (see
+  // saveRowToInventory), so Current Stock never updates from a row
+  // that's still being typed into.
   function onPurchaseMaterialChange(el){
     const id = el.dataset.id;
     const row = cachedPurchaseRows.find(r => r.id === id);
@@ -4619,9 +4637,10 @@
     }
     renderPurchaseRows();
     persistPurchaseRow(row);
-    syncPurchaseLedger(row);
   }
 
+  // Saves the field's own value only — does NOT sync to Inventory.
+  // Inventory sync is explicit now, via each row's Save button.
   function savePurchaseField(el){
     const id = el.dataset.id;
     const field = el.dataset.field;
@@ -4630,7 +4649,23 @@
     if(!row) return;
     row[field] = value;
     persistPurchaseRow(row);
-    syncPurchaseLedger(row);
+  }
+
+  // The only path that updates Inventory's Current Stock from a
+  // purchase row. Clicking a row's Save button persists that row and
+  // then creates/updates its linked Stock In entry — so editing a
+  // purchase mid-typing never touches Inventory until you explicitly
+  // confirm the row with Save.
+  async function saveRowToInventory(id){
+    const row = cachedPurchaseRows.find(r => r.id === id);
+    if(!row) return;
+    if(!(row.material || '').trim()){
+      showToast('Add a material name to this row before saving.', 'error');
+      return;
+    }
+    await persistPurchaseRow(row);
+    await syncPurchaseLedger(row);
+    showToast('Saved — synced to Inventory.', 'success');
   }
 
   async function persistPurchaseRow(row){
