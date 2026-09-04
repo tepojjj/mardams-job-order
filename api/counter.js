@@ -94,15 +94,13 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // Save a manually-typed custom number. Only ever moves the counter
-    // forward, never backward, so a custom number can't accidentally
-    // rewind (and re-collide with) numbers that were already claimed.
+    // Save a manually-typed custom number. The counter is set to exactly
+    // this value — whether it's higher or lower than what's currently
+    // stored — so the next auto-suggested number always picks up right
+    // after whatever was actually saved (e.g. adjust down to JO-0099 and
+    // the next suggestion becomes JO-0100, not a stale higher number).
     if (body.action === 'commit' && Number.isFinite(body.value)) {
-      const existing = await kv.get(KEY);
-      const current = existing ? parseInt(existing, 10) : 0;
-      if (body.value > current) {
-        await kv.set(KEY, String(body.value));
-      }
+      await kv.set(KEY, String(body.value));
       res.status(200).json({ ok: true });
       return;
     }
