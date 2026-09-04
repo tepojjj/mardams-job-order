@@ -2,7 +2,21 @@ const { kv } = require('@vercel/kv');
 const { requireRole, requireJobOrdersAccess } = require('./_auth');
 const { LOG_KEY } = require('./_account-log');
 
-const KEY = 'last-job-order-number';
+// One shared endpoint drives two independent running-number sequences —
+// Job Orders and Purchase Orders — each with its own KV key, so they
+// never interfere with each other. Kept in this single file (instead of
+// a separate api/po-counter.js) to stay under Vercel Hobby's
+// 12-serverless-function cap; ?kind=po (GET) / body.kind:'po' (POST)
+// selects the PO sequence, and everything defaults to 'jo' so existing
+// calls that don't send a kind keep working exactly as before.
+const KEYS = {
+  jo: 'last-job-order-number',
+  po: 'last-po-number',
+};
+
+function resolveKey(kind) {
+  return KEYS[kind] || KEYS.jo;
+}
 
 // Merged with the old standalone api/account-log.js so the project stays
 // under Vercel Hobby's 12-serverless-function cap. Routed by ?log=1 so the
@@ -40,6 +54,7 @@ module.exports = async (req, res) => {
     const auth = requireJobOrdersAccess(req, res);
     if (!auth) return;
 
+    const KEY = resolveKey(req.query && req.query.kind);
     const existing = await kv.get(KEY);
     const next = existing ? parseInt(existing, 10) + 1 : 1;
     res.status(200).json({ next });
@@ -60,6 +75,8 @@ module.exports = async (req, res) => {
       }
     }
     body = body || {};
+
+    const KEY = resolveKey(body.kind);
 
     // Reset the counter entirely — next preview will start back at 1.
     if (body.action === 'reset') {

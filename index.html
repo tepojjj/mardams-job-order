@@ -3519,6 +3519,10 @@
   function pad(n){ return String(n).padStart(4, '0'); }
   function formatJO(n){ return `${new Date().getFullYear()}-${pad(n)}`; }
 
+  // Purchase Order numbers share this same counter endpoint (kind=po) but
+  // use their own sequence and a plain PO-00001 format — no year prefix.
+  function formatPO(n){ return `PO-${String(n).padStart(5, '0')}`; }
+
   // Tracks whether the number in the field is still the untouched
   // auto-suggestion, or whether the user typed/edited it by hand.
   // This decides which commit path printOrder() takes.
@@ -4556,7 +4560,7 @@
         </select></td>
         <td class="num"><input type="number" step="any" class="monitor-input" data-id="${id}" data-field="qty" value="${r.qty || ''}" placeholder="0" onchange="saveStockField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="reference" value="${escapeHtml(r.reference)}" placeholder="e.g. Job Order #" onchange="saveStockField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="personnel" value="${escapeHtml(r.personnel)}" placeholder="Encoded by" onchange="saveStockField(this)"></td>
+        <td><input type="text" class="monitor-input monitor-locked" data-id="${id}" data-field="personnel" value="${escapeHtml(r.personnel)}" placeholder="Auto-filled with your account on Save" readonly></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="notes" value="${escapeHtml(r.notes)}" placeholder="—" onchange="saveStockField(this)"></td>
         <td><button class="ghost" title="Save this row and sync it to Inventory" onclick="saveStockRowToServer('${id}')">💾 Save</button></td>
         <td><button class="monitor-row-delete" title="Delete row" onclick="deleteStockRow('${id}')">✕</button></td>
@@ -4607,6 +4611,11 @@
       showToast('Pick a material for this row before saving.', 'error');
       return;
     }
+    // Personnel always reflects whichever account is actually signed in
+    // and clicking Save — not whatever was typed — so it's a reliable
+    // record of who encoded the movement.
+    row.personnel = (currentUser && (currentUser.displayName || currentUser.username)) || row.personnel;
+    renderStockRows();
     await persistStockRow(row);
     showToast('Saved — synced to Inventory.', 'success');
   }
@@ -4712,6 +4721,10 @@
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
       cachedPurchaseRows = data.rows || [];
+      // Rows already on the server were either saved before this feature
+      // existed or already had their PO number claimed — either way, they
+      // must never re-trigger a counter claim just from being edited later.
+      cachedPurchaseRows.forEach(r => { r.poAutoSuggested = false; r.poCommitted = true; });
     }catch(e){
       cachedPurchaseRows = cachedPurchaseRows || [];
       console.warn('Could not load purchase history.', e);
@@ -4751,7 +4764,7 @@
       return `
       <tr>
         <td><input type="date" class="monitor-input" data-id="${id}" data-field="date" value="${r.date || ''}" onchange="savePurchaseField(this)"></td>
-        <td><input type="text" class="monitor-input" data-id="${id}" data-field="poNumber" value="${escapeHtml(r.poNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
+        <td><input type="text" class="monitor-input" data-id="${id}" data-field="poNumber" value="${escapeHtml(r.poNumber)}" placeholder="Auto-suggested" oninput="onPoNumberEdited(this)" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="drNumber" value="${escapeHtml(r.drNumber)}" placeholder="—" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" data-id="${id}" data-field="supplier" value="${escapeHtml(r.supplier)}" placeholder="—" onchange="savePurchaseField(this)"></td>
         <td><input type="text" class="monitor-input" list="materialsDatalist" data-id="${id}" data-field="material" value="${escapeHtml(r.material)}" placeholder="Type or pick a material" onchange="onPurchaseMaterialChange(this)"></td>
@@ -4776,11 +4789,79 @@
   function addPurchaseRow(){
     const row = {
       id: purchaseRowId(), date: '', poNumber: '', drNumber: '', supplier: '', material: '', unit: '',
-      qty: '', price: '', preparedBy: '', memo: '', createdAt: new Date().toISOString()
+      qty: '', price: '', preparedBy: '', memo: '', createdAt: new Date().toISOString(),
+      poAutoSuggested: true, poCommitted: false
     };
     cachedPurchaseRows.push(row);
     renderPurchaseRows();
     persistPurchaseRow(row);
+    peekNextPoNumber(row);
+  }
+
+  // Previews the next PO number for a freshly-added row — same "peek,
+  // don't claim" idea as the Job Order number: this only shows what the
+  // next number WOULD be. Nothing is actually reserved from the shared
+  // sequence until the row is saved (see commitPoNumber).
+  async function peekNextPoNumber(row){
+    try{
+      const res = await fetch(`${API}?kind=po`, { headers: { ...authHeaders() } });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json();
+      if(row.poCommitted) return; // saved before this resolved — don't clobber the real number
+      row.poNumber = formatPO(data.next);
+      row.poAutoSuggested = true;
+      renderPurchaseRows();
+    }catch(e){
+      console.warn('Could not reach counter backend for a PO number suggestion.', e);
+    }
+  }
+
+  // Any manual edit to a still-uncommitted row's PO No. field means it's
+  // no longer the untouched suggestion — commitPoNumber() must save this
+  // exact number instead of atomically claiming the next one.
+  function onPoNumberEdited(el){
+    const row = cachedPurchaseRows.find(r => r.id === el.dataset.id);
+    if(row && !row.poCommitted) row.poAutoSuggested = false;
+  }
+
+  // Claims (or saves) this row's PO number in the shared sequence — once,
+  // the first time the row is actually saved. Only fires for rows created
+  // via "+ Add Row" in this session (poCommitted is already true for
+  // anything loaded from the server), so re-saving an existing/older row
+  // never re-touches the counter.
+  async function commitPoNumber(row){
+    if(row.poCommitted) return;
+    if(row.poAutoSuggested !== false){
+      try{
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ kind: 'po', action: 'increment' })
+        });
+        if(handleAuthFailure(res.status)) return;
+        const data = await res.json();
+        if(Number.isFinite(data.value)) row.poNumber = formatPO(data.value);
+      }catch(e){
+        console.warn('Could not claim the next PO number from the backend.', e);
+      }
+    }else{
+      const match = (row.poNumber || '').match(/(\d+)\s*$/);
+      if(match){
+        const used = parseInt(match[1], 10);
+        if(!isNaN(used)){
+          try{
+            await fetch(API, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({ kind: 'po', action: 'commit', value: used })
+            });
+          }catch(e){
+            console.warn('Could not save the PO number to the backend.', e);
+          }
+        }
+      }
+    }
+    row.poCommitted = true;
   }
 
   // Finds an existing Material List entry (case-insensitive, trimmed
@@ -4869,6 +4950,8 @@
       showToast('Add a material name to this row before saving.', 'error');
       return;
     }
+    await commitPoNumber(row);
+    renderPurchaseRows();
     await persistPurchaseRow(row);
     await syncPurchaseLedger(row);
     showToast('Saved — synced to Inventory.', 'success');
