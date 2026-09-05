@@ -565,6 +565,28 @@
     padding:4px 9px;
   }
 
+  /* ---- View-only lock: used when someone opens a saved job order via
+     "View" (Staff, or Admin/Super Admin browsing without clicking Edit).
+     Fields are genuinely disabled — not just visually dimmed — so nothing
+     typed can slip through to the server via Print/Save. Anything that
+     would let the record be changed (add/remove line, upload/replace the
+     photo, re-roll the suggested number) is hidden outright. ---- */
+  .sheet.view-locked .add-row-btn,
+  .sheet.view-locked #items .remove,
+  .sheet.view-locked #photoZone,
+  .sheet.view-locked .photo-remove,
+  .sheet.view-locked #newNumBtn{
+    display:none !important;
+  }
+  .sheet.view-locked input:disabled,
+  .sheet.view-locked select:disabled,
+  .sheet.view-locked textarea:disabled{
+    opacity:1;
+    cursor:default;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+
   /* ---- Sidebar navigation ---- */
   .sidebar{
     width:242px;
@@ -1860,6 +1882,7 @@
   }
   .attendance-filters label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); display:block; margin-bottom:4px;}
   .attendance-filters input[type="date"]{padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:12.5px;}
+  .attendance-filters input[type="text"]{padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; background:var(--field-bg); color:var(--ink); min-width:180px;}
   .badge-late{color:var(--danger); font-size:10px; font-weight:700; margin-left:5px;}
   .badge-undertime{color:var(--danger); font-size:10px; font-weight:700; margin-left:5px;}
   .badge-open{color:var(--ink-soft); font-style:italic;}
@@ -2550,6 +2573,7 @@
         <div><label>From</label><input type="date" id="attFrom"></div>
         <div><label>To</label><input type="date" id="attTo"></div>
         <div><button class="ghost" onclick="loadAttendanceReport()">Filter</button></div>
+        <div><label>Employee</label><input type="text" id="attEmployeeSearch" placeholder="Search employee name..." oninput="renderAttendanceReport()"></div>
       </div>
       <table class="browse-table drilldown-table">
         <thead>
@@ -3474,6 +3498,7 @@
   let loadedOrderId = null;
 
   function clearFormForNewOrder(){
+    setFormLocked(false);
     document.querySelectorAll('input[type=text], input[type=number], input[type=date], textarea').forEach(el => el.value = '');
     document.getElementById('materialType').selectedIndex = 0;
     document.getElementById('items').innerHTML = '';
@@ -3868,12 +3893,24 @@
   // this on save (see api/orders.js).
   let editingOrderId = null;
 
+  // Locks/unlocks the job order form itself. Fields are actually disabled
+  // (not just styled) so a locked form can never be typed into, and the
+  // add/remove-line, photo-upload, and "Suggest #" controls are hidden —
+  // this is what makes "View" genuinely view-only, for every role,
+  // instead of relying on nobody happening to click into a field.
+  function setFormLocked(locked){
+    const sheet = document.querySelector('.sheet');
+    if(sheet) sheet.classList.toggle('view-locked', locked);
+    document.querySelectorAll('.sheet input, .sheet select, .sheet textarea').forEach(el => { el.disabled = locked; });
+  }
+
   function editOrder(id){
     if(!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) return;
     const order = cachedOrders.find(o => o.joNumber === id);
     if(!order) return;
 
     populateFormFromOrder(order);
+    setFormLocked(false);
     editingOrderId = id;
     loadedOrderId = id;
     document.getElementById('editingJoLabel').textContent = id;
@@ -3947,6 +3984,7 @@
     if(!order) return;
     if(editingOrderId) exitEditMode();
     populateFormFromOrder(order);
+    setFormLocked(true);
     loadedOrderId = id;
     document.getElementById('viewingJoLabel').textContent = id;
     document.getElementById('toolbarNormal').style.display = 'none';
@@ -6381,17 +6419,27 @@
   function renderAttendanceReport(){
     const tbody = document.getElementById('attendanceReportTbody');
     const empty = document.getElementById('attendanceReportEmpty');
-    if(cachedAttendanceReport.length === 0){
-      tbody.innerHTML = '';
-      empty.style.display = 'block';
-      empty.textContent = 'No attendance punches in this range.';
-      return;
-    }
-    empty.style.display = 'none';
     const userByName = {};
     (cachedUsers || []).forEach(u => userByName[u.username] = u);
 
-    tbody.innerHTML = cachedAttendanceReport.map(r => {
+    const search = (document.getElementById('attEmployeeSearch').value || '').trim().toLowerCase();
+    const rows = search
+      ? cachedAttendanceReport.filter(r => {
+          const u = userByName[r.username];
+          const name = ((u && u.displayName) || r.username || '').toLowerCase();
+          return name.includes(search);
+        })
+      : cachedAttendanceReport;
+
+    if(rows.length === 0){
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = search ? 'No attendance punches for that employee in this range.' : 'No attendance punches in this range.';
+      return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = rows.map(r => {
       const u = userByName[r.username];
       let statusHtml = '';
       if(!r.afternoonOut){
