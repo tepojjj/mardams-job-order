@@ -2653,11 +2653,14 @@
     </table>
     <div class="browse-empty" id="holidaysEmpty" style="display:none;"></div>
 
-    <div class="section-label">Payroll Breakdown</div>
-    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employee's OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period.</div>
+    <div class="section-label" style="margin-top:26px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+      <span>Payroll Breakdown</span>
+      <button type="button" class="primary" onclick="printSelectedPayslips()" id="printSelectedPayslipsBtn" disabled title="Check up to 6 employees below, then print all their payslips on one sheet">Print Payslips</button>
+    </div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employees OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period. Check up to 6 employees to print their payslips together on one sheet.</div>
     <table class="browse-table payroll-table">
       <thead>
-        <tr><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
+        <tr><th style="width:1%;"></th><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="payrollTbody"></tbody>
     </table>
@@ -7344,6 +7347,7 @@
         : `<button type="button" class="primary edit-btn" onclick="event.stopPropagation(); markPayrollPaid('${escapeHtml(r.u.username)}')">Mark Paid</button>`;
       return `
       <tr class="clickable-row" onclick="openPayrollEmployeeDetail('${escapeHtml(r.u.username)}')">
+        <td onclick="event.stopPropagation();"><input type="checkbox" class="payslip-select" data-username="${escapeHtml(r.u.username)}" ${selectedPayslipUsernames.has(r.u.username) ? 'checked' : ''} onclick="toggleBatchPayslipSelection(this)"></td>
         <td>${escapeHtml(r.u.displayName || r.u.username)}</td>
         <td><span class="pay-type-pill">${r.u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</span></td>
         <td title="${escapeHtml(tooltip)}">${r.daysWorkedDisplay.toLocaleString('en-PH')}</td>
@@ -7362,6 +7366,13 @@
         </td>
       </tr>`;
     }).join('');
+
+    // Drop any selected employees who aren't part of this newly generated
+    // period (e.g. unconfigured, or removed) so the "N selected" count
+    // and button stay accurate.
+    const presentUsernames = new Set(rows.map(r => r.u.username));
+    Array.from(selectedPayslipUsernames).forEach(u => { if(!presentUsernames.has(u)) selectedPayslipUsernames.delete(u); });
+    updatePayslipSelectionUI();
   }
 
   // ---- Payroll payment tracking ("has this person actually been paid
@@ -7629,18 +7640,11 @@
   // the person can print to paper or "Save as PDF" from there.
   let currentPayslipUsername = null;
 
-  function printCurrentPayslip(){
-    if(currentPayslipUsername) printPayslip(currentPayslipUsername);
-  }
-
-  function printPayslip(username){
-    const entry = cachedPayrollRows.find(r => r.u.username === username);
-    if(!entry) return;
-    const from = document.getElementById('payFrom').value;
-    const to = document.getElementById('payTo').value;
-    const paid = cachedPayrollPaymentsByUser[username];
-
-    const rows = [
+  // Single source of truth for what a payslip actually shows — used by
+  // both the one-employee A5 payslip AND the multi-employee batch sheet,
+  // so the figures can never drift between the two.
+  function buildPayslipRows(entry){
+    return [
       ['Days Worked', String(entry.daysWorkedDisplay), false],
       ['Base Pay', formatCurrency(entry.basePay), false],
       ['Holiday Pay', formatCurrency(entry.holidayTotal), false],
@@ -7654,12 +7658,29 @@
       ['Cash Advance', `- ${formatCurrency(entry.cashAdvance)}`, false],
       ['NET PAY', formatCurrency(entry.netPay), true]
     ];
+  }
 
+  function buildPayslipStatusLine(username, entry){
+    const paid = cachedPayrollPaymentsByUser[username];
     const drifted = paid && Math.abs(paid.netPay - entry.netPay) >= 0.01;
-    const paidLine = paid
+    return paid
       ? `Paid on ${new Date(paid.paidAt).toLocaleDateString('en-PH')} by ${escapeHtml(paid.paidBy)}`
         + (drifted ? ` — ⚠ paid amount was ${formatCurrency(paid.netPay)}; this payslip now recalculates to ${formatCurrency(entry.netPay)}. Attendance may have changed since payment.` : '')
       : 'Not yet marked as paid';
+  }
+
+  function printCurrentPayslip(){
+    if(currentPayslipUsername) printPayslip(currentPayslipUsername);
+  }
+
+  function printPayslip(username){
+    const entry = cachedPayrollRows.find(r => r.u.username === username);
+    if(!entry) return;
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+
+    const rows = buildPayslipRows(entry);
+    const paidLine = buildPayslipStatusLine(username, entry);
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Payslip — ${escapeHtml(entry.u.displayName || username)}</title>
@@ -7712,6 +7733,140 @@
     const win = window.open('', '_blank');
     if(!win){
       showToast('Please allow pop-ups to view the payslip.', 'error');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { try{ win.print(); }catch(e){} }, 300);
+  }
+
+  // ---- Batch payslips: up to 6 employees' payslips on one bond paper ----
+  // Selection is just a list of usernames — nothing is stored server-side.
+  // Every print pulls the CURRENT figures from cachedPayrollRows for
+  // whichever period is loaded, so re-generating payroll for a new
+  // period (or after an attendance correction) and printing again always
+  // reflects the latest numbers, with identical computations to the
+  // single-employee payslip above (both use buildPayslipRows).
+  const MAX_PAYSLIPS_PER_SHEET = 6;
+  let selectedPayslipUsernames = new Set();
+
+  function toggleBatchPayslipSelection(checkbox){
+    const username = checkbox.dataset.username;
+    if(checkbox.checked){
+      if(selectedPayslipUsernames.size >= MAX_PAYSLIPS_PER_SHEET){
+        checkbox.checked = false;
+        showToast(`You can print up to ${MAX_PAYSLIPS_PER_SHEET} payslips on one sheet. Deselect one first.`, 'error');
+        return;
+      }
+      selectedPayslipUsernames.add(username);
+    }else{
+      selectedPayslipUsernames.delete(username);
+    }
+    updatePayslipSelectionUI();
+  }
+
+  function updatePayslipSelectionUI(){
+    const btn = document.getElementById('printSelectedPayslipsBtn');
+    if(!btn) return;
+    const n = selectedPayslipUsernames.size;
+    btn.textContent = n ? `Print Payslips (${n} selected)` : 'Print Payslips';
+    btn.disabled = n === 0;
+  }
+
+  function chunkArray(arr, size){
+    const out = [];
+    for(let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  function printSelectedPayslips(){
+    const from = document.getElementById('payFrom').value;
+    const to = document.getElementById('payTo').value;
+
+    const usernames = Array.from(selectedPayslipUsernames);
+    const entries = usernames
+      .map(username => ({ username, entry: cachedPayrollRows.find(r => r.u.username === username) }))
+      .filter(x => x.entry);
+
+    if(entries.length === 0){
+      showToast('Select at least one employee below to print payslips for.', 'error');
+      return;
+    }
+    if(entries.length < usernames.length){
+      showToast('Some selected employees are not in the currently loaded payroll period and were skipped.', 'error');
+    }
+
+    const buildStub = ({ username, entry }) => {
+      const rows = buildPayslipRows(entry);
+      const paidLine = buildPayslipStatusLine(username, entry);
+      return `<div class="stub">
+        <div class="stub-head">
+          <div>
+            <div class="stub-name">${escapeHtml(entry.u.displayName || username)}</div>
+            <div class="stub-meta">${escapeHtml(from)} to ${escapeHtml(to)} · ${entry.u.payType === 'daily' ? 'Daily Rate' : 'Fixed Monthly'}</div>
+          </div>
+          <div class="stub-co">Mardams Apparel<br>Payslip</div>
+        </div>
+        <table><tbody>
+          ${rows.map(([label, val, strong]) => `<tr class="${strong ? (label === 'NET PAY' ? 'strong net' : 'strong') : ''}"><td>${escapeHtml(label)}</td><td>${val}</td></tr>`).join('')}
+        </tbody></table>
+        <div class="stub-status">${paidLine}</div>
+        <div class="stub-sig">Employee Signature: ______________________</div>
+      </div>`;
+    };
+
+    const pages = chunkArray(entries, MAX_PAYSLIPS_PER_SHEET).map((group, i, all) => `
+      <div class="sheet"${i < all.length - 1 ? ' style="page-break-after:always;"' : ''}>
+        ${group.map(buildStub).join('')}
+      </div>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Payslips — ${escapeHtml(from)} to ${escapeHtml(to)}</title>
+<style>
+  @page { size: letter; margin: 8mm; }
+  body{ font-family: Arial, Helvetica, sans-serif; color:#1a1a1a; margin:0; padding:0; }
+  .sheet{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:repeat(3, 1fr);
+    gap:0;
+    width:100%;
+    height:100vh;
+    box-sizing:border-box;
+  }
+  .stub{
+    border:1px dashed #999;
+    padding:9px 11px 7px;
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+  }
+  .stub-head{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid #1a1a1a; padding-bottom:4px; margin-bottom:4px; }
+  .stub-name{ font-size:12.5px; font-weight:700; }
+  .stub-meta{ font-size:8.5px; color:#555; margin-top:1px; }
+  .stub-co{ font-size:8px; color:#555; text-align:right; line-height:1.25; }
+  table{ width:100%; border-collapse:collapse; font-size:9px; flex:1; }
+  td{ padding:1.5px 0; border-bottom:1px solid #eee; }
+  td:last-child{ text-align:right; font-variant-numeric: tabular-nums; }
+  tr.strong td{ font-weight:700; border-top:1px solid #1a1a1a; border-bottom:1px solid #1a1a1a; padding-top:2.5px; padding-bottom:2.5px; }
+  tr.net td{ font-size:10.5px; }
+  .stub-status{ font-size:7.5px; color:#555; margin-top:3px; }
+  .stub-sig{ font-size:8px; color:#555; margin-top:6px; }
+  .no-print{ text-align:center; padding:16px; }
+  @media print{ .no-print{ display:none; } }
+</style></head>
+<body>
+  ${pages}
+  <div class="no-print"><button onclick="window.print()" style="padding:8px 18px; font-size:13px;">Print / Save as PDF</button></div>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    if(!win){
+      showToast('Please allow pop-ups to view the payslips.', 'error');
       return;
     }
     win.document.write(html);
