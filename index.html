@@ -3838,6 +3838,22 @@
     }[c]));
   }
 
+  // Sorts job order numbers newest-first (e.g. 2026-0102 above 2026-0026),
+  // parsing the year and running number instead of a plain string compare
+  // so it stays correct once the running number passes 4 digits. Anything
+  // that doesn't fit the year-NNNN format (a fully custom number) falls
+  // back to a plain string compare so it still sorts somewhere sensible.
+  function compareJoNumbersDesc(a, b){
+    const pa = /^(\d+)-(\d+)$/.exec(a || '');
+    const pb = /^(\d+)-(\d+)$/.exec(b || '');
+    if(pa && pb){
+      const yearDiff = parseInt(pb[1], 10) - parseInt(pa[1], 10);
+      if(yearDiff !== 0) return yearDiff;
+      return parseInt(pb[2], 10) - parseInt(pa[2], 10);
+    }
+    return (b || '').localeCompare(a || '');
+  }
+
   function renderBrowseRows(){
     const tbody = document.getElementById('browseTbody');
     const empty = document.getElementById('browseEmpty');
@@ -3846,7 +3862,7 @@
     const filtered = cachedOrders.filter(o => {
       if(!q) return true;
       return [o.joNumber, o.clientName].some(v => (v || '').toLowerCase().includes(q));
-    });
+    }).sort((a, b) => compareJoNumbersDesc(a.joNumber, b.joNumber));
 
     if(filtered.length === 0){
       tbody.innerHTML = '';
@@ -6666,12 +6682,29 @@
   // to the Super Admin only (this app has no Accounting role). Computes
   // Philippine holiday-pay rules, OT pay, and deductions from the same
   // shared attendance records and user payroll fields.
+  // Builds every scheduled working day (everything except Sunday) between
+  // two YYYY-MM-DD dates, inclusive.
+  //
+  // IMPORTANT: this used to push d.toISOString().slice(0,10) for each day.
+  // toISOString() always converts to UTC, while d.getDay() reads the
+  // LOCAL day of week — on a browser set to a timezone ahead of UTC (e.g.
+  // Asia/Manila, UTC+8, which is what this business actually runs on),
+  // that mismatch silently shifted every date string back by one day.
+  // The Sunday check still correctly excluded the real Sunday, but doing
+  // so also swallowed the shifted string for the Saturday right before
+  // it — so any employee whose only attendance in a period fell on a
+  // Saturday got counted as 0 days worked and ₱0 pay for it, even though
+  // their punch record was completely valid. Building the string from
+  // the same LOCAL getters used for the day-of-week check (instead of
+  // toISOString) keeps everything in one consistent calendar, so no day
+  // gets silently dropped.
   function workingDaysInRange(fromStr, toStr){
     const dates = [];
     const from = new Date(fromStr + 'T00:00:00');
     const to = new Date(toStr + 'T00:00:00');
+    const pad = x => String(x).padStart(2, '0');
     for(let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)){
-      if(d.getDay() !== 0) dates.push(d.toISOString().slice(0, 10)); // 0 = Sunday
+      if(d.getDay() !== 0) dates.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`); // 0 = Sunday
     }
     return dates;
   }
