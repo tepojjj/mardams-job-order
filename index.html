@@ -5662,7 +5662,7 @@
       keys,
       k => buckets[k].orders,
       v => String(v),
-      '#2352A6'
+      '#93C5FD'
     );
   }
 
@@ -5776,9 +5776,9 @@
       else if(!r.status) unset += 1;
     });
     const colors = {
-      'NOT STARTED': '#54585D', 'FOR PATTERN': '#5B3FA3', 'FOR PRINTING': '#1E7A42',
-      'FOR HEATPRESS': '#B23A1B', 'FOR SEWING': '#2352A6', 'COMPLETE': '#1E6B4E',
-      'CANCELLED': '#8A4B4B', 'Unset': '#B9C2CB'
+      'NOT STARTED': '#C7CCD3', 'FOR PATTERN': '#CBB6F2', 'FOR PRINTING': '#A9E6BE',
+      'FOR HEATPRESS': '#F7B99A', 'FOR SEWING': '#9FC9FE', 'COMPLETE': '#8CE3CB',
+      'CANCELLED': '#F5AAAA', 'Unset': '#E4E7EB'
     };
     const entries = [...MONITOR_STATUS_OPTIONS.map(s => [s, counts[s]]), ['Unset', unset]].filter(([, v]) => v > 0);
     if(entries.length === 0){
