@@ -454,8 +454,17 @@
 
   .totals{
     display:flex;
-    justify-content:flex-end;
+    align-items:flex-end;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:16px;
     margin-top:12px;
+  }
+  .totals-left{
+    display:flex;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:14px;
   }
   .totals-box{
     display:flex;
@@ -495,13 +504,10 @@
     font-weight:700;
   }
 
-  .payment-row{
+  .payment-group{
     display:flex;
-    align-items:flex-end;
-    flex-wrap:wrap;
     gap:16px;
-    margin:14px 0 4px;
-    padding:12px 14px;
+    padding:9px 12px;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     background:var(--field-bg);
@@ -526,7 +532,7 @@
     border-radius:6px;
     background:var(--card);
     color:var(--ink);
-    width:140px;
+    width:110px;
   }
   .payment-input:focus{
     outline:none;
@@ -546,7 +552,11 @@
     display:flex;
     align-items:center;
     gap:7px;
-    margin-left:auto;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    background:var(--field-bg);
+    height:fit-content;
   }
   .fully-paid-field label{
     font-size:10.5px;
@@ -2382,24 +2392,25 @@
     <button class="add-row-btn" onclick="addRow()">+ Add Line</button>
 
     <div class="totals">
+      <div class="totals-left">
+        <div class="payment-group">
+          <div class="payment-field">
+            <label for="joDownPayment">Down Payment</label>
+            <input type="number" step="any" min="0" id="joDownPayment" class="payment-input" placeholder="0.00" oninput="updateRemainingBalance()">
+          </div>
+          <div class="payment-field">
+            <label for="joRemainingBalance">Remaining Balance</label>
+            <input type="text" id="joRemainingBalance" class="payment-input" value="0.00" readonly tabindex="-1">
+          </div>
+        </div>
+        <div class="fully-paid-field">
+          <input type="checkbox" id="joFullyPaid" onchange="onFullyPaidToggled()">
+          <label for="joFullyPaid">Fully Paid</label>
+        </div>
+      </div>
       <div class="totals-box">
         <div class="totals-row"><span>Total QTY</span><span id="totalqty">0</span></div>
         <div class="totals-row grand"><span>Grand Total</span><span id="grandtotal">0.00</span></div>
-      </div>
-    </div>
-
-    <div class="payment-row">
-      <div class="payment-field">
-        <label for="joDownPayment">Down Payment</label>
-        <input type="number" step="any" min="0" id="joDownPayment" class="payment-input" placeholder="0.00" oninput="updateRemainingBalance()">
-      </div>
-      <div class="payment-field">
-        <label for="joRemainingBalance">Remaining Balance</label>
-        <input type="text" id="joRemainingBalance" class="payment-input" value="0.00" readonly tabindex="-1">
-      </div>
-      <div class="fully-paid-field">
-        <input type="checkbox" id="joFullyPaid" onchange="onFullyPaidToggled()">
-        <label for="joFullyPaid">Fully Paid</label>
       </div>
     </div>
 
@@ -2453,6 +2464,7 @@
           <th class="num" style="text-align:right;">Total</th>
           <th class="num" style="text-align:right;">Down Payment</th>
           <th class="num" style="text-align:right;">Balance</th>
+          <th style="text-align:center;">Fully Paid</th>
           <th></th>
         </tr>
       </thead>
@@ -4097,6 +4109,50 @@
     return escapeHtml(formatCurrency(remaining));
   }
 
+  // Quick-toggle from the Browse table's Fully Paid checkbox column —
+  // same admin/super_admin restriction as Edit (enforced server-side too,
+  // since this goes through the same isEdit:true save path). Checking it
+  // fills Down Payment to match Grand Total; unchecking leaves Down
+  // Payment as-is and just recomputes Remaining Balance from it.
+  async function toggleFullyPaidFromBrowse(id, checked){
+    if(!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) return;
+    const order = cachedOrders.find(o => o.joNumber === id);
+    if(!order) return;
+
+    const grandTotal = parseFloat(order.grandTotal) || 0;
+    const previous = { fullyPaid: order.fullyPaid, downPayment: order.downPayment, remainingBalance: order.remainingBalance };
+    order.fullyPaid = checked;
+    if(checked){
+      order.downPayment = grandTotal ? grandTotal.toFixed(2) : (order.downPayment || '0');
+      order.remainingBalance = '0.00';
+    }else{
+      const dp = parseFloat(order.downPayment) || 0;
+      order.remainingBalance = Math.max(0, grandTotal - dp).toFixed(2);
+    }
+
+    try{
+      const res = await fetch(ORDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ id: order.joNumber, data: order, isEdit: true })
+      });
+      if(handleAuthFailure(res.status)) return;
+      if(!res.ok){
+        Object.assign(order, previous);
+        renderBrowseRows();
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.error || 'Could not update payment status.', 'error');
+        return;
+      }
+    }catch(e){
+      Object.assign(order, previous);
+      renderBrowseRows();
+      showToast('Could not reach the server. Please try again.', 'error');
+      return;
+    }
+    renderBrowseRows();
+  }
+
   function renderBrowseRows(){
     const tbody = document.getElementById('browseTbody');
     const empty = document.getElementById('browseEmpty');
@@ -4117,6 +4173,8 @@
     }
     empty.style.display = 'none';
 
+    const canManage = !!(currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin'));
+
     tbody.innerHTML = filtered.map(o => `
       <tr>
         <td>${o.photo
@@ -4130,12 +4188,15 @@
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(formatCurrency(parseFloat(o.downPayment) || 0))}</td>
         <td class="num" style="text-align:right;">${paymentStatusCell(o)}</td>
+        <td style="text-align:center;">
+          <input type="checkbox" class="fully-paid-checkbox" ${o.fullyPaid ? 'checked' : ''} ${canManage ? '' : 'disabled'} onchange="toggleFullyPaidFromBrowse('${escapeHtml(o.joNumber)}', this.checked)">
+        </td>
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
-          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
+          ${canManage
             ? `<button class="ghost edit-btn" onclick="editOrder('${escapeHtml(o.joNumber)}')">Edit</button>`
             : ''}
-          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
+          ${canManage
             ? `<button class="ghost danger-btn" onclick="deleteOrder('${escapeHtml(o.joNumber)}')">Delete</button>`
             : ''}
         </td>
@@ -4299,7 +4360,7 @@
 
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
-    tbody.innerHTML = skeletonRows(9);
+    tbody.innerHTML = skeletonRows(10);
     document.getElementById('browseEmpty').style.display = 'none';
     try{
       const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
@@ -7732,10 +7793,12 @@
 
       // Holiday pay — computed per configured holiday date in range.
       let holidayTotal = 0;
+      let holidayWorkedDays = 0;
       const holidayDetails = [];
       Object.values(holidayByDate).forEach(h => {
         const row = userAtt[h.date];
         const worked = !!(row && row.morningIn);
+        if(worked) holidayWorkedDays += 1;
         const isRestDay = dayOfWeek(h.date) === 0;
         let priorDate = addDaysToDateStr(h.date, -1);
         if(dayOfWeek(priorDate) === 0) priorDate = addDaysToDateStr(priorDate, -1);
@@ -7809,13 +7872,13 @@
       const netPay = grossPay + allowance - totalDeductions;
       grandTotal += netPay;
 
-      const daysWorkedDisplay = presentDays + (halfDays * 0.5);
+      const daysWorkedDisplay = presentDays + (halfDays * 0.5) + holidayWorkedDays;
 
       return {
         u, workingDays: normalDates.length, presentDays, absentDays, halfDays, lateDays, undertimeDays,
         totalLateMinutes, totalUndertimeMinutes, lateDeduction, undertimeDeduction, perMinuteRate,
         daysWorkedDisplay, dayDetails,
-        otHours, otDetails, ndMinutes, ndPay, basePay, holidayTotal, holidayDetails, otPay, grossPay,
+        otHours, otDetails, ndMinutes, ndPay, basePay, holidayTotal, holidayWorkedDays, holidayDetails, otPay, grossPay,
         allowance, sss, philhealth, pagibig, cashAdvance, totalDeductions, netPay
       };
     }).sort((a, b) => b.netPay - a.netPay);
@@ -7837,6 +7900,7 @@
     document.getElementById('payrollEmpty').style.display = 'none';
     tbody.innerHTML = rows.map(r => {
       const tooltip = `${r.workingDays} working days − ${r.absentDays} absent − ${r.halfDays} half day(s) `
+        + `+ ${r.holidayWorkedDays} holiday day(s) worked `
         + `= ${r.daysWorkedDisplay} days worked (${r.lateDays} late, ${r.totalLateMinutes} min · ${r.undertimeDays} undertime, ${r.totalUndertimeMinutes} min — pay adjusted for time lost, not a full-day deduction)`;
       const paid = cachedPayrollPaymentsByUser[r.u.username];
       // Paid amount goes stale if attendance is corrected after the fact
@@ -8048,7 +8112,7 @@
       ['Late Deduction', `- ${formatCurrency(entry.lateDeduction)} (${entry.totalLateMinutes} min × ${formatCurrency(entry.perMinuteRate)}/min — already netted into Base Pay below, shown here for reference)`],
       ['Undertime Days', `${entry.undertimeDays} (${entry.totalUndertimeMinutes} min total)`],
       ['Undertime Deduction', `- ${formatCurrency(entry.undertimeDeduction)} (${entry.totalUndertimeMinutes} min × ${formatCurrency(entry.perMinuteRate)}/min — already netted into Base Pay below, shown here for reference)`],
-      ['Days Worked (pay basis)', String(entry.daysWorkedDisplay)],
+      ['Days Worked (pay basis)', `${entry.daysWorkedDisplay} (includes ${entry.holidayWorkedDays} holiday day${entry.holidayWorkedDays === 1 ? '' : 's'} worked, paid via Holiday Pay below)`],
       ['Base Pay', `${formatCurrency(entry.basePay)} (full days + half days, minus Late/Undertime deductions above — never below ₱0 for a single day)`],
       ['Holiday Pay', formatCurrency(entry.holidayTotal)],
       ['Overtime Pay', `${formatCurrency(entry.otPay)} (${entry.otHours.toFixed(1)} hr, rate varies by day type — see below)`],
