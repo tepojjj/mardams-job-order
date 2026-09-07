@@ -2612,6 +2612,8 @@
       </div>
     </div>
 
+    <div id="payrollOrphanWarning" class="login-error" style="display:none; margin-bottom:16px;"></div>
+
     <div class="section-label" style="margin-top:0;">Holidays</div>
     <div class="drilldown-sub" style="margin:-6px 0 12px;">
       Add the holidays that fall within a payroll period so pay for those dates follows Philippine holiday-pay rules instead of an ordinary working day.
@@ -2890,7 +2892,7 @@
   <div class="browse-wrap" id="viewAccountLog" style="display:none;">
     <div class="section-label" style="margin-top:0;">Account Changes</div>
     <div class="drilldown-sub" style="margin:-6px 0 12px;">
-      Password changes and resets, and display name changes, for every account. Passwords themselves are never stored or shown here — only who changed what, and when. Not visible to Staff accounts.
+      Password changes and resets, display name changes, and job order edits/deletions, for every account. Passwords themselves are never stored or shown here — only who changed what, and when. Not visible to Staff accounts. Job order edits and deletions include a "View Previous State" snapshot of what the job order looked like beforehand.
     </div>
     <table class="browse-table">
       <thead>
@@ -3970,7 +3972,7 @@
       const res = await fetch(ORDERS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ id: newId, data, isEdit: true })
+        body: JSON.stringify({ id: newId, data, isEdit: true, previousId: newId !== oldId ? oldId : undefined })
       });
       if(handleAuthFailure(res.status)) return;
       if(!res.ok){
@@ -3980,9 +3982,13 @@
       }
 
       // If the JO number itself was changed, the old record is now a
-      // stale duplicate under the previous number — remove it.
+      // stale duplicate under the previous number — remove it. This isn't
+      // logged as a separate deletion (auditSkip=1): the POST above
+      // already logged the full edit, including the renumber and the
+      // pre-edit snapshot, so a second "deleted" entry here would just be
+      // confusing noise for the same action.
       if(newId !== oldId){
-        await fetch(`${ORDERS_API}?id=${encodeURIComponent(oldId)}`, {
+        await fetch(`${ORDERS_API}?id=${encodeURIComponent(oldId)}&auditSkip=1`, {
           method: 'DELETE',
           headers: { ...authHeaders() }
         });
@@ -6044,7 +6050,9 @@
   const ACCOUNT_LOG_TYPE_LABEL = {
     'password-change': 'Password changed',
     'password-reset': 'Password reset',
-    'display-name-change': 'Display name changed'
+    'display-name-change': 'Display name changed',
+    'joborder-edited': 'Job order edited',
+    'joborder-deleted': 'Job order deleted'
   };
 
   function accountLogDetails(entry){
@@ -6058,6 +6066,12 @@
     }
     if(entry.type === 'password-change'){
       return 'Changed by the account holder';
+    }
+    if(entry.type === 'joborder-edited' || entry.type === 'joborder-deleted'){
+      const snapshotBtn = entry.previousState
+        ? ` <button type="button" class="ghost edit-btn" onclick="viewJobOrderSnapshot('${escapeHtml(entry.id)}')">View Previous State</button>`
+        : '';
+      return `${escapeHtml(entry.details || '—')}${snapshotBtn}`;
     }
     return '—';
   }
@@ -6080,6 +6094,77 @@
         <td>${accountLogDetails(entry)}</td>
         <td>${escapeHtml(entry.changedBy || '—')}</td>
       </tr>`).join('');
+  }
+
+  // Renders a stored job-order snapshot from the Account Log as a
+  // read-only summary in a new tab — never the live New/Edit Job Order
+  // form, so there is no way this could be mistaken for the current
+  // record or accidentally resaved over it. If the entry is an edit
+  // (rather than a deletion), the state right after the edit is shown
+  // alongside it for an at-a-glance before/after comparison.
+  function jobOrderSnapshotTable(state){
+    if(!state) return '<p style="color:#888;">No snapshot available.</p>';
+    const items = (state.items || []).filter(it => (it.desc || '').trim() || (it.qty || '').toString().trim());
+    return `
+      <table><tbody>
+        <tr><td>Client</td><td>${escapeHtml(state.clientName || '—')}</td></tr>
+        <tr><td>Date</td><td>${escapeHtml(state.date || '—')}</td></tr>
+        <tr><td>Due Date</td><td>${escapeHtml(state.dueDate || '—')}</td></tr>
+        <tr><td>Material</td><td>${escapeHtml(state.materialType || '—')}</td></tr>
+        <tr><td>Artist</td><td>${escapeHtml(state.artist || '—')}</td></tr>
+        <tr><td>Notes</td><td>${escapeHtml(state.notes || '—')}</td></tr>
+        <tr><td>Reference Photo</td><td>${state.hadPhoto ? 'Had a photo attached (not stored in this log)' : 'None'}</td></tr>
+      </tbody></table>
+      <table style="margin-top:10px;"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Cost</th></tr></thead><tbody>
+        ${items.length ? items.map(it => `<tr><td>${escapeHtml(it.desc || '')}</td><td>${escapeHtml(String(it.qty || ''))}</td><td>${escapeHtml(it.unit || '')}</td><td>${escapeHtml(String(it.cost || ''))}</td></tr>`).join('') : '<tr><td colspan="4">No line items</td></tr>'}
+      </tbody></table>
+      <p style="margin-top:8px; font-weight:700;">Grand Total: ${escapeHtml(state.grandTotal || '—')}</p>
+    `;
+  }
+
+  function viewJobOrderSnapshot(entryId){
+    const entry = cachedAccountLog.find(e => e.id === entryId);
+    if(!entry || !entry.previousState){
+      showToast('No snapshot was stored for this entry.', 'error');
+      return;
+    }
+    const when = new Date(entry.changedAt).toLocaleString('en-PH');
+    const isEdit = entry.type === 'joborder-edited';
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Job Order Snapshot — ${escapeHtml(entry.username || '')}</title>
+<style>
+  body{ font-family: Arial, Helvetica, sans-serif; color:#1a1a1a; margin:0; padding:24px; }
+  .banner{ background:#fdecea; border:1px solid #f3b8b0; color:#7a2018; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:18px; }
+  h2{ font-size:15px; margin:0 0 10px; }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  td, th{ padding:5px 8px; border-bottom:1px solid #eee; text-align:left; }
+  th{ background:#f5f5f5; }
+  .cols{ display:flex; gap:24px; flex-wrap:wrap; }
+  .cols > div{ flex:1; min-width:280px; }
+</style></head>
+<body>
+  <div class="banner">
+    Archived snapshot from the Account Log — ${isEdit ? 'state right before this job order was edited' : 'state right before this job order was deleted'},
+    ${escapeHtml(entry.details || '')} by ${escapeHtml(entry.changedBy || '—')} on ${escapeHtml(when)}.
+    This is a historical record for tracing changes, not the live job order.
+  </div>
+  <div class="cols">
+    <div>
+      <h2>Before</h2>
+      ${jobOrderSnapshotTable(entry.previousState)}
+    </div>
+    ${isEdit ? `<div><h2>After the edit</h2>${jobOrderSnapshotTable(entry.newState)}</div>` : ''}
+  </div>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    if(!win){
+      showToast('Please allow pop-ups to view the snapshot.', 'error');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
   }
 
   async function loadAccountLog(){
@@ -7218,6 +7303,33 @@
 
     const configured = users.filter(u => u.payType && typeof u.rate === 'number');
     const unconfigured = users.filter(u => !u.payType || typeof u.rate !== 'number');
+
+    // Attendance can outlive the account it belongs to — if someone's
+    // account gets deleted, their punches stay in the attendance log
+    // (deleting a user doesn't touch attendance-log), but Payroll only
+    // ever looks up attendance for usernames it finds in the CURRENT
+    // Users list. Without this, that attendance just silently never
+    // shows up anywhere — no row, no warning, nothing. Surface it
+    // instead, so it's an "act on this" situation rather than a
+    // "we quietly lost track of it" one.
+    const activeUsernames = new Set(users.map(u => u.username));
+    const orphanedDaysByUser = {};
+    attRows.forEach(r => {
+      if(r.date < from || r.date > to) return; // stay within the selected period, not the extended lookback window
+      if(activeUsernames.has(r.username)) return;
+      if(!orphanedDaysByUser[r.username]) orphanedDaysByUser[r.username] = new Set();
+      orphanedDaysByUser[r.username].add(r.date);
+    });
+    const orphanWarningEl = document.getElementById('payrollOrphanWarning');
+    const orphanedUsernames = Object.keys(orphanedDaysByUser);
+    if(orphanedUsernames.length > 0){
+      const summary = orphanedUsernames.map(u => `${escapeHtml(u)} (${orphanedDaysByUser[u].size} day${orphanedDaysByUser[u].size === 1 ? '' : 's'})`).join(', ');
+      orphanWarningEl.style.display = 'block';
+      orphanWarningEl.innerHTML = `⚠ Attendance found for account(s) that no longer exist, in this period — <strong>not</strong> included in the payroll below: ${summary}. Recreate the account with the same username to bring this attendance into payroll, or settle it manually.`;
+    }else{
+      orphanWarningEl.style.display = 'none';
+      orphanWarningEl.innerHTML = '';
+    }
 
     let grandTotal = 0;
     const rows = configured.map(u => {
