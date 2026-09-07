@@ -72,7 +72,11 @@ The whole tool is now behind a login screen, with four account types:
   tab where they can create and remove **Staff** accounts (limited
   access). Admins cannot delete job orders, cannot create other
   Admins or Accounting accounts, cannot see/remove other Admin or
-  Super Admin accounts, and cannot see the Analytics tab.
+  Super Admin accounts, and cannot see the Analytics tab. On the
+  **Attendance** tab, Admins see the full company-wide attendance
+  report (not just their own punches) and can manually add or edit
+  any employee's attendance times — the same as Super Admin, except
+  Admins cannot delete an attendance record.
 - **Staff** — view-only on job orders (no edit, no delete), has no
   Users tab, and cannot see Analytics.
 - **Accounting** — doesn't use this app at all. Trying to log in here
@@ -90,7 +94,11 @@ here).
 
 - **Everyone who *can* use this app** (Apparel Staff, Apparel Admin,
   Super Admin) can also clock themselves **in and out** from the
-  **Attendance** tab. The **Payroll** tab (holiday calendar, pay
+  **Attendance** tab. Admin and Super Admin additionally see the
+  full attendance report for every employee there and can use
+  **+ Add Manual Entry** to record punches an employee missed (or
+  fix existing ones) for any employee and date — Staff only ever see
+  their own punches. The **Payroll** tab (holiday calendar, pay
   generation, per-employee breakdown, and OT rate/allowance/deduction
   editing) is visible to the **Super Admin only**.
 
@@ -175,6 +183,9 @@ same access rule as the Monitoring Sheet.
   deployment at 12, and this project is already at that limit
 - `api/purchases.js` — saves/lists/deletes Purchase History rows (login
   required)
+- `api/attendance.js` — clock in/out (any logged-in account, own record
+  only); full attendance report and manual add/edit of any employee's
+  attendance (Admin & Super Admin); delete a record (Super Admin only)
 - `api/users.js` — lists/creates/deletes accounts (Admin & Super Admin)
 - `api/login.js` — verifies login and issues a session token; also
   bootstraps the first Super Admin account (see above)

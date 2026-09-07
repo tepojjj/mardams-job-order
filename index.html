@@ -2568,7 +2568,10 @@
     </div>
 
     <div id="attendanceReportSection" style="display:none;">
-      <div class="section-label" style="margin-top:0;">Attendance Report — All Employees</div>
+      <div class="section-label" style="margin-top:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <span>Attendance Report — All Employees</span>
+        <button type="button" class="primary" style="font-size:12px; padding:6px 12px;" onclick="openAttendanceAdd()">+ Add Manual Entry</button>
+      </div>
       <div class="attendance-filters">
         <div><label>From</label><input type="date" id="attFrom"></div>
         <div><label>To</label><input type="date" id="attTo"></div>
@@ -2943,6 +2946,41 @@
     </div>
   </div>
 
+  <div class="drilldown-overlay" id="attendanceAddOverlay" onclick="if(event.target===this) closeAttendanceAdd();">
+    <div class="drilldown-modal" style="max-width:380px;">
+      <div class="drilldown-head">
+        <div>
+          <div class="drilldown-title">Add Manual Attendance Entry</div>
+          <div class="drilldown-sub">For an employee who missed clocking in, or a past date.</div>
+        </div>
+        <button type="button" class="drilldown-close" onclick="closeAttendanceAdd();">✕</button>
+      </div>
+      <div class="drilldown-body" style="padding:18px; max-height:70vh; overflow:auto;">
+        <div class="user-form" style="flex-direction:column; align-items:stretch;">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);">Employee</label>
+          <select id="attendanceAddUsername"></select>
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Date</label>
+          <input type="date" id="attendanceAddDate">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">AM In</label>
+          <input type="time" id="attendanceAddMorningIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">Lunch Out</label>
+          <input type="time" id="attendanceAddNoonOut">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">PM In</label>
+          <input type="time" id="attendanceAddAfternoonIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">PM Out</label>
+          <input type="time" id="attendanceAddAfternoonOut">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">OT In</label>
+          <input type="time" id="attendanceAddOtIn">
+          <label style="font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:6px;">OT Out</label>
+          <input type="time" id="attendanceAddOtOut">
+          <div class="drilldown-sub" style="margin-top:10px;">Times are Asia/Manila local time. Leave a field blank to skip that punch. If this employee already has an entry for the chosen date, it will be overwritten.</div>
+          <div class="login-error" id="attendanceAddError"></div>
+          <button class="primary" style="margin-top:12px;" onclick="saveAttendanceAdd()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="drilldown-overlay" id="payEditOverlay" onclick="if(event.target===this) closePayEdit();">
     <div class="drilldown-modal" style="max-width:380px;">
       <div class="drilldown-head">
@@ -3279,11 +3317,17 @@
     return !!currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin');
   }
 
-  // Attendance results and Payroll are Super Admin-only. Staff and Admin
-  // can still clock themselves in/out (see the Attendance tab), they just
-  // never see the underlying report or any pay figures.
+  // Payroll is Super Admin-only. Staff can still clock themselves in/out
+  // (see the Attendance tab), they just never see the underlying report,
+  // manual-entry tools, or any pay figures.
   function isSuperAdmin(){
     return !!currentUser && currentUser.role === 'super_admin';
+  }
+
+  // Attendance results and manual attendance entry are Admin and Super
+  // Admin — Staff only ever see their own punches.
+  function isAdminOrAbove(){
+    return !!currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin');
   }
 
   function showLogin(msg){
@@ -6052,7 +6096,10 @@
     'password-reset': 'Password reset',
     'display-name-change': 'Display name changed',
     'joborder-edited': 'Job order edited',
-    'joborder-deleted': 'Job order deleted'
+    'joborder-deleted': 'Job order deleted',
+    'attendance-manual-added': 'Attendance manually added',
+    'attendance-edited': 'Attendance edited',
+    'attendance-deleted': 'Attendance deleted'
   };
 
   function accountLogDetails(entry){
@@ -6344,8 +6391,8 @@
 
   async function loadAttendance(){
     startClockTick();
-    document.getElementById('attendanceReportSection').style.display = isSuperAdmin() ? 'block' : 'none';
-    document.getElementById('myAttendanceSection').style.display = isSuperAdmin() ? 'none' : 'block';
+    document.getElementById('attendanceReportSection').style.display = isAdminOrAbove() ? 'block' : 'none';
+    document.getElementById('myAttendanceSection').style.display = isAdminOrAbove() ? 'none' : 'block';
 
     try{
       const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
@@ -6357,7 +6404,7 @@
     }
     renderClockWidget();
 
-    if(isSuperAdmin()){
+    if(isAdminOrAbove()){
       // Late/Undertime badges need each employee's regular shift times —
       // make sure that's loaded even if Users hasn't been visited yet.
       if(cachedUsers.length === 0){
@@ -6476,7 +6523,7 @@
       msgEl.textContent = 'Recorded successfully.';
       msgEl.className = 'clock-msg ok';
       renderClockWidget();
-      if(isSuperAdmin()) loadAttendanceReport();
+      if(isAdminOrAbove()) loadAttendanceReport();
     }catch(e){
       msgEl.textContent = 'Could not reach the server. Please try again.';
       msgEl.className = 'clock-msg error';
@@ -6499,7 +6546,7 @@
   let cachedAttendanceReport = [];
 
   async function loadAttendanceReport(){
-    if(!isSuperAdmin()) return;
+    if(!isAdminOrAbove()) return;
     const from = document.getElementById('attFrom').value;
     const to = document.getElementById('attTo').value;
     const tbody = document.getElementById('attendanceReportTbody');
@@ -6558,10 +6605,10 @@
         if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
       }
       if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
-      const actionsCell = isSuperAdmin()
+      const actionsCell = isAdminOrAbove()
         ? `<td style="white-space:nowrap;">
             <button type="button" class="ghost edit-btn" onclick="openAttendanceEdit('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Edit</button>
-            <button type="button" class="ghost edit-btn" onclick="deleteAttendanceRow('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Delete</button>
+            ${isSuperAdmin() ? `<button type="button" class="ghost edit-btn" onclick="deleteAttendanceRow('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Delete</button>` : ''}
           </td>`
         : '<td></td>';
       return `<tr>
@@ -6579,7 +6626,7 @@
     }).join('');
   }
 
-  // ---- Edit attendance punch times (Super Admin only) ----
+  // ---- Edit / manually add attendance punch times (Admin & Super Admin) ----
   // A Manila-local HH:MM (from a <input type="time">) converted to the
   // UTC ISO instant that timestamp represents for the given date — the
   // same representation normal clock-in/out punches are stored as.
@@ -6596,7 +6643,7 @@
   }
 
   function openAttendanceEdit(date, username){
-    if(!isSuperAdmin()) return;
+    if(!isAdminOrAbove()) return;
     const row = cachedAttendanceReport.find(r => r.date === date && r.username === username);
     if(!row) return;
     const u = (cachedUsers || []).find(x => x.username === username);
@@ -6649,6 +6696,78 @@
       closeAttendanceEdit();
     }catch(e){
       errEl.textContent = 'Could not save changes.';
+    }
+  }
+
+  // ---- Manually add an attendance entry for any employee/date (Admin &
+  // Super Admin). Reuses the same PATCH endpoint as editing — the server
+  // creates a fresh record when none exists yet for that employee/date. ----
+  function openAttendanceAdd(){
+    if(!isAdminOrAbove()) return;
+    const sel = document.getElementById('attendanceAddUsername');
+    sel.innerHTML = '';
+    (cachedUsers || []).slice().sort((a, b) => (a.displayName || a.username).localeCompare(b.displayName || b.username)).forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.username;
+      opt.textContent = u.displayName || u.username;
+      sel.appendChild(opt);
+    });
+    document.getElementById('attendanceAddDate').value = manilaNowClient().toISOString().slice(0, 10);
+    ['attendanceAddMorningIn','attendanceAddNoonOut','attendanceAddAfternoonIn','attendanceAddAfternoonOut','attendanceAddOtIn','attendanceAddOtOut'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('attendanceAddError').textContent = '';
+    document.getElementById('attendanceAddOverlay').classList.add('open');
+  }
+
+  function closeAttendanceAdd(){
+    document.getElementById('attendanceAddOverlay').classList.remove('open');
+  }
+
+  // Client-side "today" in Manila local time, just for defaulting the date
+  // picker — the server is still the source of truth for what gets saved.
+  function manilaNowClient(){
+    return new Date(Date.now() + 8 * 60 * 60 * 1000);
+  }
+
+  async function saveAttendanceAdd(){
+    const errEl = document.getElementById('attendanceAddError');
+    const username = document.getElementById('attendanceAddUsername').value;
+    const date = document.getElementById('attendanceAddDate').value;
+    errEl.textContent = '';
+    if(!username){
+      errEl.textContent = 'Choose an employee.';
+      return;
+    }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){
+      errEl.textContent = 'Choose a date.';
+      return;
+    }
+
+    const morningIn = manilaTimeToIso(date, document.getElementById('attendanceAddMorningIn').value);
+    const noonOut = manilaTimeToIso(date, document.getElementById('attendanceAddNoonOut').value);
+    const afternoonIn = manilaTimeToIso(date, document.getElementById('attendanceAddAfternoonIn').value);
+    const afternoonOut = manilaTimeToIso(date, document.getElementById('attendanceAddAfternoonOut').value);
+    const otIn = manilaTimeToIso(date, document.getElementById('attendanceAddOtIn').value);
+    const otOut = manilaTimeToIso(date, document.getElementById('attendanceAddOtOut').value);
+
+    try{
+      const res = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ date, username, morningIn, noonOut, afternoonIn, afternoonOut, otIn, otOut })
+      });
+      if(handleAuthFailure(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        errEl.textContent = data.error || 'Could not save this entry.';
+        return;
+      }
+      closeAttendanceAdd();
+      showToast('Attendance entry saved.', 'success');
+      loadAttendanceReport();
+    }catch(e){
+      errEl.textContent = 'Could not reach the server. Please try again.';
     }
   }
 

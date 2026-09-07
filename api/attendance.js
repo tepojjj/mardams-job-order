@@ -92,18 +92,18 @@ module.exports = async (req, res) => {
   //
   // GET with ?report=1 — the full attendance log across every employee
   // for an optional date range (defaults to the last 31 days). This is
-  // the "attendance results" view and is Super Admin/Accounting only.
+  // the "attendance results" view and is Super Admin/Admin only.
   if (req.method === 'GET') {
     if (req.query.report === '1') {
       const auth = requireAuth(req, res);
       if (!auth) return;
 
-      // Super Admin gets the full company-wide report (every employee).
-      // Everyone else (Staff/Admin) only ever gets their OWN records —
-      // `mine=1` is how the frontend asks for that explicitly, but the
-      // restriction is enforced here regardless of what's passed, so a
-      // non-Super-Admin account can never pull another employee's history.
-      const isSelfOnly = auth.role !== 'super_admin';
+      // Super Admin and Admin get the full company-wide report (every
+      // employee). Staff only ever gets their OWN records — `mine=1` is
+      // how the frontend asks for that explicitly, but the restriction is
+      // enforced here regardless of what's passed, so a Staff account can
+      // never pull another employee's history.
+      const isSelfOnly = auth.role !== 'super_admin' && auth.role !== 'admin';
 
       const to = /^\d{4}-\d{2}-\d{2}$/.test(req.query.to || '') ? req.query.to : manilaDateStr(manilaNow());
       const defaultFrom = manilaDateStr(new Date(manilaNow().getTime() - 30 * 24 * 60 * 60 * 1000));
@@ -180,13 +180,14 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Edit one or more punch times on an existing attendance record (Super
-  // Admin only). Accepts each field as either an ISO instant or null to
-  // clear it — the client sends a Manila-local HH:MM converted to a
-  // UTC ISO instant for the record's date, so what's stored stays
-  // consistent with how punches are recorded normally.
+  // Edit one or more punch times on an attendance record, or manually
+  // create one from scratch for an employee/date that has no punches yet
+  // (Super Admin and Admin only). Accepts each field as either an ISO
+  // instant or null to clear it — the client sends a Manila-local HH:MM
+  // converted to a UTC ISO instant for the record's date, so what's
+  // stored stays consistent with how punches are recorded normally.
   if (req.method === 'PATCH') {
-    const auth = requireRole(req, res, ['super_admin']);
+    const auth = requireRole(req, res, ['super_admin', 'admin']);
     if (!auth) return;
 
     let body = req.body;
@@ -209,11 +210,11 @@ module.exports = async (req, res) => {
 
     const key = fieldKey(date, username);
     const existingRaw = await kv.hget(KEY, key);
-    if (!existingRaw) {
-      res.status(404).json({ error: 'No attendance record found for that date/employee' });
-      return;
-    }
-    const existing = typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw;
+    // No record yet for this employee/date is fine here — Admin/Super
+    // Admin manually entering an attendance record for the first time
+    // (e.g. an employee forgot to clock in) starts from a blank one.
+    const isNewRecord = !existingRaw;
+    const existing = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : blankRecord(username, date);
 
     const EDITABLE_FIELDS = ['morningIn', 'noonOut', 'afternoonIn', 'afternoonOut', 'otIn', 'otOut'];
     const updated = { ...existing };
@@ -236,7 +237,15 @@ module.exports = async (req, res) => {
     }
 
     await kv.hset(KEY, { [key]: JSON.stringify(updated) });
-    if (changes.length > 0) {
+    if (isNewRecord) {
+      await logAccountChange({
+        type: 'attendance-manual-added',
+        username,
+        changedBy: auth.username,
+        changedByRole: auth.role,
+        details: `Manually added attendance for ${date}${changes.length ? ' — ' + changes.join(', ') : ''}`
+      });
+    } else if (changes.length > 0) {
       await logAccountChange({
         type: 'attendance-edited',
         username,
