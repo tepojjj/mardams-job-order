@@ -134,6 +134,33 @@ the first time someone logs in with credentials you set yourself:
 
 Sessions last 12 hours; after that, logging in again is required.
 
+## Attendance geofencing & the office QR code
+
+Attendance punches (clock in/out from the Attendance tab) are checked
+against the office's GPS coordinates:
+
+- `OFFICE_LAT`, `OFFICE_LNG` — the office's coordinates. Default to
+  Mardam Sign Ads' actual pin (10.3481995, 123.9297401) if not set.
+- `OFFICE_RADIUS_M` — how far from that point still counts as "at the
+  office," in meters. Defaults to `100`.
+
+A punch made outside that radius — or with no location available at
+all (permission denied, GPS unavailable) — is still recorded, but is
+flagged **"Off-site"** in the Attendance Report for Admin/Super Admin
+to review. It never blocks the employee from clocking in.
+
+Admin and Super Admin see a printable **Office Attendance QR Code**
+panel at the top of the Attendance tab. It's a static code — no need
+to regenerate it — that links to this app with `?clock=1`, which opens
+straight to the clock-in screen after login. Print it and post it at
+the entrance; scanning it from off-site still works (the QR itself
+carries no location data), but the GPS check on the punch itself is
+what catches that and marks it Off-site.
+
+Attendance entries added or edited manually by an Admin/Super Admin
+(see below) never carry a GPS flag — that badge only ever applies to
+a live clock-in/out punch.
+
 ## Material List, Inventory, Purchase History & Stock In/Out
 
 Four tabs, alongside the Monitoring Sheet, work together to track

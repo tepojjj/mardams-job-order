@@ -22,6 +22,40 @@ const STEPS = [
 ];
 const STEP_BY_ACTION = Object.fromEntries(STEPS.map((s) => [s.action, s]));
 
+// Geofence: the office's fixed coordinates and how far (in meters) a punch
+// can be from that point before it's flagged as off-site. Set OFFICE_LAT /
+// OFFICE_LNG / OFFICE_RADIUS_M env vars to override — these defaults are
+// Mardam Sign Ads' actual pin, radius 100m.
+const OFFICE_LAT = parseFloat(process.env.OFFICE_LAT || '10.3481995');
+const OFFICE_LNG = parseFloat(process.env.OFFICE_LNG || '123.9297401');
+const OFFICE_RADIUS_M = parseFloat(process.env.OFFICE_RADIUS_M || '100');
+
+// Great-circle distance between two lat/lng points, in meters (Haversine).
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Builds the geo-check result stored alongside a punch. Punches with no
+// coordinates (location denied/unavailable) are flagged off-site too,
+// since they can't be verified — but are still recorded, per policy: we
+// flag suspicious punches for admin review rather than blocking them
+// outright (network hiccups or a denied permission shouldn't lock
+// someone out of clocking in).
+function geoCheck(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+    return { lat: null, lng: null, distanceM: null, offsite: true, reason: 'no-location' };
+  }
+  const distanceM = Math.round(distanceMeters(lat, lng, OFFICE_LAT, OFFICE_LNG));
+  return { lat, lng, distanceM, offsite: distanceM > OFFICE_RADIUS_M, reason: distanceM > OFFICE_RADIUS_M ? 'outside-geofence' : null };
+}
+
 function manilaNow() {
   // Vercel's runtime clock is UTC — shift to Asia/Manila (UTC+8) so "today"
   // lines up with the shop's actual business day.
@@ -34,7 +68,7 @@ function fieldKey(date, username) {
   return `${date}|${username}`;
 }
 function blankRecord(username, date) {
-  return { username, date, morningIn: null, noonOut: null, afternoonIn: null, afternoonOut: null, otIn: null, otOut: null };
+  return { username, date, morningIn: null, noonOut: null, afternoonIn: null, afternoonOut: null, otIn: null, otOut: null, geo: {} };
 }
 
 module.exports = async (req, res) => {
@@ -81,7 +115,11 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const record = { ...existing, [step.field]: nowIso };
+    const record = {
+      ...existing,
+      [step.field]: nowIso,
+      geo: { ...(existing.geo || {}), [step.field]: geoCheck(body.lat, body.lng) }
+    };
     await kv.hset(KEY, { [key]: JSON.stringify(record) });
     res.status(200).json({ ok: true, record });
     return;
@@ -217,7 +255,7 @@ module.exports = async (req, res) => {
     const existing = existingRaw ? (typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw) : blankRecord(username, date);
 
     const EDITABLE_FIELDS = ['morningIn', 'noonOut', 'afternoonIn', 'afternoonOut', 'otIn', 'otOut'];
-    const updated = { ...existing };
+    const updated = { ...existing, geo: { ...(existing.geo || {}) } };
     const changes = [];
     for (const field of EDITABLE_FIELDS) {
       if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
@@ -225,6 +263,7 @@ module.exports = async (req, res) => {
       if (value === null || value === '') {
         if (updated[field]) changes.push(`${field}: cleared`);
         updated[field] = null;
+        delete updated.geo[field];
         continue;
       }
       const parsed = new Date(value);
@@ -234,6 +273,10 @@ module.exports = async (req, res) => {
       }
       if (updated[field] !== value) changes.push(`${field}: ${value}`);
       updated[field] = parsed.toISOString();
+      // A field an Admin/Super Admin manually set (or corrected) is a
+      // trusted, on-record entry — it doesn't carry a real GPS location,
+      // so it should never show an "Off-site" badge like a live punch.
+      delete updated.geo[field];
     }
 
     await kv.hset(KEY, { [key]: JSON.stringify(updated) });

@@ -1886,6 +1886,7 @@
   .badge-late{color:var(--danger); font-size:10px; font-weight:700; margin-left:5px;}
   .badge-undertime{color:var(--danger); font-size:10px; font-weight:700; margin-left:5px;}
   .badge-open{color:var(--ink-soft); font-style:italic;}
+  .badge-offsite{color:var(--accent); font-size:10px; font-weight:700; margin-left:5px;}
 
   /* ---- Payroll ---- */
   .payroll-summary-row{
@@ -2548,6 +2549,17 @@
           <div><span class="lbl">OT Out</span><span class="val" id="clockOtOutVal">—</span></div>
         </div>
         <button class="clock-btn out" id="clockOtBtn" onclick="punchOt()" disabled>Overtime</button>
+      </div>
+    </div>
+
+    <div id="attendanceQrSection" style="display:none; margin-top:18px;">
+      <div class="section-label" style="margin-top:0;">Office Attendance QR Code</div>
+      <div class="drilldown-sub" style="margin-bottom:10px;">Print this and post it at the entrance. Scanning it opens this app straight to the clock-in screen — combined with the GPS check, punches made away from the office get flagged "Off-site" in the report below.</div>
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <img id="attendanceQrImg" alt="Office attendance QR code" style="width:180px; height:180px; border:1px solid var(--line); border-radius:8px; background:#fff; padding:8px;">
+        <div>
+          <button type="button" class="ghost" onclick="printAttendanceQr()">Print</button>
+        </div>
       </div>
     </div>
 
@@ -3396,9 +3408,43 @@
     document.body.classList.toggle('hide-payroll', !isSuperAdmin());
     document.body.classList.add('app-live');
 
-    showTab('new');
+    showTab(wantsClockLanding() ? 'attendance' : 'new');
     peekNextNumber();
     syncMobileTabLabel();
+  }
+
+  // The office QR code encodes this app's URL with ?clock=1 so scanning
+  // it jumps straight to the clock-in widget instead of the Job Order
+  // form (login screen still shows first if the device isn't logged in).
+  function wantsClockLanding(){
+    return new URLSearchParams(window.location.search).get('clock') === '1';
+  }
+
+  // Builds the office QR code image (via a public QR-image service, so no
+  // library/dependency is needed) from wherever this app is actually
+  // deployed — no hardcoded domain, so it keeps working if the Vercel URL
+  // or a custom domain changes.
+  function attendanceClockUrl(){
+    return window.location.origin + window.location.pathname + '?clock=1';
+  }
+  function renderAttendanceQr(){
+    const url = attendanceClockUrl();
+    const img = document.getElementById('attendanceQrImg');
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(url)}`;
+  }
+  function printAttendanceQr(){
+    const win = window.open('', '_blank');
+    if(!win) return;
+    const src = document.getElementById('attendanceQrImg').src;
+    win.document.write(`<!DOCTYPE html><html><head><title>Attendance QR Code</title></head>
+      <body style="text-align:center; font-family:sans-serif; padding:40px;">
+        <h2>Scan to Clock In / Out</h2>
+        <img src="${src}" style="width:320px; height:320px;">
+        <p>${escapeHtml(attendanceClockUrl())}</p>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
   }
 
   // ---- Account bar (avatar + name) ----
@@ -6336,6 +6382,15 @@
     return d.toLocaleTimeString('en-PH', { hour12: true, timeZone: 'Asia/Manila' });
   }
 
+  // True if any punch on this record was flagged by the server as
+  // off-site (outside the office geofence, or no location was available
+  // to check at all). Manually added/edited fields never carry a geo
+  // flag, so this only ever reflects real live clock-in/out punches.
+  function recordHasOffsitePunch(r){
+    if(!r || !r.geo) return false;
+    return Object.values(r.geo).some(g => g && g.offsite);
+  }
+
   // The regular shift is four sequential punches; overtime is a separate,
   // optional pair that only unlocks once the regular shift is finished.
   function nextMainAction(p){
@@ -6393,6 +6448,8 @@
     startClockTick();
     document.getElementById('attendanceReportSection').style.display = isAdminOrAbove() ? 'block' : 'none';
     document.getElementById('myAttendanceSection').style.display = isAdminOrAbove() ? 'none' : 'block';
+    document.getElementById('attendanceQrSection').style.display = isAdminOrAbove() ? 'block' : 'none';
+    if(isAdminOrAbove()) renderAttendanceQr();
 
     try{
       const res = await fetch('/api/attendance', { headers: { ...authHeaders() } });
@@ -6485,6 +6542,7 @@
         if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
       }
       if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
+      if(recordHasOffsitePunch(r)) statusHtml += '<span class="badge-offsite" title="At least one punch was outside the office area">Off-site</span>';
       return `<tr>
         <td>${escapeHtml(r.date)}</td>
         <td>${formatTimeStamp(r.morningIn)}</td>
@@ -6498,17 +6556,38 @@
     }).join('');
   }
 
+  // Grabs the device's current GPS coordinates for the punch about to be
+  // sent, so the server can check it against the office geofence. Never
+  // blocks the punch itself — if location is denied, unavailable, or
+  // takes too long, we just send the punch without coordinates and the
+  // server flags it "Off-site" for review rather than refusing it.
+  function getPunchCoords(){
+    return new Promise((resolve) => {
+      if(!navigator.geolocation){
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    });
+  }
+
   async function doPunch(action){
     const msgEl = document.getElementById('clockMsg');
-    msgEl.textContent = '';
+    msgEl.textContent = 'Getting your location…';
     msgEl.className = 'clock-msg';
     document.getElementById('clockActionBtn').disabled = true;
     document.getElementById('clockOtBtn').disabled = true;
     try{
+      const coords = await getPunchCoords();
+      msgEl.textContent = '';
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action, lat: coords ? coords.lat : undefined, lng: coords ? coords.lng : undefined })
       });
       if(handleAuthFailure(res.status)) return;
       const data = await res.json();
@@ -6605,6 +6684,7 @@
         if(outLocal < u.regularTimeOut) statusHtml += '<span class="badge-undertime">Undertime</span>';
       }
       if(r.otIn) statusHtml += '<span class="badge-ot">OT</span>';
+      if(recordHasOffsitePunch(r)) statusHtml += '<span class="badge-offsite" title="At least one punch was outside the office area">Off-site</span>';
       const actionsCell = isAdminOrAbove()
         ? `<td style="white-space:nowrap;">
             <button type="button" class="ghost edit-btn" onclick="openAttendanceEdit('${escapeHtml(r.date)}','${escapeHtml(r.username)}')">Edit</button>
