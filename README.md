@@ -142,7 +142,7 @@ against the office's GPS coordinates:
 - `OFFICE_LAT`, `OFFICE_LNG` — the office's coordinates. Default to
   Mardam Sign Ads' actual pin (10.3481995, 123.9297401) if not set.
 - `OFFICE_RADIUS_M` — how far from that point still counts as "at the
-  office," in meters. Defaults to `100`.
+  office," in meters. Defaults to `200`.
 
 A punch made outside that radius — or with no location available at
 all (permission denied, GPS unavailable) — is still recorded, but is

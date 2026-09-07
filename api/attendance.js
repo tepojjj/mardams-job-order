@@ -28,7 +28,7 @@ const STEP_BY_ACTION = Object.fromEntries(STEPS.map((s) => [s.action, s]));
 // Mardam Sign Ads' actual pin, radius 100m.
 const OFFICE_LAT = parseFloat(process.env.OFFICE_LAT || '10.3481995');
 const OFFICE_LNG = parseFloat(process.env.OFFICE_LNG || '123.9297401');
-const OFFICE_RADIUS_M = parseFloat(process.env.OFFICE_RADIUS_M || '100');
+const OFFICE_RADIUS_M = parseFloat(process.env.OFFICE_RADIUS_M || '200');
 
 // Great-circle distance between two lat/lng points, in meters (Haversine).
 function distanceMeters(lat1, lng1, lat2, lng2) {
