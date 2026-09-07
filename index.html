@@ -495,6 +495,74 @@
     font-weight:700;
   }
 
+  .payment-row{
+    display:flex;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    margin:14px 0 4px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    background:var(--field-bg);
+  }
+  .payment-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .payment-field label{
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:700;
+  }
+  .payment-input{
+    font-family:inherit;
+    font-size:12.5px;
+    padding:7px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:var(--card);
+    color:var(--ink);
+    width:140px;
+  }
+  .payment-input:focus{
+    outline:none;
+    border-color:var(--stamp);
+  }
+  .payment-input:disabled{
+    opacity:.75;
+    cursor:not-allowed;
+  }
+  #joRemainingBalance{
+    font-weight:700;
+  }
+  #joRemainingBalance.is-paid{
+    color:#16A34A;
+  }
+  .fully-paid-field{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin-left:auto;
+  }
+  .fully-paid-field label{
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:700;
+    cursor:pointer;
+  }
+  .fully-paid-field input[type=checkbox]{
+    width:16px;
+    height:16px;
+    cursor:pointer;
+    accent-color:#16A34A;
+  }
+
   .sign-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -806,6 +874,8 @@
   }
   .badge.status-open{border-color:var(--stamp); color:var(--stamp-dark); background:var(--stamp-soft);}
   .badge.status-complete{border-color:var(--line-strong); color:var(--ink-soft); background:var(--row-bg);}
+  .badge.paid-yes{border-color:#16A34A; color:#16A34A; background:rgba(22,163,74,.1);}
+  .badge.paid-no{border-color:var(--danger); color:var(--danger); background:rgba(220,38,38,.08);}
   .view-btn{
     font-size:10.5px;
     padding:6px 13px;
@@ -2318,6 +2388,21 @@
       </div>
     </div>
 
+    <div class="payment-row">
+      <div class="payment-field">
+        <label for="joDownPayment">Down Payment</label>
+        <input type="number" step="any" min="0" id="joDownPayment" class="payment-input" placeholder="0.00" oninput="updateRemainingBalance()">
+      </div>
+      <div class="payment-field">
+        <label for="joRemainingBalance">Remaining Balance</label>
+        <input type="text" id="joRemainingBalance" class="payment-input" value="0.00" readonly tabindex="-1">
+      </div>
+      <div class="fully-paid-field">
+        <input type="checkbox" id="joFullyPaid" onchange="onFullyPaidToggled()">
+        <label for="joFullyPaid">Fully Paid</label>
+      </div>
+    </div>
+
     <div class="material-row">
       <div class="material-row-left">
         <label for="materialType">Materials</label>
@@ -2366,6 +2451,8 @@
           <th>Due Date</th>
           <th class="num" style="text-align:right;">Total QTY</th>
           <th class="num" style="text-align:right;">Total</th>
+          <th class="num" style="text-align:right;">Down Payment</th>
+          <th class="num" style="text-align:right;">Balance</th>
           <th></th>
         </tr>
       </thead>
@@ -3579,6 +3666,43 @@
     });
     document.getElementById('grandtotal').textContent = subtotal.toFixed(2);
     document.getElementById('totalqty').textContent = totalQty;
+    updateRemainingBalance();
+  }
+
+  // Remaining Balance is always derived from Grand Total minus Down
+  // Payment — never stored/typed independently — so it can never drift
+  // out of sync with either figure. Checking "Fully Paid" is a shortcut
+  // that sets Down Payment to match the Grand Total exactly (covers
+  // full payment even with rounding) and locks the field; unchecking
+  // hands manual control of Down Payment back to the user.
+  function updateRemainingBalance(){
+    const grandTotal = parseFloat(document.getElementById('grandtotal').textContent) || 0;
+    const fullyPaid = document.getElementById('joFullyPaid').checked;
+    const dpInput = document.getElementById('joDownPayment');
+
+    if(fullyPaid){
+      dpInput.value = grandTotal ? grandTotal.toFixed(2) : dpInput.value;
+    }
+
+    const downPayment = parseFloat(dpInput.value) || 0;
+    const remaining = Math.max(0, grandTotal - downPayment);
+    const balanceEl = document.getElementById('joRemainingBalance');
+    balanceEl.value = remaining.toFixed(2);
+    balanceEl.classList.toggle('is-paid', remaining <= 0 && grandTotal > 0);
+
+    // Down Payment reaching/exceeding the Grand Total on its own (typed
+    // manually, not via the checkbox) auto-checks Fully Paid too, so the
+    // two stay consistent either direction.
+    if(!fullyPaid && grandTotal > 0 && downPayment >= grandTotal){
+      document.getElementById('joFullyPaid').checked = true;
+      balanceEl.classList.add('is-paid');
+    }
+  }
+
+  function onFullyPaidToggled(){
+    const fullyPaid = document.getElementById('joFullyPaid').checked;
+    document.getElementById('joDownPayment').disabled = fullyPaid;
+    updateRemainingBalance();
   }
 
   async function resetForm(){
@@ -3596,6 +3720,10 @@
     setFormLocked(false);
     document.querySelectorAll('input[type=text], input[type=number], input[type=date], textarea').forEach(el => el.value = '');
     document.getElementById('materialType').selectedIndex = 0;
+    document.getElementById('joFullyPaid').checked = false;
+    document.getElementById('joDownPayment').disabled = false;
+    document.getElementById('joRemainingBalance').value = '0.00';
+    document.getElementById('joRemainingBalance').classList.remove('is-paid');
     document.getElementById('items').innerHTML = '';
     rowCount = 0;
     for(let i=0;i<5;i++) addRow();
@@ -3792,6 +3920,9 @@
       artist: document.getElementById('joArtist').value,
       items: items,
       grandTotal: document.getElementById('grandtotal').textContent,
+      downPayment: document.getElementById('joDownPayment').value || '0',
+      remainingBalance: document.getElementById('joRemainingBalance').value,
+      fullyPaid: document.getElementById('joFullyPaid').checked,
       notes: document.getElementById('joNotes').value,
       signRequested: document.getElementById('signRequested').value,
       signApproved: document.getElementById('signApproved').value,
@@ -3898,6 +4029,9 @@
     document.getElementById('joDueDate').value = data.dueDate || '';
     document.getElementById('materialType').value = data.materialType || '';
     document.getElementById('joArtist').value = data.artist || '';
+    document.getElementById('joFullyPaid').checked = !!data.fullyPaid;
+    document.getElementById('joDownPayment').value = data.downPayment || '';
+    document.getElementById('joDownPayment').disabled = !!data.fullyPaid;
     document.getElementById('joNotes').value = data.notes || '';
     document.getElementById('signRequested').value = data.signRequested || '';
     document.getElementById('signApproved').value = data.signApproved || '';
@@ -3946,6 +4080,23 @@
     return (b || '').localeCompare(a || '');
   }
 
+  // Balance shown in the Browse table: falls back to Grand Total minus
+  // Down Payment for older orders saved before remainingBalance existed
+  // on the record. Fully paid orders show a green "Paid" badge instead
+  // of "0.00" so paid-off jobs are easy to spot at a glance.
+  function paymentStatusCell(o){
+    const grandTotal = parseFloat(o.grandTotal) || 0;
+    const downPayment = parseFloat(o.downPayment) || 0;
+    const remaining = o.remainingBalance !== undefined && o.remainingBalance !== ''
+      ? parseFloat(o.remainingBalance) || 0
+      : Math.max(0, grandTotal - downPayment);
+    const fullyPaid = !!o.fullyPaid || (grandTotal > 0 && remaining <= 0 && downPayment > 0);
+    if(fullyPaid){
+      return `<span class="badge paid-yes">Paid</span>`;
+    }
+    return escapeHtml(formatCurrency(remaining));
+  }
+
   function renderBrowseRows(){
     const tbody = document.getElementById('browseTbody');
     const empty = document.getElementById('browseEmpty');
@@ -3977,6 +4128,8 @@
         <td>${escapeHtml(o.dueDate)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(totalQtyFromItems(o.items) || '0')}</td>
         <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
+        <td class="num" style="text-align:right;">${escapeHtml(formatCurrency(parseFloat(o.downPayment) || 0))}</td>
+        <td class="num" style="text-align:right;">${paymentStatusCell(o)}</td>
         <td>
           <button class="ghost view-btn" onclick="viewOrder('${escapeHtml(o.joNumber)}')">View</button>
           ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')
@@ -4013,6 +4166,12 @@
     const sheet = document.querySelector('.sheet');
     if(sheet) sheet.classList.toggle('view-locked', locked);
     document.querySelectorAll('.sheet input, .sheet select, .sheet textarea').forEach(el => { el.disabled = locked; });
+    // Down Payment stays disabled whenever Fully Paid is checked, even
+    // after unlocking the rest of the form for editing — re-apply that
+    // on top of the blanket enable/disable above.
+    if(!locked){
+      document.getElementById('joDownPayment').disabled = document.getElementById('joFullyPaid').checked;
+    }
   }
 
   function editOrder(id){
@@ -4140,7 +4299,7 @@
 
   async function loadBrowseList(){
     const tbody = document.getElementById('browseTbody');
-    tbody.innerHTML = skeletonRows(7);
+    tbody.innerHTML = skeletonRows(9);
     document.getElementById('browseEmpty').style.display = 'none';
     try{
       const res = await fetch(ORDERS_API, { headers: { ...authHeaders() } });
@@ -6212,6 +6371,7 @@
         ${items.length ? items.map(it => `<tr><td>${escapeHtml(it.desc || '')}</td><td>${escapeHtml(String(it.qty || ''))}</td><td>${escapeHtml(it.unit || '')}</td><td>${escapeHtml(String(it.cost || ''))}</td></tr>`).join('') : '<tr><td colspan="4">No line items</td></tr>'}
       </tbody></table>
       <p style="margin-top:8px; font-weight:700;">Grand Total: ${escapeHtml(state.grandTotal || '—')}</p>
+      <p style="margin-top:2px;">Down Payment: ${escapeHtml(state.downPayment || '0')} · Remaining Balance: ${escapeHtml(state.remainingBalance || '—')} ${state.fullyPaid ? '· <strong style="color:#16A34A;">Fully Paid</strong>' : ''}</p>
     `;
   }
 
