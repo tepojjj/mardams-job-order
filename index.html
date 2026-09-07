@@ -2776,7 +2776,7 @@
     <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employees OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period. Check up to 6 employees to print their payslips together on one sheet.</div>
     <table class="browse-table payroll-table">
       <thead>
-        <tr><th style="width:1%;"></th><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
+        <tr><th style="width:1%;"></th><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Rate</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="payrollTbody"></tbody>
     </table>
@@ -3672,11 +3672,11 @@
       const qty = parseFloat(row.querySelector('.qty').value) || 0;
       const cost = parseFloat(row.querySelector('.cost').value) || 0;
       const total = qty * cost;
-      row.querySelector('.linetotal').textContent = total.toFixed(2);
+      row.querySelector('.linetotal').textContent = formatAmount(total);
       subtotal += total;
       totalQty += qty;
     });
-    document.getElementById('grandtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('grandtotal').textContent = formatAmount(subtotal);
     document.getElementById('totalqty').textContent = totalQty;
     updateRemainingBalance();
   }
@@ -3688,18 +3688,20 @@
   // full payment even with rounding) and locks the field; unchecking
   // hands manual control of Down Payment back to the user.
   function updateRemainingBalance(){
-    const grandTotal = parseFloat(document.getElementById('grandtotal').textContent) || 0;
+    const grandTotal = parseAmount(document.getElementById('grandtotal').textContent);
     const fullyPaid = document.getElementById('joFullyPaid').checked;
     const dpInput = document.getElementById('joDownPayment');
 
     if(fullyPaid){
+      // Plain number input — no commas here, it needs to stay parseable
+      // while the user can still type in it.
       dpInput.value = grandTotal ? grandTotal.toFixed(2) : dpInput.value;
     }
 
     const downPayment = parseFloat(dpInput.value) || 0;
     const remaining = Math.max(0, grandTotal - downPayment);
     const balanceEl = document.getElementById('joRemainingBalance');
-    balanceEl.value = remaining.toFixed(2);
+    balanceEl.value = formatAmount(remaining);
     balanceEl.classList.toggle('is-paid', remaining <= 0 && grandTotal > 0);
 
     // Down Payment reaching/exceeding the Grand Total on its own (typed
@@ -3931,9 +3933,9 @@
       materialType: document.getElementById('materialType').value,
       artist: document.getElementById('joArtist').value,
       items: items,
-      grandTotal: document.getElementById('grandtotal').textContent,
+      grandTotal: parseAmount(document.getElementById('grandtotal').textContent).toFixed(2),
       downPayment: document.getElementById('joDownPayment').value || '0',
-      remainingBalance: document.getElementById('joRemainingBalance').value,
+      remainingBalance: parseAmount(document.getElementById('joRemainingBalance').value).toFixed(2),
       fullyPaid: document.getElementById('joFullyPaid').checked,
       notes: document.getElementById('joNotes').value,
       signRequested: document.getElementById('signRequested').value,
@@ -4185,7 +4187,7 @@
         <td>${escapeHtml(o.date)}</td>
         <td>${escapeHtml(o.dueDate)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(totalQtyFromItems(o.items) || '0')}</td>
-        <td class="num" style="text-align:right;">${escapeHtml(o.grandTotal)}</td>
+        <td class="num" style="text-align:right;">${formatAmount(o.grandTotal)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(formatCurrency(parseFloat(o.downPayment) || 0))}</td>
         <td class="num" style="text-align:right;">${paymentStatusCell(o)}</td>
         <td style="text-align:center;">
@@ -4582,6 +4584,23 @@
 
   function formatCurrency(n){
     return '₱' + (n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Comma-formatted display for peso amounts that DON'T carry the ₱
+  // symbol (line totals, Grand Total, Remaining Balance, the Browse
+  // table's Total column). Never write this formatted string back into
+  // stored order data or feed it to parseFloat — use parseAmount below
+  // to read a value back out of a field that displays this way.
+  function formatAmount(n){
+    return (parseFloat(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // Reads a number back out of a field that may be showing commas from
+  // formatAmount() above — plain parseFloat() stops at the first comma
+  // and silently truncates the value, so anywhere that reads back a
+  // formatAmount()-displayed field for math or storage must go through
+  // this instead.
+  function parseAmount(str){
+    return parseFloat(String(str == null ? '' : str).replace(/,/g, '')) || 0;
   }
 
   function addMonitorRow(){
@@ -6431,8 +6450,8 @@
       <table style="margin-top:10px;"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Cost</th></tr></thead><tbody>
         ${items.length ? items.map(it => `<tr><td>${escapeHtml(it.desc || '')}</td><td>${escapeHtml(String(it.qty || ''))}</td><td>${escapeHtml(it.unit || '')}</td><td>${escapeHtml(String(it.cost || ''))}</td></tr>`).join('') : '<tr><td colspan="4">No line items</td></tr>'}
       </tbody></table>
-      <p style="margin-top:8px; font-weight:700;">Grand Total: ${escapeHtml(state.grandTotal || '—')}</p>
-      <p style="margin-top:2px;">Down Payment: ${escapeHtml(state.downPayment || '0')} · Remaining Balance: ${escapeHtml(state.remainingBalance || '—')} ${state.fullyPaid ? '· <strong style="color:#16A34A;">Fully Paid</strong>' : ''}</p>
+      <p style="margin-top:8px; font-weight:700;">Grand Total: ${state.grandTotal ? formatAmount(state.grandTotal) : '—'}</p>
+      <p style="margin-top:2px;">Down Payment: ${formatAmount(state.downPayment || 0)} · Remaining Balance: ${state.remainingBalance ? formatAmount(state.remainingBalance) : '—'} ${state.fullyPaid ? '· <strong style="color:#16A34A;">Fully Paid</strong>' : ''}</p>
     `;
   }
 
@@ -7922,6 +7941,7 @@
         <td>${r.otHours.toFixed(1)}</td>
         <td>${formatCurrency(r.holidayTotal)}</td>
         <td title="${r.ndMinutes} min at 10PM–6AM">${formatCurrency(r.ndPay)}</td>
+        <td>${formatCurrency(r.u.rate)}<span style="opacity:.6; font-size:11px;">${r.u.payType === 'daily' ? '/day' : '/mo'}</span></td>
         <td>${formatCurrency(r.grossPay)}</td>
         <td>${formatCurrency(r.allowance)}</td>
         <td>${formatCurrency(r.totalDeductions)}</td>
