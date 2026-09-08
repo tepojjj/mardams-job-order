@@ -2771,12 +2771,12 @@
 
     <div class="section-label" style="margin-top:26px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
       <span>Payroll Breakdown</span>
-      <button type="button" class="primary" onclick="printSelectedPayslips()" id="printSelectedPayslipsBtn" disabled title="Check up to 6 employees below, then print all their payslips on one sheet">Print Payslips</button>
+      <button type="button" class="primary" onclick="printSelectedPayslips()" id="printSelectedPayslipsBtn" disabled title="Check employees below, then print all their payslips — 6 per sheet, more employees automatically continue onto additional sheets">Print Payslips</button>
     </div>
-    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employees OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period. Check up to 6 employees to print their payslips together on one sheet.</div>
+    <div class="drilldown-sub" style="margin:-6px 0 12px;">Click a row for the full deduction breakdown and day-by-day attendance. Use Edit to set that employees OT rate, allowance, or deductions. Use Mark Paid once salary has actually been released for this period. Check employees (or use the header checkbox to select all) to print their payslips — 6 per sheet, with extra sheets generated automatically for everyone else.</div>
     <table class="browse-table payroll-table">
       <thead>
-        <tr><th style="width:1%;"></th><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Rate</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
+        <tr><th style="width:1%;"><input type="checkbox" id="payslipSelectAll" onclick="toggleSelectAllPayslips(this)" title="Select all"></th><th>Employee</th><th>Pay Type</th><th>Days Worked</th><th>OT Hrs</th><th>Holiday Pay</th><th>Night Diff</th><th>Rate</th><th>Gross Pay</th><th>Allowance</th><th>Deductions</th><th>Net Pay</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="payrollTbody"></tbody>
     </table>
@@ -8329,28 +8329,41 @@
     setTimeout(() => { try{ win.print(); }catch(e){} }, 300);
   }
 
-  // ---- Batch payslips: up to 6 employees' payslips on one bond paper ----
+  // ---- Batch payslips: 6 employees' payslips per bond paper sheet ----
   // Selection is just a list of usernames — nothing is stored server-side.
   // Every print pulls the CURRENT figures from cachedPayrollRows for
   // whichever period is loaded, so re-generating payroll for a new
   // period (or after an attendance correction) and printing again always
   // reflects the latest numbers, with identical computations to the
   // single-employee payslip above (both use buildPayslipRows).
+  //
+  // Selection itself is NOT capped at 6 — pick as many employees as you
+  // want (or "select all"). printSelectedPayslips() below chunks whoever
+  // is selected into groups of MAX_PAYSLIPS_PER_SHEET and lays out one
+  // .sheet per group, each forced onto its own printed page, so 20
+  // selected employees print as 4 full sheets automatically.
   const MAX_PAYSLIPS_PER_SHEET = 6;
   let selectedPayslipUsernames = new Set();
 
   function toggleBatchPayslipSelection(checkbox){
     const username = checkbox.dataset.username;
     if(checkbox.checked){
-      if(selectedPayslipUsernames.size >= MAX_PAYSLIPS_PER_SHEET){
-        checkbox.checked = false;
-        showToast(`You can print up to ${MAX_PAYSLIPS_PER_SHEET} payslips on one sheet. Deselect one first.`, 'error');
-        return;
-      }
       selectedPayslipUsernames.add(username);
     }else{
       selectedPayslipUsernames.delete(username);
     }
+    updatePayslipSelectionUI();
+  }
+
+  function toggleSelectAllPayslips(masterCheckbox){
+    if(masterCheckbox.checked){
+      selectedPayslipUsernames = new Set(cachedPayrollRows.map(r => r.u.username));
+    }else{
+      selectedPayslipUsernames.clear();
+    }
+    document.querySelectorAll('#payrollTbody .payslip-select').forEach(cb => {
+      cb.checked = masterCheckbox.checked;
+    });
     updatePayslipSelectionUI();
   }
 
@@ -8360,6 +8373,15 @@
     const n = selectedPayslipUsernames.size;
     btn.textContent = n ? `Print Payslips (${n} selected)` : 'Print Payslips';
     btn.disabled = n === 0;
+
+    // Keep the header "select all" checkbox in sync (checked/indeterminate)
+    // with however many rows are individually checked right now.
+    const selectAll = document.getElementById('payslipSelectAll');
+    if(selectAll){
+      const total = cachedPayrollRows.length;
+      selectAll.checked = total > 0 && n === total;
+      selectAll.indeterminate = n > 0 && n < total;
+    }
   }
 
   function chunkArray(arr, size){
@@ -8405,7 +8427,7 @@
     };
 
     const pages = chunkArray(entries, MAX_PAYSLIPS_PER_SHEET).map((group, i, all) => `
-      <div class="sheet"${i < all.length - 1 ? ' style="page-break-after:always;"' : ''}>
+      <div class="sheet"${i < all.length - 1 ? ' style="page-break-after:always; break-after:page;"' : ''}>
         ${group.map(buildStub).join('')}
       </div>
     `).join('');
@@ -8414,6 +8436,7 @@
 <html><head><meta charset="utf-8"><title>Payslips — ${escapeHtml(from)} to ${escapeHtml(to)}</title>
 <style>
   @page { size: letter; margin: 8mm; }
+  html, body{ height:100%; }
   body{ font-family: Arial, Helvetica, sans-serif; color:#1a1a1a; margin:0; padding:0; }
   .sheet{
     display:grid;
@@ -8423,6 +8446,8 @@
     width:100%;
     height:100vh;
     box-sizing:border-box;
+    break-inside:avoid;
+    page-break-inside:avoid;
   }
   .stub{
     border:1px dashed #999;
