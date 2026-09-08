@@ -457,18 +457,21 @@
     align-items:flex-end;
     justify-content:space-between;
     flex-wrap:wrap;
-    gap:16px;
+    gap:12px;
     margin-top:12px;
   }
   .totals-left{
     display:flex;
     align-items:flex-end;
     flex-wrap:wrap;
-    gap:14px;
+    flex:1 1 auto;
+    min-width:0;
+    gap:10px;
   }
   .totals-box{
     display:flex;
-    width:260px;
+    width:220px;
+    flex:0 0 auto;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     overflow:hidden;
@@ -478,7 +481,7 @@
     display:flex;
     flex-direction:column;
     gap:2px;
-    padding:9px 12px;
+    padding:9px 10px;
     font-size:13px;
     font-weight:700;
     color:var(--ink);
@@ -506,8 +509,8 @@
 
   .payment-group{
     display:flex;
-    gap:16px;
-    padding:9px 12px;
+    gap:12px;
+    padding:9px 10px;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     background:var(--field-bg);
@@ -527,12 +530,12 @@
   .payment-input{
     font-family:inherit;
     font-size:12.5px;
-    padding:7px 10px;
+    padding:7px 9px;
     border:1px solid var(--line);
     border-radius:6px;
     background:var(--card);
     color:var(--ink);
-    width:110px;
+    width:88px;
   }
   .payment-input:focus{
     outline:none;
@@ -551,8 +554,8 @@
   .fully-paid-field{
     display:flex;
     align-items:center;
-    gap:7px;
-    padding:9px 12px;
+    gap:6px;
+    padding:9px 10px;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     background:var(--field-bg);
@@ -575,7 +578,7 @@
   .shipping-fee-field{
     display:flex;
     align-items:flex-end;
-    padding:9px 12px;
+    padding:9px 10px;
     border:1px solid var(--line);
     border-radius:var(--radius-sm);
     background:var(--field-bg);
