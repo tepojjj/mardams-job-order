@@ -572,6 +572,15 @@
     cursor:pointer;
     accent-color:#16A34A;
   }
+  .shipping-fee-field{
+    display:flex;
+    align-items:flex-end;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    background:var(--field-bg);
+    height:fit-content;
+  }
 
   .sign-grid{
     display:grid;
@@ -2408,6 +2417,12 @@
           <label for="joFullyPaid">Fully Paid</label>
         </div>
       </div>
+      <div class="shipping-fee-field">
+        <div class="payment-field">
+          <label for="joShippingFee">Shipping Fee</label>
+          <input type="number" step="any" min="0" id="joShippingFee" class="payment-input" placeholder="0.00" oninput="calc()">
+        </div>
+      </div>
       <div class="totals-box">
         <div class="totals-row"><span>Total QTY</span><span id="totalqty">0</span></div>
         <div class="totals-row grand"><span>Grand Total</span><span id="grandtotal">0.00</span></div>
@@ -2463,6 +2478,7 @@
           <th class="num" style="text-align:right;">Total QTY</th>
           <th class="num" style="text-align:right;">Total</th>
           <th class="num" style="text-align:right;">Down Payment</th>
+          <th class="num" style="text-align:right;">Shipping Fee</th>
           <th class="num" style="text-align:right;">Balance</th>
           <th style="text-align:center;">Fully Paid</th>
           <th></th>
@@ -3676,7 +3692,11 @@
       subtotal += total;
       totalQty += qty;
     });
-    document.getElementById('grandtotal').textContent = formatAmount(subtotal);
+    // Grand Total = item lines + Shipping Fee, so Down Payment / Remaining
+    // Balance and everywhere else Grand Total feeds into (Browse table,
+    // Monitoring Sheet revenue, dashboards) all reflect shipping too.
+    const shippingFee = parseFloat(document.getElementById('joShippingFee').value) || 0;
+    document.getElementById('grandtotal').textContent = formatAmount(subtotal + shippingFee);
     document.getElementById('totalqty').textContent = totalQty;
     updateRemainingBalance();
   }
@@ -3937,6 +3957,7 @@
       downPayment: document.getElementById('joDownPayment').value || '0',
       remainingBalance: parseAmount(document.getElementById('joRemainingBalance').value).toFixed(2),
       fullyPaid: document.getElementById('joFullyPaid').checked,
+      shippingFee: document.getElementById('joShippingFee').value || '0',
       notes: document.getElementById('joNotes').value,
       signRequested: document.getElementById('signRequested').value,
       signApproved: document.getElementById('signApproved').value,
@@ -4046,6 +4067,7 @@
     document.getElementById('joFullyPaid').checked = !!data.fullyPaid;
     document.getElementById('joDownPayment').value = data.downPayment || '';
     document.getElementById('joDownPayment').disabled = !!data.fullyPaid;
+    document.getElementById('joShippingFee').value = data.shippingFee || '';
     document.getElementById('joNotes').value = data.notes || '';
     document.getElementById('signRequested').value = data.signRequested || '';
     document.getElementById('signApproved').value = data.signApproved || '';
@@ -4189,6 +4211,7 @@
         <td class="num" style="text-align:right;">${escapeHtml(totalQtyFromItems(o.items) || '0')}</td>
         <td class="num" style="text-align:right;">${formatAmount(o.grandTotal)}</td>
         <td class="num" style="text-align:right;">${escapeHtml(formatCurrency(parseFloat(o.downPayment) || 0))}</td>
+        <td class="num" style="text-align:right;">${escapeHtml(formatCurrency(parseFloat(o.shippingFee) || 0))}</td>
         <td class="num" style="text-align:right;">${paymentStatusCell(o)}</td>
         <td style="text-align:center;">
           <input type="checkbox" class="fully-paid-checkbox" ${o.fullyPaid ? 'checked' : ''} ${canManage ? '' : 'disabled'} onchange="toggleFullyPaidFromBrowse('${escapeHtml(o.joNumber)}', this.checked)">
@@ -6452,6 +6475,7 @@
       </tbody></table>
       <p style="margin-top:8px; font-weight:700;">Grand Total: ${state.grandTotal ? formatAmount(state.grandTotal) : '—'}</p>
       <p style="margin-top:2px;">Down Payment: ${formatAmount(state.downPayment || 0)} · Remaining Balance: ${state.remainingBalance ? formatAmount(state.remainingBalance) : '—'} ${state.fullyPaid ? '· <strong style="color:#16A34A;">Fully Paid</strong>' : ''}</p>
+      <p style="margin-top:2px;">Shipping Fee: ${formatAmount(state.shippingFee || 0)}</p>
     `;
   }
 
