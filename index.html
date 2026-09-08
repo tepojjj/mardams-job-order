@@ -8232,8 +8232,17 @@
   // both the one-employee A5 payslip AND the multi-employee batch sheet,
   // so the figures can never drift between the two.
   function buildPayslipRows(entry){
+    // Daily-equivalent rate actually used to compute Base Pay below — same
+    // value payroll's calc uses (see MONTHLY_RATE_DIVISOR), shown here so
+    // the employee can multiply it by Days Worked themselves and check it
+    // against the Base Pay figure on the very next line.
+    const dailyRate = entry.u.payType === 'daily' ? entry.u.rate : (entry.u.rate / MONTHLY_RATE_DIVISOR);
+    const rateLabel = entry.u.payType === 'daily'
+      ? `${formatCurrency(dailyRate)}/day`
+      : `${formatCurrency(dailyRate)}/day (${formatCurrency(entry.u.rate)}/mo)`;
     return [
       ['Days Worked', String(entry.daysWorkedDisplay), false],
+      ['Rate', rateLabel, false],
       ['Base Pay', formatCurrency(entry.basePay), false],
       ['Holiday Pay', formatCurrency(entry.holidayTotal), false],
       ['Overtime Pay', formatCurrency(entry.otPay), false],
