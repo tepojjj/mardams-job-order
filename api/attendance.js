@@ -26,9 +26,9 @@ const STEP_BY_ACTION = Object.fromEntries(STEPS.map((s) => [s.action, s]));
 // can be from that point before it's flagged as off-site. Set OFFICE_LAT /
 // OFFICE_LNG / OFFICE_RADIUS_M env vars to override — these defaults are
 // Mardam Sign Ads' actual pin, radius 100m.
-const OFFICE_LAT = parseFloat(process.env.OFFICE_LAT || '10.3481995');
-const OFFICE_LNG = parseFloat(process.env.OFFICE_LNG || '123.9297401');
-const OFFICE_RADIUS_M = parseFloat(process.env.OFFICE_RADIUS_M || '200');
+const OFFICE_LAT = parseFloat(process.env.OFFICE_LAT || '10.3482374');
+const OFFICE_LNG = parseFloat(process.env.OFFICE_LNG || '123.9295611');
+const OFFICE_RADIUS_M = parseFloat(process.env.OFFICE_RADIUS_M || '250');
 
 // Great-circle distance between two lat/lng points, in meters (Haversine).
 function distanceMeters(lat1, lng1, lat2, lng2) {
